@@ -1,0 +1,120 @@
+# Event Coordinator: Data Model (v0.2)
+
+Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) with the screen-derived v0.1 and the review fixes. Tables marked **P0** exist in the first migration. The rest are designed but arrive with their phase.
+
+## Conventions
+
+- `id uuid` primary key; `tenant_id uuid` on every business table (row-level security filters on it).
+- Audit columns: `created_at`, `created_by`, `updated_at`, `updated_by`, all set by triggers from the calling user.
+- CRM-mirrored records (HCP, HCO, Event, Attendee, Expert) carry `crm_connection_id` and `crm_external_id`.
+- Money: `numeric(12,2)` + `currency` (ISO 4217). The UI mixes EUR/GBP/DKK, so currency is never assumed.
+- Status and type values live in small lookup tables (`event_status`, …) rather than Postgres enums. They're easier to extend, label and translate, and readable through the API.
+- Times: `timestamptz` in storage; each event has an IANA `timezone` and the UI renders event-local time.
+
+## 1. Identity, security, agents
+
+| Table | P0 | Key fields | Notes |
+|---|---|---|---|
+| `tenant` | ✓ | name, slug, brand_name, brand_color | "Alera Pharma" seeded |
+| `app_user` | ✓ | user_type (human/agent), auth_user_id → auth.users, first/last/display name, email, title, initials, avatar_color, profile_id, owner_user_id (agents), status, last_login_at | ERD "User". Agents are first-class users |
+| `profile` | ✓ | name, description, is_admin | ERD "Profile": System Admin, Event Coordinator, Collaborator, Agent |
+| `permission` | ✓ | profile_id, object_name, can_read/create/edit/delete, view_all, modify_all | ERD "Permission": Salesforce-style object permissions |
+| `user_group` / `user_group_member` | ✓ | name / group_id, user_id | ERD "Group": event sharing comes later |
+| `audit_log` | ✓ | table_name, record_id, event_id, action, actor_user_id, on_behalf_of_user_id, changed jsonb, at | Generic trigger on business tables |
+
+## 2. Reference & configuration
+
+| Table | P0 | Notes |
+|---|---|---|
+| `country` | ✓ | ISO code, name, region |
+| `event_type` | ✓ | name, description, default_duration, is_active (Advisory board, Conference, Symposium, Seminar, Roundtable, Investigator meeting, Internal) |
+| `event_type_country` | | availability per country (Phase 6) |
+| `event_status` / `request_status` | ✓ | code, label, sort, home_label, tone, is_terminal |
+| `therapeutic_area`, `product`, `event_product` | ✓ | product tags on events |
+| `specialty` | ✓ | HCP specialties |
+| `crm_connection` | ✓ | name, system (veeva_crm, vault_crm, salesforce_lsc), region, status, last_sync_at. ERD "CRM Connection"; the source for mirrored records |
+| `custom_field`, `event_type_field`, `custom_field_value` | | ERD "Custom Field" (Phase 6) |
+| `compliance_rule` | | plain-English rules per country / event type (Phase 3) |
+
+## 3. Customer master (event-context only)
+
+| Table | P0 | Key fields | Notes |
+|---|---|---|---|
+| `hcp` | ✓ | title, first/last name, specialty_id, primary_hco_id, country, city, email, tier, status, source (crm/data_vendor/manual), crm_connection_id, crm_external_id, onekey_id | Event-context data only, not a full HCP master |
+| `hco` | ✓ | name, hco_type, country, city, crm ids, onekey_id | Hospitals, universities, societies |
+| `fmv_rate` | ✓ | hcp_id, service_type, scope (national/international), hourly_rate, currency, valid_from/to, tier | ERD "FMV". Feeds the speaker rate |
+| `tier_request` | | hcp_id, requested_tier, rationale, status, decided_by/at | ERD "Tier Request" (Phase 3) |
+
+## 4. Requests & events
+
+| Table | P0 | Key fields | Notes |
+|---|---|---|---|
+| `event_request` | ✓ | request_number, title, event_type_id, status, requested_by, coordinator_id (null = unassigned), country, city, proposed_start/end, expected_attendees, estimated_spend, currency, rationale, event_id | ERD "Request"; 1:1 with an event once approved |
+| `event` | ✓ | event_number, name, event_type_id, status, request_id, owner_id, country, city, venue_name, venue_address, timezone, starts_at, ends_at, expected_attendees, estimated_spend, currency, description, crm ids | ERD "Event" |
+| `event_team_member` | ✓ | event_id, user_id, team_role (owner, co_host, medical, compliance, logistics, finance), is_primary | ERD "Event Team" → User |
+| `event_session` | ✓ | event_id, title, session_kind, starts_at, ends_at, location, sort | ERD "Event Session": the agenda grid |
+| `event_session_speaker` | ✓ | session_id, event_expert_id, minutes, sort | **New**: agenda speakers + durations |
+| `event_history` | ✓ (view) | view over `audit_log` filtered by event | ERD "Event History" |
+
+## 5. Participants & contracting
+
+| Table | P0 | Key fields | Notes |
+|---|---|---|---|
+| `event_expert` | ✓ | event_id, hcp_id, role (chair, speaker, advisor, moderator, panelist), eligibility (eligible/ineligible/pending), check_status (passed/pending/failed), fmv_rate_id, hourly_rate, currency, prep_hours, service_hours, travel_hours, total_payable (computed), crm ids | ERD "Event Expert": the honorarium grid row |
+| `event_attendee` | ✓ | event_id, attendee_kind (hcp/user/other), hcp_id, user_id, display_name, organisation, role_label, rsvp (invited/accepted/declined/tentative), attended, crm_status (pending/reconciled/not_found), crm ids | ERD "Event Attendee". Attendees can be HCPs, employees or walk-ins |
+| `event_contracting_org` | ✓ | event_id, hco_id, purpose (venue, payee, sponsor, vendor) | ERD "Contracting Org" |
+| `contract` | ✓ | contract_number, contract_type (service_agreement, work_order, event_contract, venue), status (draft/sent/executed/expired/terminated), counterparty_hcp_id or counterparty_hco_id, parent_contract_id, start/end date, template_content_id → content, document_content_id → content, clm_reference | **Counterparty added** so umbrella agreements exist without an event; work orders link to a parent |
+| `event_expert_contract` | ✓ | event_expert_id, contract_id | ERD junction |
+| `event_attendee_contract` | ✓ | event_attendee_id, contract_id | ERD junction |
+| `org_contract` | ✓ | event_contracting_org_id, contract_id | ERD junction |
+
+## 6. Content & collaboration
+
+| Table | P0 | Key fields | Notes |
+|---|---|---|---|
+| `content` | ✓ | title, content_kind (presentation, document, template, contract, invoice, image), file_name, mime_type, size_bytes, storage_path, version, owner_user_id, author_hcp_id | ERD "Content": file metadata like Salesforce ContentDocument; bytes in Storage |
+| `event_content` | ✓ | event_id, content_id, usage (presentation/document), category (Agenda, Contract, Compliance, Finance, Presentation), session_id, review_status (draft/review/approved/rejected) | ERD "Event Content": the content grid + Documents tab |
+| `event_post` | ✓ | event_id, author_id, body, parent_id (replies) | ERD "Event Post": message board |
+| `event_post_reaction` | ✓ | post_id, user_id, emoji | |
+| `event_task` | ✓ | event_id, title, assignee_id, due_date, done_at, source_post_id | ERD "Event Task": also feeds Home "Needs my action" |
+| `notification` | ✓ | user_id, kind, title, body, record_type, record_id, read_at | Bell + Home |
+
+## 7. Approvals (config vs runtime split)
+
+| Table | P0 | Key fields | Notes |
+|---|---|---|---|
+| `approval_process` | ✓ | name, record_type (request/event), event_type_id, is_active | config |
+| `approval_process_step` | ✓ | process_id, sort, name, approver_profile_id, approver_user_id | config (ERD "Approval Step") |
+| `approval` | ✓ | process_id, record_type, record_id, status (pending/approved/rejected/recalled), current_step, submitted_by/at | runtime (ERD "Approval") |
+| `approval_action` | ✓ | approval_id, step_id, approver_id, decision, comment, decided_at | runtime (ERD "Approval Action") |
+
+## 8. Later phases
+
+`budget`, `event_budget`, `planned_expense`, `actual_expense`, `invoice`, `invoice_line` (Phase 5); `integration_outbox`, `crm_mock.*` (Phases 3–4).
+
+## Relationship summary
+
+- `event_request` 1—1 `event`
+- `event` N—1 `event_type`, `country`, `app_user` (owner)
+- `event` 1—N `event_team_member`, `event_session`, `event_expert`, `event_attendee`, `event_contracting_org`, `event_content`, `event_post`, `event_task`
+- `event_session` N—M `event_expert` via `event_session_speaker`
+- `hcp` 1—N `event_expert`, `event_attendee`, `fmv_rate`, `tier_request`; N—1 `hco` (primary affiliation)
+- `hco` 1—N `event_contracting_org`
+- `contract` N—1 counterparty (`hcp` | `hco`); self-reference (work order → agreement); N—M to participants via the three junctions; N—1 `content` (template, document)
+- `content` 1—N `event_content`
+- `app_user` N—1 `profile`; N—M `user_group`; agents N—1 owner `app_user`
+
+## Veeva CRM mapping (≈, to be verified by Erik)
+
+| EC | Veeva CRM (Events Management) |
+|---|---|
+| event | EM_Event_vod__c |
+| event_attendee | EM_Attendee_vod__c |
+| event_expert | EM_Event_Speaker_vod__c (+ EM_Speaker_vod__c) |
+| event_team_member | EM_Event_Team_Member_vod__c |
+| event_session / event_session_speaker | EM_Event_Session_vod__c / session attendee |
+| event_history | EM_Event_History_vod__c |
+| event_content | EM_Event_Material_vod__c |
+| hcp / hco | Account (person / business) |
+| contract | Contract_vod__c |
+| fmv_rate | speaker rate / qualification objects |

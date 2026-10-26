@@ -1,0 +1,29 @@
+# Wipes the hosted database and rebuilds it from migrations + demo seed.
+# Manual only. Type RESET to confirm.
+name: Database — reset demo data
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type RESET to wipe and reseed the hosted database"
+        required: true
+
+concurrency: supabase-db
+
+jobs:
+  reset:
+    if: ${{ github.event.inputs.confirm == 'RESET' }}
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Reset database (migrations + seed)
+        run: yes | supabase db reset --linked

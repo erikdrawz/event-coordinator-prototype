@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&display=swap" rel="stylesheet"><style>body{margin:0;background:#eef1f5;font-family:Figtree,-apple-system,system-ui,sans-serif;color:#1f2a2e}a{color:#1d6fd6;text-underline-offset:3px}a:hover{color:#155cb8}*{box-sizing:border-box}button:focus-visible,a:focus-visible{outline:2px solid #1d6fd6;outline-offset:2px}</style></helmet>
+<div data-screen-label="Event page" style="min-height:100vh;display:flex;flex-direction:column">
+  <nav style="display:flex;align-items:center;gap:24px;padding:0 32px;height:60px;background:#fff;border-bottom:1px solid #dfe4eb">
+    <div style="display:flex;align-items:center;gap:14px;margin-right:auto"><span style="font-weight:800;font-size:17px;color:#b42318">Alera Pharma</span><span style="width:1px;height:22px;background:#dfe4eb"></span><span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6b7a8c">Event Coordinator</span></div>
+    <div style="display:flex;gap:4px;font-size:15px">
+      <a href="EC Home.dc.html#4a" style="padding:8px 14px;border-radius:999px;color:#1f2a2e;text-decoration:none" style-hover="background:#eef1f5">Home</a>
+      <a href="#" style="padding:8px 14px;border-radius:999px;background:#2d3b45;color:#fff;font-weight:600;text-decoration:none">Events</a>
+      <a href="#" style="padding:8px 14px;border-radius:999px;color:#1f2a2e;text-decoration:none" style-hover="background:#eef1f5">Requests</a>
+      <a href="#" style="padding:8px 14px;border-radius:999px;color:#1f2a2e;text-decoration:none" style-hover="background:#eef1f5">Experts</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;margin-left:12px">
+      <button aria-label="Notifications" style="width:38px;height:38px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center;cursor:pointer;position:relative;color:#1f2a2e" style-hover="background:#eef1f5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span style="position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%;background:#b42318;border:2px solid #fff"></span></button>
+      <div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600"><span style="width:32px;height:32px;border-radius:50%;background:#2d3b45;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center">PT</span>Paul</div>
+    </div>
+  </nav>
+
+  <div style="width:100%;max-width:1280px;margin:0 auto;padding:22px 32px 48px;display:grid;grid-template-columns:minmax(0,1fr);gap:18px">
+    <!-- Header -->
+    <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:20px 26px 0">
+      <div style="font-size:13px;color:#6b7a8c;margin-bottom:10px"><a href="#" style="text-decoration:none">Events</a> <span style="margin:0 6px">/</span> SMA Board</div>
+      <div style="display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:18px;align-items:start">
+        <span style="height:68px;border:2px solid #1d6fd6;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;text-align:center;background:#fff"><span style="background:#1d6fd6;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 0">Jul</span><span style="font-size:28px;font-weight:800;line-height:1.5;color:#1d6fd6">31</span></span>
+        <div style="min-width:0;display:grid;gap:8px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-.015em;line-height:1.15">SMA Board</h1><span style="font-size:13px;font-weight:600;color:#1f2a2e;padding:4px 10px;border-radius:999px;background:#eef1f5">{{ daysUntil }}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:#4b5563">
+            <span style="display:inline-flex;align-items:center;gap:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Advisory board</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Marriott Copenhagen · Denmark</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>{{ headerWhen }}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex:none">
+          <button style="font:600 14px Figtree,system-ui,sans-serif;background:#fff;color:#1f2a2e;border:1px solid #c9d1dc;border-radius:8px;padding:9px 14px;cursor:pointer" style-hover="background:#f3f5f8">Edit event</button>
+          <button style="display:inline-flex;align-items:center;gap:6px;font:600 14px Figtree,system-ui,sans-serif;background:#1d6fd6;color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer" style-hover="background:#155cb8">Actions<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
+      </div>
+      <div style="display:flex;margin-top:20px;gap:3px">
+        <sc-for list="{{ stages }}" as="st" hint-placeholder-count="5">
+          <div style="flex:1;min-width:0;height:36px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:{{ st.weight }};color:{{ st.color }};background:{{ st.bg }};border-radius:{{ st.radius }};clip-path:{{ st.clip }};padding:0 18px 0 24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><sc-if value="{{ st.done }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if>{{ st.label }}</div>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:14px;border-top:1px solid #e9edf2;padding-top:6px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <button onClick="{{ t.pick }}" style="display:inline-flex;align-items:center;gap:8px;font:600 14px Figtree,system-ui,sans-serif;background:transparent;color:{{ t.color }};border:0;border-bottom:2px solid {{ t.line }};padding:10px 12px 11px;margin-bottom:-1px;cursor:pointer" style-hover="color:#1f2a2e">{{ t.label }}<sc-if value="{{ t.hasCount }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#eef1f5;color:#4b5563">{{ t.count }}</span></sc-if></button>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Tab: Overview -->
+    <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+    <!-- Agenda -->
+    <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 26px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:17px;font-weight:700">Agenda</span><span style="font-size:13px;color:#6b7a8c;white-space:nowrap">{{ agendaSub }}</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="display:inline-flex;background:#eef1f5;border-radius:8px;padding:3px;margin-right:8px"><sc-for list="{{ days }}" as="d" hint-placeholder-count="2"><button onClick="{{ d.pick }}" style="display:inline-flex;align-items:baseline;gap:6px;padding:5px 12px;border-radius:6px;border:0;cursor:pointer;white-space:nowrap;font:600 13px Figtree,system-ui,sans-serif;background:{{ d.bg }};box-shadow:{{ d.shadow }};color:{{ d.color }}">{{ d.label }}<span style="font-size:11px;font-weight:600;color:#6b7a8c">{{ d.date }}</span></button></sc-for><button aria-label="Add day" style="padding:5px 9px;border-radius:6px;border:0;cursor:pointer;background:transparent;color:#6b7a8c;display:grid;place-items:center" style-hover="color:#1d6fd6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button></div><button style="font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1f2a2e;border:1px solid #c9d1dc;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#f3f5f8">Printable view</button><button style="font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1f2a2e;border:1px solid #c9d1dc;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#f3f5f8">Reorder</button><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1d6fd6;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#e3edfb"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add session</button></div></div>
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;padding:14px 16px;margin:2px 0 4px;border:1px dashed #c3cbd6;border-radius:8px;background:#f8fafc"><span style="min-width:0;font-size:14px;line-height:1.4;color:#1f2a2e"><span style="font-weight:600">Nothing scheduled.</span><span style="color:#6b7a8c"> Add the first session to build the day's timeline.</span></span><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#1d6fd6;color:#fff;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer;flex:none" style-hover="background:#185fb8"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add session</button></div></sc-if><sc-if value="{{ filled }}" hint-placeholder-val="{{ true }}"><div style="overflow-x:auto;margin:0 -8px;padding:0 8px"><div style="min-width:1000px"><div style="display:grid;grid-template-columns:60px 60px 48px minmax(240px,1fr) minmax(260px,1.1fr) 32px;gap:0 12px;padding:6px 8px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7a8c;border-bottom:1px solid #dfe4eb"><span>Start</span><span>End</span><span style="text-align:right">Min</span><span>Session</span><span>Speakers</span><span></span></div>
+      <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:60px 60px 48px minmax(240px,1fr) minmax(260px,1.1fr) 32px;gap:0 12px;align-items:center;padding:10px 8px;margin:0 -8px;border-bottom:1px solid #e9edf2;font-size:14px;border-radius:6px" style-hover="background:#f3f5f8">
+          <span style="font-weight:700">{{ s.start }}</span><span style="color:#6b7a8c">{{ s.end }}</span><span style="text-align:right">{{ s.mins }}</span>
+          <span style="min-width:0"><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.title }}</span><span style="display:block;font-size:12px;color:#6b7a8c">{{ s.kind }}</span></span>
+          <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0"><sc-for list="{{ s.speakers }}" as="sp" hint-placeholder-count="1"><span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 3px;border-radius:999px;background:#eef1f5;font-size:13px;font-weight:600;white-space:nowrap"><span style="width:22px;height:22px;border-radius:50%;background:{{ sp.bg }};color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">{{ sp.ini }}</span>{{ sp.name }}</span></sc-for><a href="#" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;border:1px dashed #c3cbd6;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap" style-hover="background:#e3edfb;border-color:#1d6fd6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Speaker</a></span>
+          <button aria-label="Session actions" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#6b7a8c;cursor:pointer;display:grid;place-items:center" style-hover="background:#e3edfb;color:#1d6fd6"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+        </div>
+      </sc-for></div></div></sc-if>
+    </div>
+
+    <!-- Speakers -->
+    <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 26px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:17px;font-weight:700">Speakers</span><span style="font-size:13px;color:#6b7a8c;white-space:nowrap">{{ speakersSub }}</span></div><div style="display:flex;gap:8px"><button style="font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1f2a2e;border:1px solid #c9d1dc;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#f3f5f8">Run checks</button><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1d6fd6;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#e3edfb"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add speaker</button></div></div>
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;padding:14px 16px;margin:2px 0 4px;border:1px dashed #c3cbd6;border-radius:8px;background:#f8fafc"><span style="min-width:0;font-size:14px;line-height:1.4;color:#1f2a2e"><span style="font-weight:600">No speakers assigned.</span><span style="color:#6b7a8c"> Add HCPs to track contracts, checks and honoraria.</span></span><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#1d6fd6;color:#fff;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer;flex:none" style-hover="background:#185fb8"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add speaker</button></div></sc-if><sc-if value="{{ filled }}" hint-placeholder-val="{{ true }}"><div style="overflow-x:auto;margin:0 -8px;padding:0 8px"><div style="min-width:1180px"><div style="display:grid;grid-template-columns:minmax(220px,1.6fr) 90px 96px 96px 120px 76px 64px 72px 64px 90px 32px;gap:0 12px;padding:6px 8px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7a8c;border-bottom:1px solid #dfe4eb"><span>HCP</span><span>Type</span><span>Status</span><span>Check</span><span>Contract</span><span style="text-align:right">Rate / h</span><span style="text-align:right">Prep h</span><span style="text-align:right">Service h</span><span style="text-align:right">Travel h</span><span style="text-align:right">Total</span><span></span></div>
+      <sc-for list="{{ hcps }}" as="h" hint-placeholder-count="3">
+        <div style="display:grid;grid-template-columns:minmax(220px,1.6fr) 90px 96px 96px 120px 76px 64px 72px 64px 90px 32px;gap:0 12px;align-items:center;padding:10px 8px;margin:0 -8px;border-bottom:1px solid #e9edf2;font-size:14px;border-radius:6px" style-hover="background:#f3f5f8">
+          <span style="display:inline-flex;align-items:center;gap:10px;min-width:0"><span style="width:28px;height:28px;border-radius:50%;background:{{ h.bg }};color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;flex:none">{{ h.ini }}</span><span style="min-width:0"><a href="#" style="display:block;font-weight:600;text-decoration:none;color:#1f2a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="color:#1d6fd6">{{ h.name }}</a><span style="display:block;font-size:12px;color:#6b7a8c">{{ h.spec }}</span></span></span>
+          <span>{{ h.type }}</span>
+          <span><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:{{ h.stBg }};color:{{ h.stColor }}">{{ h.status }}</span></span>
+          <span><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:{{ h.ckBg }};color:{{ h.ckColor }}">{{ h.check }}</span></span>
+          <span style="min-width:0"><sc-if value="{{ h.contract }}" hint-placeholder-val="{{ true }}"><a href="#" style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>{{ h.contract }}</a></sc-if><sc-if value="{{ h.noContract }}" hint-placeholder-val="{{ false }}"><a href="#" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;border:1px dashed #c3cbd6;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap" style-hover="background:#e3edfb;border-color:#1d6fd6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Link</a></sc-if></span>
+          <span style="text-align:right">{{ h.rate }}</span><span style="text-align:right">{{ h.prep }}</span><span style="text-align:right">{{ h.service }}</span><span style="text-align:right">{{ h.travel }}</span>
+          <span style="text-align:right;font-weight:700">{{ h.total }}</span>
+          <button aria-label="HCP actions" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#6b7a8c;cursor:pointer;display:grid;place-items:center" style-hover="background:#e3edfb;color:#1d6fd6"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+        </div>
+      </sc-for></div></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 32px;gap:0 12px;padding:12px 8px 4px;font-size:14px"><span style="font-weight:600;color:#4b5563">Total payable for this event</span><span style="text-align:right;font-weight:800;font-size:15px">{{ grandTotal }}</span><span></span></div></sc-if>
+    </div>
+
+    <!-- Content -->
+    <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 26px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:17px;font-weight:700">Content</span><span style="font-size:13px;color:#6b7a8c;white-space:nowrap">{{ contentSub }}</span></div><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1d6fd6;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#e3edfb"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>Upload presentation</button></div>
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;padding:14px 16px;margin:2px 0 4px;border:1px dashed #c3cbd6;border-radius:8px;background:#f8fafc"><span style="min-width:0;font-size:14px;line-height:1.4;color:#1f2a2e"><span style="font-weight:600">No presentations uploaded.</span><span style="color:#6b7a8c"> Upload decks to route them for review and approval.</span></span><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#1d6fd6;color:#fff;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer;flex:none" style-hover="background:#185fb8"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>Upload presentation</button></div></sc-if><sc-if value="{{ filled }}" hint-placeholder-val="{{ true }}"><div style="overflow-x:auto;margin:0 -8px;padding:0 8px"><div style="min-width:760px"><div style="display:grid;grid-template-columns:minmax(300px,1fr) 200px 120px 110px 32px;gap:0 12px;padding:6px 8px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7a8c;border-bottom:1px solid #dfe4eb"><span>Presentation</span><span>Used in</span><span>Format</span><span>Status</span><span></span></div>
+      <sc-for list="{{ decks }}" as="d" hint-placeholder-count="3">
+        <div style="display:grid;grid-template-columns:minmax(300px,1fr) 200px 120px 110px 32px;gap:0 12px;align-items:center;padding:10px 8px;margin:0 -8px;border-bottom:1px solid #e9edf2;font-size:14px;border-radius:6px" style-hover="background:#f3f5f8">
+          <span style="display:inline-flex;align-items:center;gap:10px;min-width:0"><span style="width:28px;height:28px;border-radius:6px;background:#eef1f5;color:#4b5563;display:grid;place-items:center;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span><span style="min-width:0"><a href="#" style="display:block;font-weight:600;text-decoration:none;color:#1f2a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="color:#1d6fd6">{{ d.name }}</a><span style="display:block;font-size:12px;color:#6b7a8c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.owner }} · {{ d.updated }}</span></span></span>
+          <span style="font-size:13px;color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.session }}</span>
+          <span>{{ d.format }}</span>
+          <span><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:{{ d.stBg }};color:{{ d.stColor }}">{{ d.status }}</span></span>
+          <button aria-label="Presentation actions" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#6b7a8c;cursor:pointer;display:grid;place-items:center" style-hover="background:#e3edfb;color:#1d6fd6"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+        </div>
+      </sc-for></div></div></sc-if>
+    </div>
+    </sc-if>
+
+    <!-- Tab: Team -->
+    <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:18px;align-items:start">
+      <!-- Discussion -->
+      <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 26px 8px;min-width:0">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px"><span style="font-size:17px;font-weight:700">Discussion</span><span style="font-size:13px;color:#6b7a8c;white-space:nowrap">{{ postCount }} threads</span></div>
+        <div style="display:grid;grid-template-columns:36px 1fr;gap:12px;margin-bottom:6px">
+          <span style="width:36px;height:36px;border-radius:50%;background:#2d3b45;color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center">PT</span>
+          <div style="border:1px solid #c9d1dc;border-radius:10px;padding:10px 12px;display:grid;gap:10px" style-focus="border-color:#1d6fd6">
+            <input value="{{ draft }}" onChange="{{ setDraft }}" placeholder="Post an update or ask the team…" style="border:0;outline:0;font:400 14px Figtree,system-ui,sans-serif;color:#1f2a2e;background:transparent;width:100%">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#6b7a8c">Everyone on SMA Board will be notified</span><button onClick="{{ post }}" style="margin-left:auto;font:600 13px Figtree,system-ui,sans-serif;background:#1d6fd6;color:#fff;border:0;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#155cb8">Post</button></div>
+          </div>
+        </div>
+        <sc-for list="{{ posts }}" as="p" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:36px 1fr;gap:12px;padding:16px 0 14px;border-top:1px solid #e9edf2">
+            <span style="width:36px;height:36px;border-radius:50%;background:{{ p.bg }};color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center">{{ p.ini }}</span>
+            <div style="min-width:0">
+              <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><span style="font-size:15px;font-weight:700">{{ p.who }}</span><span style="font-size:12px;color:#6b7a8c">{{ p.when }}</span></div>
+              <p style="margin:4px 0 0;font-size:14px;line-height:1.5;color:#1f2a2e;text-wrap:pretty">{{ p.text }}</p>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px">
+                <sc-for list="{{ p.reactions }}" as="r" hint-placeholder-count="2"><button onClick="{{ r.toggle }}" style="display:inline-flex;align-items:center;gap:5px;font:600 12px Figtree,system-ui,sans-serif;padding:3px 9px;border-radius:999px;border:1px solid {{ r.border }};background:{{ r.bg }};color:#1f2a2e;cursor:pointer" style-hover="border-color:#1d6fd6">{{ r.emoji }} {{ r.count }}</button></sc-for>
+                <button aria-label="Add reaction" style="width:26px;height:26px;border:1px dashed #c3cbd6;border-radius:999px;background:transparent;color:#6b7a8c;cursor:pointer;display:grid;place-items:center" style-hover="border-color:#1d6fd6;color:#1d6fd6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg></button>
+                <a href="#" style="margin-left:6px;font-size:13px;font-weight:600;text-decoration:none">Reply</a>
+                <a href="#" style="font-size:13px;font-weight:600;text-decoration:none;color:#6b7a8c" style-hover="color:#1d6fd6">Make a task</a>
+              </div>
+              <sc-if value="{{ p.hasReplies }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:12px;padding-left:14px;border-left:2px solid #e9edf2;display:grid;gap:10px">
+                <sc-for list="{{ p.thread }}" as="c" hint-placeholder-count="1">
+                  <div style="display:grid;grid-template-columns:26px 1fr;gap:10px"><span style="width:26px;height:26px;border-radius:50%;background:{{ c.bg }};color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">{{ c.ini }}</span><div style="min-width:0"><span style="font-size:13px;font-weight:700">{{ c.who }}</span><span style="font-size:12px;color:#6b7a8c;margin-left:8px">{{ c.when }}</span><p style="margin:2px 0 0;font-size:13px;line-height:1.5;color:#1f2a2e">{{ c.text }}</p></div></div>
+                </sc-for>
+                <sc-if value="{{ p.more }}" hint-placeholder-val="{{ false }}"><a href="#" style="font-size:13px;text-decoration:none">Show {{ p.more }} more replies</a></sc-if>
+              </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <!-- Tasks -->
+      <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 20px 14px;min-width:0">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:17px;font-weight:700">Tasks</span><span style="font-size:13px;color:#6b7a8c;white-space:nowrap">{{ openTasks }} open</span></div><a href="#" style="font-size:13px;text-decoration:none">Show done</a></div>
+        <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:20px 1fr;gap:10px;align-items:start;padding:10px 6px;margin:0 -6px;border-top:1px solid #e9edf2;border-radius:6px" style-hover="background:#f3f5f8">
+            <button onClick="{{ t.toggle }}" aria-label="Mark done" style="width:20px;height:20px;margin-top:1px;border:2px solid {{ t.boxBorder }};border-radius:5px;background:{{ t.boxBg }};cursor:pointer;display:grid;place-items:center;color:#fff;padding:0"><sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if></button>
+            <span style="min-width:0"><span style="display:block;font-size:14px;font-weight:600;line-height:1.3;color:{{ t.color }};text-decoration:{{ t.deco }}">{{ t.title }}</span><span style="display:inline-flex;align-items:center;gap:6px;margin-top:5px;padding:2px 8px 2px 2px;border-radius:999px;background:#eef1f5;font-size:12px;color:{{ t.dueColor }};white-space:nowrap"><span style="width:16px;height:16px;border-radius:50%;background:{{ t.bg }};color:#fff;font-size:8px;font-weight:700;display:grid;place-items:center">{{ t.ini }}</span>{{ t.who }} · {{ t.due }}</span></span>
+          </div>
+        </sc-for>
+        <div style="display:grid;grid-template-columns:20px 1fr;gap:10px;align-items:center;padding:10px 6px 4px;margin:0 -6px;border-top:1px solid #e9edf2">
+          <span style="width:20px;height:20px;border:2px dashed #c3cbd6;border-radius:5px"></span>
+          <input value="{{ taskDraft }}" onChange="{{ setTaskDraft }}" onKeyDown="{{ taskKey }}" placeholder="Add a task and press Enter…" style="border:0;outline:0;font:400 14px Figtree,system-ui,sans-serif;color:#1f2a2e;background:transparent;width:100%">
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- Tab: Attendees -->
+    <sc-if value="{{ isAttendees }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 26px 14px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:17px;font-weight:700">Attendees</span><span style="font-size:13px;color:#6b7a8c">{{ attendeeCount }} invited · {{ acceptedCount }} accepted</span></div><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1d6fd6;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#e3edfb"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Invite</button></div>
+      <div style="overflow-x:auto;margin:0 -8px;padding:0 8px"><div style="min-width:820px"><div style="display:grid;grid-template-columns:minmax(0,1.5fr) 140px 200px 120px 32px;gap:0 12px;padding:6px 8px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7a8c;border-bottom:1px solid #dfe4eb"><span>Name</span><span>Role</span><span>Organisation</span><span>RSVP</span><span></span></div>
+      <sc-for list="{{ attendees }}" as="a" hint-placeholder-count="5">
+        <div style="display:grid;grid-template-columns:minmax(0,1.5fr) 140px 200px 120px 32px;gap:0 12px;align-items:center;padding:10px 8px;margin:0 -8px;border-bottom:1px solid #e9edf2;font-size:14px;border-radius:6px" style-hover="background:#f3f5f8">
+          <span style="display:inline-flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:50%;background:{{ a.bg }};color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center">{{ a.ini }}</span><span style="font-weight:600">{{ a.name }}</span></span>
+          <span>{{ a.role }}</span><span style="color:#4b5563">{{ a.org }}</span>
+          <span><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:{{ a.stBg }};color:{{ a.stColor }}">{{ a.rsvp }}</span></span>
+          <button aria-label="Attendee actions" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#6b7a8c;cursor:pointer;display:grid;place-items:center" style-hover="background:#e3edfb;color:#1d6fd6"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+        </div>
+      </sc-for></div></div>
+    </div>
+    </sc-if>
+
+    <!-- Tab: Documents -->
+    <sc-if value="{{ isDocs }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 26px 14px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px"><span style="font-size:17px;font-weight:700">Documents</span><button style="display:inline-flex;align-items:center;gap:6px;font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1d6fd6;border:1px solid #1d6fd6;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#e3edfb"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>Upload</button></div>
+      <div style="overflow-x:auto;margin:0 -8px;padding:0 8px"><div style="min-width:820px"><div style="display:grid;grid-template-columns:minmax(0,1fr) 160px 180px 120px 32px;gap:0 12px;padding:6px 8px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7a8c;border-bottom:1px solid #dfe4eb"><span>Document</span><span>Category</span><span>Uploaded by</span><span>Date</span><span></span></div>
+      <sc-for list="{{ docs }}" as="d" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 160px 180px 120px 32px;gap:0 12px;align-items:center;padding:10px 8px;margin:0 -8px;border-bottom:1px solid #e9edf2;font-size:14px;border-radius:6px" style-hover="background:#f3f5f8">
+          <span style="display:inline-flex;align-items:center;gap:10px;min-width:0"><span style="width:28px;height:28px;border-radius:6px;background:#eef1f5;color:#4b5563;display:grid;place-items:center;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span><a href="#" style="font-weight:600;text-decoration:none;color:#1f2a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="color:#1d6fd6">{{ d.name }}</a></span>
+          <span style="color:#4b5563">{{ d.cat }}</span><span>{{ d.by }}</span><span style="color:#6b7a8c">{{ d.date }}</span>
+          <button aria-label="Document actions" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#6b7a8c;cursor:pointer;display:grid;place-items:center" style-hover="background:#e3edfb;color:#1d6fd6"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+        </div>
+      </sc-for></div></div>
+    </div>
+    </sc-if>
+
+    <!-- Tab: Event details -->
+    <sc-if value="{{ isDetails }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff;border:1px solid #dfe4eb;border-radius:10px;padding:18px 26px 22px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px"><span style="font-size:17px;font-weight:700">Event details</span><button style="font:600 13px Figtree,system-ui,sans-serif;white-space:nowrap;background:#fff;color:#1f2a2e;border:1px solid #c9d1dc;border-radius:8px;padding:7px 12px;cursor:pointer" style-hover="background:#f3f5f8">Edit</button></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 32px">
+        <sc-for list="{{ details }}" as="f" hint-placeholder-count="12">
+          <div style="padding:12px 0;border-top:1px solid #e9edf2"><div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7a8c;margin-bottom:4px">{{ f.k }}</div><div style="font-size:15px;font-weight:600">{{ f.v }}</div></div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;eventStatus&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Draft&quot;,&quot;options&quot;:[&quot;Draft&quot;,&quot;Review&quot;,&quot;Contract&quot;,&quot;Execution&quot;,&quot;Closed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Event&quot;},&quot;multiDay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Event&quot;},&quot;emptyState&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Event&quot;},&quot;defaultTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;board&quot;,&quot;attendees&quot;,&quot;docs&quot;,&quot;details&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Event&quot;}}">
+class Component extends DCLogic {
+  state = { tab: null };
+  renderVals() {
+    const AV = ['#2f9e5f', '#e8731a', '#1a9af0', '#12b1a4', '#c2410c', '#7c5cbf', '#5c6670'];
+    const ini = n => n.replace(/^(Dr|Prof)\.? /, '').split(' ').map(w => w[0]).slice(0, 2).join('');
+    const people = {};
+    const av = n => { if (!(n in people)) people[n] = AV[Object.keys(people).length % AV.length]; return people[n]; };
+    const P = {
+      green: { bg: '#dcfce7', c: '#166534' }, yellow: { bg: '#fef3c7', c: '#854d0e' }, red: { bg: '#fee2e2', c: '#991b1b' },
+      blue: { bg: '#dbeafe', c: '#1e40af' }, grey: { bg: '#e5e7eb', c: '#374151' },
+    };
+    const pill = (prefix, tone) => ({ [prefix + 'Bg']: P[tone].bg, [prefix + 'Color']: P[tone].c });
+    const STAGES = ['Draft', 'Review', 'Contract', 'Execution', 'Closed'];
+    const status = this.props.eventStatus ?? 'Draft';
+    const cur = Math.max(0, STAGES.indexOf(status));
+    const stages = STAGES.map((label, i) => {
+      const done = i < cur, now = i === cur, first = i === 0, last = i === STAGES.length - 1;
+      const clip = first ? 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%)' : last ? 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 12px 50%)' : 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%)';
+      return { label, done, now, clip, radius: first ? '8px 0 0 8px' : last ? '0 8px 8px 0' : '0', bg: now ? '#1d6fd6' : done ? '#dbeafe' : '#eef1f5', color: now ? '#fff' : done ? '#1e40af' : '#4b5563', weight: now ? 700 : 600 };
+    });
+    const daysUntil = 'In 5 days';
+
+    const multiDay = this.props.multiDay ?? false;
+    const day = Math.min(this.state.day ?? 0, multiDay ? 1 : 0);
+    const day2Raw = [
+      { start: '09:00', end: '09:15', title: 'Recap of day one', kind: 'Chair introduction', sp1: 'Dr Alison Muir' },
+      { start: '09:15', end: '10:00', title: 'Workshop: unmet needs in adult SMA care', kind: 'Workshop', sp1: 'Dr Richard Griffiths', sp2: 'Dr Alison Muir' },
+      { start: '10:00', end: '10:20', title: 'Coffee break', kind: 'Break' },
+      { start: '10:20', end: '11:10', title: 'Advisor feedback round', kind: 'Discussion', sp1: 'Dr Alison Muir' },
+      { start: '11:10', end: '11:30', title: 'Next steps and close', kind: 'Summary', sp1: 'Sarah Mitchell' },
+    ];
+    const day1Raw = [
+      { start: '18:30', end: '18:35', title: 'Welcome and housekeeping', kind: 'Housekeeping', sp1: 'Sarah Mitchell', m1: 5 },
+      { start: '18:35', end: '18:50', title: 'Chair introduction and objectives', kind: 'Chair introduction', sp1: 'Dr Alison Muir', m1: 15 },
+      { start: '18:50', end: '19:20', title: 'SMA treatment landscape 2025', kind: 'Presentation', sp1: 'Dr Richard Griffiths', m1: 30 },
+      { start: '19:20', end: '19:40', title: 'Dinner served', kind: 'Break' },
+      { start: '19:40', end: '20:10', title: 'Real-world outcomes: regional registry data', kind: 'Presentation', sp1: 'Dr Richard Griffiths', m1: 30 },
+      { start: '20:10', end: '20:30', title: 'Panel discussion and Q&A', kind: 'Panel / Q&A', sp1: 'Dr Alison Muir', m1: 10, sp2: 'Dr Richard Griffiths', m2: 10 },
+      { start: '20:30', end: '20:35', title: 'Summary and close', kind: 'Summary', sp1: 'Dr Alison Muir', m1: 5 },
+    ];
+    const sessionsRaw = day === 1 ? day2Raw : day1Raw;
+    const toMin = t => { const [a, b] = t.split(':').map(Number); return a * 60 + b; };
+    const dayDefs = multiDay ? [{ label: 'Day 1', date: 'Thu 31 Jul' }, { label: 'Day 2', date: 'Fri 1 Aug' }] : [{ label: 'Day 1', date: 'Thu 31 Jul' }];
+    const days = dayDefs.map((d, i) => ({ ...d, pick: () => this.setState({ day: i }), bg: i === day ? '#fff' : 'transparent', shadow: i === day ? '0 1px 2px rgba(15,23,42,.08)' : 'none', color: i === day ? '#1f2a2e' : '#4b5563' }));
+    const dayRange = sessionsRaw[0].start + '–' + sessionsRaw[sessionsRaw.length - 1].end;
+    const headerWhen = multiDay ? 'Thu 31 Jul – Fri 1 Aug · 2 days · starts 18:30 · CEST (GMT+2)' : 'Thu 31 Jul · 18:30 · 2 h 05 min · CEST (GMT+2)';
+    const sessions = sessionsRaw.map(s => ({
+      ...s, mins: toMin(s.end) - toMin(s.start),
+      speakers: [s.sp1, s.sp2].filter(Boolean).map(n => ({ name: n, ini: ini(n), bg: av(n) })),
+    }));
+
+    const hcpsRaw = [
+      { name: 'Dr Alison Muir', spec: 'Neurology · Aarhus', type: 'Chair', status: 'Eligible', check: 'Pending', rate: 280, prep: 1, service: 0.5, travel: 0, contract: 'CSA-2025-114' },
+      { name: 'Dr Richard Griffiths', spec: 'Neurology · Copenhagen', type: 'Speaker', status: 'Eligible', check: 'Passed', rate: 280, prep: 1.5, service: 1.2, travel: 1, contract: 'CSA-2025-109' },
+      { name: 'Dr Mette Holm', spec: 'Paediatrics · Odense', type: 'Advisor', status: 'Ineligible', check: 'Failed', rate: 250, prep: 0, service: 0, travel: 0, contract: '' },
+    ];
+    const money = n => '€' + n.toLocaleString('en-IE', { maximumFractionDigits: 0 });
+    let grand = 0;
+    const hcps = hcpsRaw.map(h => {
+      const tot = h.status === 'Eligible' ? h.rate * (h.prep + h.service + h.travel) : 0; grand += tot;
+      return { ...h, noContract: !h.contract, ini: ini(h.name), bg: av(h.name), rate: money(h.rate), prep: h.prep.toFixed(1), service: h.service.toFixed(1), travel: h.travel.toFixed(1), total: tot ? money(tot) : '—',
+        ...pill('st', h.status === 'Eligible' ? 'green' : 'grey'), ...pill('ck', { Passed: 'green', Pending: 'yellow', Failed: 'red' }[h.check]) };
+    });
+
+    const decks = [
+      { name: 'SMA treatment landscape 2025', owner: 'Dr Richard Griffiths', updated: 'updated 2 d ago', session: '18:50 Presentation', format: 'PowerPoint', status: 'Approved' },
+      { name: 'Regional registry outcomes', owner: 'Dr Richard Griffiths', updated: 'updated yesterday', session: '19:40 Presentation', format: 'PDF', status: 'Review' },
+      { name: 'Chair opening remarks', owner: 'Dr Alison Muir', updated: 'updated 5 d ago', session: '18:35 Chair introduction', format: 'PowerPoint', status: 'Rejected' },
+    ].map(d => ({ ...d, ...pill('st', { Approved: 'green', Review: 'yellow', Rejected: 'red' }[d.status]) }));
+
+    const reacted = this.state.reacted || {};
+    const doneMap = this.state.done || {};
+    const basePosts = [
+      { id: 'p1', who: 'Sarah Mitchell', when: 'Fri 25 Jul, 16:10', text: 'Legal returned the venue contract redlines — only the cancellation clause changed, should be quick to sign. Paul, can you countersign before Tuesday?', reactions: [['👍', 2], ['👀', 1]],
+        thread: [{ who: 'Paul Taylor', when: 'Fri 25 Jul, 16:42', text: 'On it — will sign Monday morning once Lisa confirms the deposit schedule.' }], more: 2 },
+      { id: 'p2', who: 'Lisa Anderson', when: 'Thu 24 Jul, 11:05', text: 'Marriott confirmed the three-course menu for 14. Two vegetarian, one gluten-free noted.', reactions: [['🎉', 3]], thread: [], more: 0 },
+      { id: 'p3', who: 'Michael Chen', when: 'Wed 23 Jul, 09:30', text: 'Richard’s second deck quotes unpublished registry figures. Flagging for Medical review before approval.', reactions: [['👍', 1], ['⚠️', 2]],
+        thread: [{ who: 'Sarah Mitchell', when: 'Wed 23 Jul, 10:02', text: 'Agreed — I’ve set it to Review in Content and asked Richard for the source.' }], more: 3 },
+    ];
+    const extraPosts = this.state.posted || [];
+    const posts = [...extraPosts, ...basePosts].map(p => ({
+      ...p, ini: ini(p.who), bg: av(p.who), hasReplies: p.thread.length > 0,
+      thread: p.thread.map(c => ({ ...c, ini: ini(c.who), bg: av(c.who) })),
+      reactions: p.reactions.map(([emoji, n]) => { const k = p.id + emoji; const on = !!reacted[k]; return { emoji, count: n + (on ? 1 : 0), bg: on ? '#e3edfb' : '#fff', border: on ? '#1d6fd6' : '#dfe4eb',
+        toggle: () => this.setState(s => ({ reacted: { ...(s.reacted || {}), [k]: !on } })) }; }),
+    }));
+    const baseTasks = [
+      { id: 't1', title: 'Countersign Marriott venue contract', who: 'Paul T.', due: 'Mon 28 Jul', overdue: false },
+      { id: 't2', title: 'Send registry data sources to Medical', who: 'Richard G.', due: 'Thu 24 Jul', overdue: true },
+      { id: 't3', title: 'Confirm dietary requirements with Dr Lind', who: 'Lisa A.', due: 'Tue 29 Jul', overdue: false },
+      { id: 't4', title: 'Book Dr Griffiths’ return train', who: 'Lisa A.', due: 'Wed 30 Jul', overdue: false },
+      ...(this.state.newTasks || []),
+    ];
+    const tasks = baseTasks.map(t => { const done = !!doneMap[t.id]; return { ...t, done, ini: ini(t.who), bg: av(t.who),
+      boxBorder: done ? '#2f9e5f' : '#c3cbd6', boxBg: done ? '#2f9e5f' : '#fff', color: done ? '#6b7a8c' : '#1f2a2e', deco: done ? 'line-through' : 'none', dueColor: t.overdue && !done ? '#b42318' : '#4b5563',
+      toggle: () => this.setState(s => ({ done: { ...(s.done || {}), [t.id]: !done } })) }; });
+    const draft = this.state.draft || '', taskDraft = this.state.taskDraft || '';
+    const post = () => { if (!draft.trim()) return; this.setState(s => ({ draft: '', posted: [{ id: 'n' + Date.now(), who: 'Paul Taylor', when: 'Just now', text: draft.trim(), reactions: [], thread: [], more: 0 }, ...(s.posted || [])] })); };
+    const addTask = () => { if (!taskDraft.trim()) return; this.setState(s => ({ taskDraft: '', newTasks: [...(s.newTasks || []), { id: 'n' + Date.now(), title: taskDraft.trim(), who: 'Paul T.', due: 'No date', overdue: false }] })); };
+    const attendees = [
+      { name: 'Dr Alison Muir', role: 'Chair', org: 'Aarhus University Hospital', rsvp: 'Accepted' },
+      { name: 'Dr Richard Griffiths', role: 'Speaker', org: 'Rigshospitalet', rsvp: 'Accepted' },
+      { name: 'Dr Mette Holm', role: 'Advisor', org: 'Odense University Hospital', rsvp: 'Declined' },
+      { name: 'Dr Jonas Lind', role: 'Advisor', org: 'Aalborg University Hospital', rsvp: 'Accepted' },
+      { name: 'Dr Eva Sørensen', role: 'Advisor', org: 'Herlev Hospital', rsvp: 'Invited' },
+      { name: 'Sarah Mitchell', role: 'Medical lead', org: 'Alera Pharma', rsvp: 'Accepted' },
+      { name: 'Paul Taylor', role: 'Organiser', org: 'Alera Pharma', rsvp: 'Accepted' },
+    ].map(a => ({ ...a, ini: ini(a.name), bg: av(a.name), ...pill('st', { Accepted: 'green', Invited: 'yellow', Declined: 'grey' }[a.rsvp]) }));
+
+    const docs = [
+      { name: 'Venue contract — Marriott Copenhagen (signed).pdf', cat: 'Contract', by: 'Lisa Anderson', date: '24 Jul 2025' },
+      { name: 'Advisory board agenda v3.docx', cat: 'Agenda', by: 'Paul Taylor', date: '22 Jul 2025' },
+      { name: 'HCP consulting agreements.zip', cat: 'Compliance', by: 'Sarah Mitchell', date: '18 Jul 2025' },
+      { name: 'Budget approval REQ-2025-0051.pdf', cat: 'Finance', by: 'Michael Chen', date: '10 Jul 2025' },
+    ];
+
+    const details = [
+      ['Name', 'SMA Board'], ['Type', 'Advisory board'], ['Status', status],
+      ['Location', 'Marriott Copenhagen, Kalvebod Brygge 5'], ['Country', 'Denmark'], ['Time zone', 'CEST (GMT+2)'],
+      ['Start time', 'Thu 31 Jul 2025, 18:30'], ['Duration', multiDay ? '2 days' : '2 h 05 min'], ['Days until event', '5'],
+      ['Owner', 'Paul Taylor'], ['Event request', 'REQ-2025-0051'], ['Budget', '€6,400 approved'],
+    ].map(([k, v]) => ({ k, v }));
+
+    const tab = this.state.tab ?? this.props.defaultTab ?? 'overview';
+    const tabDefs = [
+      { id: 'overview', label: 'Overview', count: '' },
+      { id: 'board', label: 'Team', count: posts.length + tasks.filter(t => !t.done).length },
+      { id: 'attendees', label: 'Attendees', count: attendees.length },
+      { id: 'docs', label: 'Documents', count: docs.length },
+      { id: 'details', label: 'Event details', count: '' },
+    ];
+    const tabs = tabDefs.map(t => ({ ...t, hasCount: t.count !== '', pick: () => this.setState({ tab: t.id }), color: t.id === tab ? '#1d6fd6' : '#4b5563', line: t.id === tab ? '#1d6fd6' : 'transparent' }));
+
+    const empty = this.props.emptyState ?? false;
+    return {
+      status, stages, daysUntil, empty, filled: !empty,
+      agendaSub: empty ? 'No sessions yet' : sessions.length + ' sessions · ' + dayRange,
+      speakersSub: empty ? 'No speakers yet' : hcps.length + ' HCPs · ' + hcpsRaw.filter(h => h.check === 'Pending').length + ' check pending',
+      contentSub: empty ? 'No presentations yet' : decks.length + ' presentations · ' + decks.filter(d => d.status === 'Review').length + ' in review',
+      sessions, sessionCount: sessions.length, multiDay, days, dayRange, headerWhen,
+      hcps, hcpCount: hcps.length, pendingChecks: hcpsRaw.filter(h => h.check === 'Pending').length, grandTotal: money(grand),
+      decks, deckCount: decks.length, reviewCount: decks.filter(d => d.status === 'Review').length,
+      posts, postCount: posts.length, tasks, openTasks: tasks.filter(t => !t.done).length, draft, setDraft: e => this.setState({ draft: e.target.value }), post, taskDraft, setTaskDraft: e => this.setState({ taskDraft: e.target.value }), taskKey: e => { if (e.key === 'Enter') addTask(); }, attendees, attendeeCount: attendees.length, acceptedCount: attendees.filter(a => a.rsvp === 'Accepted').length, docs, details,
+      tabs, isOverview: tab === 'overview', isBoard: tab === 'board', isAttendees: tab === 'attendees', isDocs: tab === 'docs', isDetails: tab === 'details',
+    };
+  }
+}
+</script>
+</body>
+</html>

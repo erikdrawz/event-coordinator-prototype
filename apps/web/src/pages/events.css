@@ -1,0 +1,12 @@
+.table { width: 100%; border-collapse: collapse; font-size: var(--text-md); }
+.table th {
+  text-align: left; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--color-text-secondary); padding: 14px 16px 10px; border-bottom: 1px solid var(--color-border);
+}
+.table td { padding: 12px 16px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table tbody tr:hover { background: var(--color-surface-muted); }
+.table-primary { font-weight: 700; color: var(--color-text); text-decoration: none; font-size: var(--text-lg); }
+.table-primary:hover { color: var(--color-accent); }
+.table-sub { font-size: var(--text-sm); color: var(--color-text-muted); }
+.table-person { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }

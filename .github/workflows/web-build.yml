@@ -1,0 +1,17 @@
+name: Web — typecheck & build
+on:
+  push:
+    paths: ["apps/web/**", "package.json", "package-lock.json"]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck -w apps/web
+      - run: npm run build -w apps/web
