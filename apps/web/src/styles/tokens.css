@@ -24,6 +24,11 @@
   --color-accent-soft: #e3edfb;
   --color-accent-softer: #f1f6fd;
 
+  /* Calendar dots: events, requests, tasks/milestones */
+  --color-dot-event: var(--color-accent);
+  --color-dot-request: #8fb8ea;
+  --color-dot-milestone: #aeb7c3;
+
   /* Navigation */
   --color-nav-active: #2d3b45;
 

@@ -33,6 +33,7 @@ export function App() {
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route index element={<HomePage />} />
         <Route path="events" element={<EventsPage />} />
+        <Route path="events/new" element={<PlaceholderPage title="New event" phase="Phase 1 (event capture)" />} />
         <Route path="events/:id" element={<EventPage />} />
         <Route path="requests" element={<PlaceholderPage title="Requests" phase="Phase 2" />} />
         <Route path="experts" element={<PlaceholderPage title="Experts" phase="Phase 3" />} />
