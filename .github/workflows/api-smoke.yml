@@ -1,0 +1,20 @@
+# End-to-end API + security checks against the hosted environment.
+# Runs after a demo reset, or manually. Uses only the public API.
+name: API — smoke test (hosted)
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Database — reset demo data", "Database — deploy migrations"]
+    types: [completed]
+jobs:
+  smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load public environment values
+        run: grep -E '^VITE_SUPABASE_(URL|ANON_KEY)=' apps/web/.env.production | sed 's/^VITE_//' >> "$GITHUB_ENV"
+      - run: node tests/api-smoke.mjs
