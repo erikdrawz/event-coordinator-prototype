@@ -10,7 +10,7 @@ Status: 26 Oct 2026. Supersedes v0.1 (Next.js/Vercel/Supabase). See [ARCHITECTUR
 | UI | Vite + React + TS single-page app; static hosting (Cloudflare Pages or Netlify, not Vercel's free plan, whose terms rule out commercial use) |
 | Visual source of truth | Home **4a** + **Event page** (Figtree, cool grey ground, blue accent, Alera red brand). Modernist design system dropped |
 | New screens (login, events list, event capture) | Designed in the 4a/Event style; content taken from old mockups 05/03 |
-| Event lifecycle | Event page stepper: **Draft → Review → Contract → Execution → Closed**, with **Cancelled** as a side exit. Home pills map Planning = Draft, In approval = Review, Approved = Contract/Execution |
+| Event lifecycle | Event page stepper: **Draft → Review → Contract → Execution → Closed**, with **Cancelled** as a side exit. Status pills (Home, events list) show the step itself: Draft grey, Review yellow, Contract blue, Execution purple, Closed green, Cancelled grey. A cancelled event's stepper is greyed out, with a Cancelled pill by the countdown |
 | HCP / HCO | Two separate tables (matching OneKey/OpenData feeds) |
 | Expert vs Attendee | Separate records off the same HCP: Expert = paid engagement (role, rate, hours, contract); Attendee = who's in the room (HCP, internal user, or walk-in) |
 | Content | File metadata table (like Salesforce ContentDocument). Event Content links files to events; contracts can link a Word template |

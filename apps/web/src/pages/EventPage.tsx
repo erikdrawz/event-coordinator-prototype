@@ -1,6 +1,6 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, MapPin, Clock, Users, Ban } from 'lucide-react';
+import { ChevronDown, MapPin, Clock, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { daysUntil, eventDateParts } from '../lib/format';
 import { DateTile } from '../components/DateTile';
@@ -73,6 +73,7 @@ export function EventPage() {
   const stages = (statuses ?? []).filter((s) => s.code !== 'cancelled');
   const current = stages.findIndex((s) => s.code === e.status);
   const when = countdown(e.starts_at);
+  const cancelled = e.status === 'cancelled';
 
   return (
     <main className="page">
@@ -83,7 +84,8 @@ export function EventPage() {
           <div className="event-head-main">
             <div className="event-title-row">
               <h1 className="event-title">{e.name}</h1>
-              {when && e.status !== 'cancelled' && <span className="pill pill-grey">{when}</span>}
+              {when && <span className="pill pill-grey">{when}</span>}
+              {cancelled && <span className="pill pill-grey" title={e.cancel_reason ?? undefined}>Cancelled</span>}
             </div>
             <div className="event-meta">
               <span><Users size={15} />{e.event_type?.name}</span>
@@ -96,17 +98,14 @@ export function EventPage() {
             <button className="btn btn-primary" disabled title="Status changes come next">Actions <ChevronDown size={16} /></button>
           </div>
         </div>
-        {e.status === 'cancelled' ? (
-          <div className="event-cancelled"><Ban size={16} /> Cancelled{e.cancel_reason ? ` — ${e.cancel_reason}` : ''}</div>
-        ) : (
-          <ol className="stepper" aria-label="Event lifecycle">
-            {stages.map((s, i) => (
-              <li key={s.code} className={i < current ? 'done' : i === current ? 'current' : ''} aria-current={i === current ? 'step' : undefined}>
-                {s.label}
-              </li>
-            ))}
-          </ol>
-        )}
+        {/* A cancelled event keeps the stepper, greyed out */}
+        <ol className={`stepper${cancelled ? ' is-cancelled' : ''}`} aria-label={cancelled ? 'Event lifecycle (cancelled)' : 'Event lifecycle'}>
+          {stages.map((s, i) => (
+            <li key={s.code} className={cancelled ? '' : i < current ? 'done' : i === current ? 'current' : ''} aria-current={!cancelled && i === current ? 'step' : undefined}>
+              {s.label}
+            </li>
+          ))}
+        </ol>
         <div className="tabs" role="tablist" aria-label="Event sections">
           {TABS.map((t) => (
             <button key={t.id} id={`tab-${t.id}`} role="tab" aria-selected={tab === t.id} aria-controls="event-tabpanel"

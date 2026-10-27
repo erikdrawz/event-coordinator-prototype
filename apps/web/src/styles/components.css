@@ -116,6 +116,7 @@
 .pill-yellow { background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); }
 .pill-red { background: var(--tone-red-bg); color: var(--tone-red-fg); }
 .pill-blue { background: var(--tone-blue-bg); color: var(--tone-blue-fg); }
+.pill-purple { background: var(--tone-purple-bg); color: var(--tone-purple-fg); }
 .pill-grey { background: var(--tone-grey-bg); color: var(--tone-grey-fg); }
 .count { font-size: var(--text-xs); font-weight: 700; padding: 1px 7px; border-radius: var(--radius-pill); background: var(--color-bg); color: var(--color-text-secondary); }
 

@@ -36,4 +36,4 @@ export interface AppNotification {
 }
 
 export type EventStatus = 'draft' | 'review' | 'contract' | 'execution' | 'closed' | 'cancelled';
-export type Tone = 'green' | 'yellow' | 'red' | 'blue' | 'grey';
+export type Tone = 'green' | 'yellow' | 'red' | 'blue' | 'purple' | 'grey';

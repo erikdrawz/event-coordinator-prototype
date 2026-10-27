@@ -21,10 +21,7 @@
 .stepper li:last-child { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 12px 50%); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .stepper li.done { background: var(--color-accent-soft); color: var(--color-accent); }
 .stepper li.current { background: var(--color-accent); color: #fff; }
-.event-cancelled {
-  display: flex; align-items: center; gap: 8px; margin-top: 20px; padding: 10px 14px; border-radius: var(--radius-sm);
-  background: var(--tone-grey-bg); color: var(--tone-grey-fg); font-weight: 600;
-}
+.stepper.is-cancelled li { color: var(--color-text-muted); opacity: 0.6; }
 
 .tabs { display: flex; gap: 4px; margin-top: 14px; border-top: 1px solid var(--color-border); }
 .tab {
