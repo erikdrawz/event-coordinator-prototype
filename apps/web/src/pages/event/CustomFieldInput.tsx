@@ -1,5 +1,6 @@
 import { CheckboxField, ChipPicker, Field } from '../../ui/Form';
 import { Select } from '../../ui/Select';
+import { DateInput } from '../../ui/DateInput';
 import type { CustomFieldDef, UserOpt } from './eventForm';
 
 interface Props {
@@ -28,7 +29,8 @@ export function CustomFieldInput({ def, value, onChange, error, users }: Props) 
             return <input {...common} type="number" step="any" value={value == null ? '' : String(value)}
               onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))} />;
           case 'date':
-            return <input {...common} type="date" value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value || null)} />;
+            return <DateInput id={id} aria-describedby={describedBy} aria-invalid={Boolean(error) || undefined}
+              value={(value as string) ?? ''} onChange={(v) => onChange(v || null)} />;
           case 'picklist':
             return (
               <Select id={id} aria-describedby={describedBy} aria-invalid={Boolean(error) || undefined}

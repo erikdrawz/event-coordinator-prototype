@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/auth';
 import { Modal } from '../../ui/Modal';
 import { ChipPicker, Field, FormSection } from '../../ui/Form';
 import { Select } from '../../ui/Select';
+import { DateTimeInput } from '../../ui/DateInput';
 import { CustomFieldInput } from './CustomFieldInput';
 import {
   addMinutesLocal, emptyForm, EVENT_RECORD_SELECT, fieldsForType, formFromRecord, sectionTitle, TIME_ZONES,
@@ -178,11 +179,11 @@ function EventForm({ eventId, record, options, onClose, title }:
             {(id) => <input id={id} className="input" value={f.venue_address} onChange={(e) => set('venue_address', e.target.value)} />}
           </Field>
           <Field label="Starts" hint="Local time at the event">
-            {(id, d) => <input id={id} aria-describedby={d} type="datetime-local" className="input" value={f.starts_local} onChange={(e) => pickStart(e.target.value)} />}
+            {(id, d) => <DateTimeInput id={id} aria-describedby={d} value={f.starts_local} onChange={pickStart} />}
           </Field>
           <Field label="Ends" error={err('ends_local')}>
-            {(id, d) => <input id={id} aria-describedby={d} aria-invalid={inv('ends_local')} type="datetime-local" className="input"
-              value={f.ends_local} min={f.starts_local || undefined} onChange={(e) => set('ends_local', e.target.value)} />}
+            {(id, d) => <DateTimeInput id={id} aria-describedby={d} aria-invalid={inv('ends_local')} value={f.ends_local}
+              min={f.starts_local || undefined} defaultTime={f.starts_local.slice(11) || '09:00'} onChange={(v) => set('ends_local', v)} />}
           </Field>
           <Field label="Time zone" wide hint={tzTouched ? null : 'Follows the country until you change it.'}>
             {(id, d) => (

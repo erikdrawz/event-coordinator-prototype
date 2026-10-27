@@ -46,6 +46,15 @@ Use it for every dropdown instead of a native `<select>`. It's a button that ope
 - `variant="filter"` with a `label` is the compact toolbar version ("Status  All"); `FilterSelect` wraps it.
 - The list is fixed-positioned, so a scrolling modal body doesn't clip it, and it opens upwards when there's no room below.
 
+### Dates and times (`DateInput.tsx`)
+- `DateInput`: a calendar popup; value `'YYYY-MM-DD'`. Keyboard: arrows move by day/week, PageUp/PageDown by month, Enter picks, Esc closes. `min` disables earlier days. Today and Clear in the footer.
+- `TimeInput`: 24-hour time; type it (`930`, `9:30`, `21.15`, `9:30 pm`) or pick from 15-minute steps; value `'HH:mm'`.
+- `DateTimeInput`: both side by side; value `'YYYY-MM-DDTHH:mm'`. The time waits for a date.
+- Weeks start on `WEEK_STARTS_ON` (Sunday, like the Home calendar).
+
+### `usePopover` (`usePopover.ts`)
+Positions any popup under its trigger (above it when there's no room), follows scrolling, closes on outside clicks. `Select` and the date/time inputs use it. The popup is placed one render after opening, so wait for `style` before focusing inside it.
+
 ### `Modal` (`Modal.tsx`)
 A dialog on the native `<dialog>` element, so focus trapping, Esc and the backdrop come from the browser. Header and footer stay fixed while the body scrolls, and it goes full screen on phones. Pass `confirmClose="Discard your changes…?"` while a form has unsaved changes. Submit buttons in the `footer` point at the form with `form="<form id>"`.
 

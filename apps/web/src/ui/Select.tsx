@@ -1,5 +1,6 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
+import { usePopover } from './usePopover';
 import './select.css';
 
 export interface SelectOption { value: string; label: string }
@@ -29,8 +30,7 @@ const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 
 /**
  * A select in the app's style: a button that opens a listbox. Keyboard: arrows, Home/End, Enter,
- * Esc, and type-to-jump (or type-to-search when searchable). The list is fixed-positioned so it
- * isn't clipped by a scrolling modal body, and flips upwards when there's no room below.
+ * Esc, and type-to-jump (or type-to-search when searchable). Positioning comes from usePopover.
  */
 export function Select({
   value, options, onChange, placeholder = 'Choose…', emptyLabel, searchable, variant = 'field', label,
@@ -41,9 +41,7 @@ export function Select({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
-  const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
+  const { triggerRef, popRef, style } = usePopover<HTMLButtonElement>(open, () => close(false), { minWidth: variant === 'filter' ? 220 : 0 });
   const searchRef = useRef<HTMLInputElement>(null);
   const typed = useRef({ text: '', at: 0 });
   const listId = useId();
@@ -52,23 +50,10 @@ export function Select({
   const selected = all.find((o) => o.value === value);
   const optionId = (i: number) => `${listId}-${i}`;
 
-  const place = () => {
-    const r = triggerRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const below = window.innerHeight - r.bottom - 8;
-    const above = r.top - 8;
-    const up = below < 220 && above > below;
-    const width = Math.max(r.width, variant === 'filter' ? 220 : 0);
-    const left = Math.min(r.left, window.innerWidth - width - 8);
-    setPos(up ? { left, width, bottom: window.innerHeight - r.top + 4, maxHeight: Math.min(320, above) }
-              : { left, width, top: r.bottom + 4, maxHeight: Math.min(320, below) });
-  };
-
   const openList = () => {
     if (disabled) return;
     setQuery('');
     setActive(Math.max(0, all.findIndex((o) => o.value === value)));
-    place();
     setOpen(true);
   };
   const close = (refocus = true) => {
@@ -81,29 +66,13 @@ export function Select({
     close();
   };
 
-  // Follow the trigger while open; close on outside clicks
-  useLayoutEffect(() => {
-    if (!open) return;
-    const onMove = () => place();
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!popRef.current?.contains(t) && !triggerRef.current?.contains(t)) close(false);
-    };
-    window.addEventListener('resize', onMove);
-    window.addEventListener('scroll', onMove, true);
-    document.addEventListener('mousedown', onDown);
-    return () => {
-      window.removeEventListener('resize', onMove);
-      window.removeEventListener('scroll', onMove, true);
-      document.removeEventListener('mousedown', onDown);
-    };
-  });
-
-  useEffect(() => { if (open && canSearch) searchRef.current?.focus(); }, [open, canSearch]);
+  // The list is placed one render after opening; wait for that before focusing or scrolling in it
+  const placed = Boolean(style);
+  useEffect(() => { if (open && placed && canSearch) searchRef.current?.focus(); }, [open, placed, canSearch]);
   useEffect(() => { setActive(0); }, [query]);
   useEffect(() => {
-    if (open) popRef.current?.querySelector(`#${CSS.escape(optionId(active))}`)?.scrollIntoView({ block: 'nearest' });
-  }, [open, active]);
+    if (open && placed) popRef.current?.querySelector(`#${CSS.escape(optionId(active))}`)?.scrollIntoView({ block: 'nearest' });
+  }, [open, placed, active]);
 
   const onKey = (e: KeyboardEvent) => {
     if (!open) {
@@ -143,9 +112,8 @@ export function Select({
         <ChevronDown size={15} className="sel-chevron" aria-hidden />
       </button>
 
-      {open && pos && (
-        <div ref={popRef} className="sel-pop"
-          style={{ left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxHeight }}>
+      {open && style && (
+        <div ref={popRef} className="sel-pop" style={style}>
           {canSearch && (
             <div className="sel-search">
               <Search size={14} aria-hidden />
