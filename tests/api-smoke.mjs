@@ -243,6 +243,29 @@ const spoof = await api(sarah, 'event_post', { method: 'POST', body: { event_id:
 const spoofLog = await api(paul, `event_history?record_id=eq.${spoof.data?.[0]?.id}&select=on_behalf_of_name`);
 ok(spoofLog.data?.[0] && spoofLog.data[0].on_behalf_of_name === null, 'on-behalf-of header is ignored for human callers');
 
+// CRM search and import (mock CRMs behind a real interface)
+const crmSearch = (who, p) => api(who, 'rpc/crm_search_hcp', { method: 'POST', body: { p } });
+const crmImport = (who, conn, ext) => api(who, 'rpc/crm_import_hcp', { method: 'POST', body: { p_crm_connection_id: conn, p_external_id: ext } });
+ok((await crmSearch(sarah, { q: 'lind' })).status >= 400, 'collaborator cannot search the CRM');
+const lindCrm = await crmSearch(paul, { q: 'lind' });
+const lindRows = lindCrm.data?.results ?? [];
+ok(lindCrm.status === 200 && lindCrm.data.connections?.length === 3 && new Set(lindRows.map((r) => r.connection_name)).size === 3,
+   'CRM search covers every connection and says where each result was found');
+ok(lindRows.filter((r) => r.display_name === 'Dr Jonas Lind').every((r) => r.hcp_id === lindHcp.data[0].id),
+   'a CRM result already in EC points at the EC record (by CRM ID or OneKey ID)');
+const karin = lindRows.find((r) => r.display_name === 'Dr Karin Lindgren');
+ok(karin && !karin.hcp_id && karin.connection_name === 'Vault CRM – Nordics', 'people only in the CRM have no EC record yet');
+const nordicOnly = await crmSearch(paul, { q: 'lind', crm_connection_id: karin?.crm_connection_id });
+ok((nordicOnly.data?.results ?? []).every((r) => r.crm_connection_id === karin?.crm_connection_id), 'CRM search can be limited to one connection');
+const imported = await crmImport(paul, karin?.crm_connection_id, karin?.external_id);
+const karinHcp = await api(paul, `hcp?id=eq.${imported.data?.id}&select=id,source,crm_external_id,onekey_id,specialty(name),primary_hco:hco(id,name,crm_external_id)`);
+ok(imported.status === 200 && karinHcp.data?.[0]?.source === 'crm' && karinHcp.data[0].specialty?.name === 'Neurology'
+   && karinHcp.data[0].primary_hco?.name === 'Uppsala University Hospital', 'importing a CRM HCP creates the HCP and their organisation');
+ok((await crmImport(paul, karin?.crm_connection_id, karin?.external_id)).data?.id === imported.data?.id, 'importing the same CRM record again reuses it');
+const lindVeeva = lindRows.find((r) => r.display_name === 'Dr Jonas Lind' && r.connection_name === 'Veeva CRM – EU');
+ok((await crmImport(paul, lindVeeva?.crm_connection_id, lindVeeva?.external_id)).data?.id === lindHcp.data[0].id,
+   'the same person from another CRM (same OneKey ID) is not duplicated');
+
 // Cancelling: a reason is required, collaborators can't, and there's no way back
 const setStatus = (who, status, reason) => api(who, 'rpc/change_event_status', { method: 'POST', body: { p_event_id: ev.id, p_status: status, p_reason: reason } });
 ok((await setStatus(paul, 'cancelled', ' ')).status >= 400, 'cancelling needs a reason');
@@ -257,6 +280,8 @@ await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.
 await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });
 await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { job_title: lisa.data[0].job_title } });
 await api(paul, `event?id=eq.${ev.id}`, { method: 'DELETE' });
+await api(paul, `hcp?id=eq.${imported.data?.id}`, { method: 'DELETE' });
+await api(paul, `hco?id=eq.${karinHcp.data?.[0]?.primary_hco?.id}`, { method: 'DELETE' });
 await api(paul, `contract?id=eq.${lindContract.data?.[0]?.id}`, { method: 'DELETE' });
 await api(paul, `event_expert?id=eq.${holm.data[0].id}`, { method: 'PATCH', body: { check_status: 'pending', check_notes: null } });
 
