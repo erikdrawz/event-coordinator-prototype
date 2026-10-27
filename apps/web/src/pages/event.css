@@ -22,6 +22,9 @@
 .stepper li.done { background: var(--color-accent-soft); color: var(--color-accent); }
 .stepper li.current { background: var(--color-accent); color: #fff; }
 .stepper.is-cancelled li { color: var(--color-text-muted); opacity: 0.6; }
+.cancel-event-text { margin: 0 0 14px; }
+.cancel-event-reason { display: block; width: 100%; margin-top: 6px; min-height: 80px; resize: vertical; padding: 8px 10px; font: inherit; color: var(--color-text); }
+.cancel-event-reason + .field-error { display: block; margin-top: 4px; }
 
 .tabs { display: flex; gap: 4px; margin-top: 14px; border-top: 1px solid var(--color-border); }
 .tab {

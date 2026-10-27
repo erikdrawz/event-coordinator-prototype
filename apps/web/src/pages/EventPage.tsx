@@ -1,15 +1,18 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, MapPin, Clock, Users } from 'lucide-react';
+import { Ban, ChevronDown, MapPin, Clock, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { daysUntil, eventDateParts } from '../lib/format';
 import { DateTile } from '../components/DateTile';
-import { useEventStatuses } from '../components/StatusPill';
+import { useEventStatuses, useStatusTransitions } from '../components/StatusPill';
+import { Menu } from '../ui/Menu';
 import { useAuth } from '../lib/auth';
 import { can } from '../lib/permissions';
 import { useEventForm } from './event/EventFormProvider';
 import { EventDetailsTab } from './event/EventDetailsTab';
 import { OverviewTab } from './event/OverviewTab';
+import { CancelEventDialog } from './event/CancelEventDialog';
 import type { EventStatus } from '../lib/types';
 import './event.css';
 
@@ -51,6 +54,8 @@ type TabId = (typeof TABS)[number]['id'];
 export function EventPage() {
   const { id } = useParams();
   const { data: statuses } = useEventStatuses();
+  const { data: transitions } = useStatusTransitions();
+  const [cancelling, setCancelling] = useState(false);
   const { me } = useAuth();
   const { openEditEvent } = useEventForm();
   const [params, setParams] = useSearchParams();
@@ -74,6 +79,10 @@ export function EventPage() {
   const current = stages.findIndex((s) => s.code === e.status);
   const when = countdown(e.starts_at);
   const cancelled = e.status === 'cancelled';
+  const canEdit = can(me, 'event', 'edit');
+  // Only moves the lifecycle allows from here; more status actions join this menu later
+  const actions = canEdit && transitions?.some((t) => t.from_status === e.status && t.to_status === 'cancelled')
+    ? [{ key: 'cancel', label: 'Cancel event', icon: <Ban size={14} />, danger: true, onSelect: () => setCancelling(true) }] : [];
 
   return (
     <main className="page">
@@ -94,8 +103,13 @@ export function EventPage() {
             </div>
           </div>
           <div className="event-actions">
-            {can(me, 'event', 'edit') && <button className="btn" onClick={() => openEditEvent(e.id)}>Edit event</button>}
-            <button className="btn btn-primary" disabled title="Status changes come next">Actions <ChevronDown size={16} /></button>
+            {canEdit && <button className="btn" onClick={() => openEditEvent(e.id)}>Edit event</button>}
+            {actions.length > 0 ? (
+              <Menu label="Event actions" width={200} items={actions}
+                trigger={(t) => <button type="button" className="btn btn-primary" {...t}>Actions <ChevronDown size={16} /></button>} />
+            ) : (
+              <button type="button" className="btn btn-primary" disabled title={cancelled ? 'No actions for a cancelled event' : 'No actions available'}>Actions <ChevronDown size={16} /></button>
+            )}
           </div>
         </div>
         {/* A cancelled event keeps the stepper, greyed out */}
@@ -106,6 +120,7 @@ export function EventPage() {
             </li>
           ))}
         </ol>
+        {cancelling && <CancelEventDialog event={e} onClose={() => setCancelling(false)} />}
         <div className="tabs" role="tablist" aria-label="Event sections">
           {TABS.map((t) => (
             <button key={t.id} id={`tab-${t.id}`} role="tab" aria-selected={tab === t.id} aria-controls="event-tabpanel"

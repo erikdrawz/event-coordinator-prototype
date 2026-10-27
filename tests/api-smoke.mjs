@@ -243,6 +243,15 @@ const spoof = await api(sarah, 'event_post', { method: 'POST', body: { event_id:
 const spoofLog = await api(paul, `event_history?record_id=eq.${spoof.data?.[0]?.id}&select=on_behalf_of_name`);
 ok(spoofLog.data?.[0] && spoofLog.data[0].on_behalf_of_name === null, 'on-behalf-of header is ignored for human callers');
 
+// Cancelling: a reason is required, collaborators can't, and there's no way back
+const setStatus = (who, status, reason) => api(who, 'rpc/change_event_status', { method: 'POST', body: { p_event_id: ev.id, p_status: status, p_reason: reason } });
+ok((await setStatus(paul, 'cancelled', ' ')).status >= 400, 'cancelling needs a reason');
+ok((await setStatus(sarah, 'cancelled', 'Not mine to cancel')).status >= 400, 'collaborator cannot cancel an event');
+const cancelledEv = await setStatus(paul, 'cancelled', 'Smoke test: merged into another meeting');
+ok(cancelledEv.status === 200 && cancelledEv.data?.status === 'cancelled' && cancelledEv.data?.cancel_reason === 'Smoke test: merged into another meeting',
+   'event owner can cancel with a reason');
+ok((await setStatus(paul, 'draft')).status >= 400, 'a cancelled event cannot be reopened');
+
 // Cleanup
 await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.id})`, { method: 'DELETE' });
 await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });

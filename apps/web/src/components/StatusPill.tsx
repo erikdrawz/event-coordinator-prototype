@@ -17,6 +17,19 @@ export function useEventStatuses() {
   });
 }
 
+/** Allowed lifecycle moves (event_status_transition), so actions only offer valid next steps. */
+export function useStatusTransitions() {
+  return useQuery({
+    queryKey: ['event_status_transition'],
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('event_status_transition').select('from_status,to_status');
+      if (error) throw error;
+      return data as { from_status: EventStatus; to_status: EventStatus }[];
+    },
+  });
+}
+
 export function StatusPill({ status, variant = 'stage' }: { status: EventStatus; variant?: 'stage' | 'home' }) {
   const { data } = useEventStatuses();
   const row = data?.find((s) => s.code === status);

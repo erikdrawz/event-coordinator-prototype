@@ -103,7 +103,7 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
     - Attendees
     - Documents
     - Event details
-  - Status changes from the Event page (Actions) via `change_event_status()`.
+  - Status changes from the Event page (Actions) via `change_event_status()`. Done: Cancel event (reason required). Next: the forward moves (submit for review, approve, …).
   - Capture of sessions, speakers, attendees and content; an "Add people" dialog with EC's HCP table, mock CRM search and file import.
 - Later phases: see `docs/BUILD-PLAN.md`.
 - Mocked integrations (CRM search, reconciliation, write-back, contracting) need a real interface with a fake implementation. Never fake data in the UI.
