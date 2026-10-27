@@ -18,32 +18,32 @@ interface Draft { key: string; event_expert_id?: string; user_id?: string; minut
 interface Props {
   eventId: string;
   timezone: string;
-  /** Edit this session; leave out to add one. */
-  session?: Session;
-  /** For a new session: the day and start time to suggest. */
-  defaults?: { date: string; time: string };
+  session: Session;
   onClose: () => void;
 }
 
 const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
-/** Add or edit an agenda session and who speaks in it. Saves through save_event_session(). */
-export function SessionModal({ eventId, timezone, session, defaults, onClose }: Props) {
+/**
+ * Edit an agenda session and who speaks in it, including location and per-speaker minutes.
+ * New sessions are added inline in the agenda (InlineSessionRow). Saves through save_event_session().
+ */
+export function SessionModal({ eventId, timezone, session, onClose }: Props) {
   const qc = useQueryClient();
   const kinds = useSessionKinds();
   const options = useSpeakerOptions(eventId);
-  const start = session ? localParts(session.starts_at, timezone) : { date: defaults?.date ?? '', time: defaults?.time ?? '09:00' };
-  const end = session ? localParts(session.ends_at, timezone) : { date: start.date, time: addMinutes(start.time, 30) };
+  const start = localParts(session.starts_at, timezone);
+  const end = localParts(session.ends_at, timezone);
 
-  const [title, setTitle] = useState(session?.title ?? '');
-  const [kind, setKind] = useState(session?.session_kind ?? '');
-  const [location, setLocation] = useState(session?.location ?? '');
+  const [title, setTitle] = useState(session.title);
+  const [kind, setKind] = useState(session.session_kind ?? '');
+  const [location, setLocation] = useState(session.location ?? '');
   const [date, setDate] = useState(start.date);
   const [from, setFrom] = useState(start.time);
   const [to, setTo] = useState(end.time);
-  const [speakers, setSpeakers] = useState<Draft[]>(session?.event_session_speaker.map((s) => ({
+  const [speakers, setSpeakers] = useState<Draft[]>(session.event_session_speaker.map((s) => ({
     key: speakerKey(s), event_expert_id: s.event_expert_id ?? undefined, user_id: s.user_id ?? undefined, minutes: s.minutes?.toString() ?? '',
-  })) ?? []);
+  })));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const length = from && to ? toMin(to) - toMin(from) : null;
@@ -65,7 +65,7 @@ export function SessionModal({ eventId, timezone, session, defaults, onClose }: 
       // A session that runs past midnight ends on the next day
       const endDate = toMin(to) < toMin(from) ? new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : date;
       const p = {
-        ...(session ? { id: session.id } : { event_id: eventId }),
+        id: session.id,
         title: title.trim(), session_kind: kind || null, location: location.trim() || null,
         starts_local: `${date}T${from}`, ends_local: `${endDate}T${to}`,
         speakers: speakers.map((s) => ({ event_expert_id: s.event_expert_id ?? null, user_id: s.user_id ?? null, minutes: s.minutes ? Number(s.minutes) : null })),
@@ -88,11 +88,11 @@ export function SessionModal({ eventId, timezone, session, defaults, onClose }: 
   };
 
   return (
-    <Modal open size="lg" title={session ? 'Edit session' : 'Add session'} onClose={onClose}
+    <Modal open size="lg" title="Edit session" onClose={onClose}
       footerNote={<><span className="field-required">*</span> Required · times are local to the event ({timezone.replace(/_/g, ' ')})</>}
       footer={<>
         <button type="button" className="btn" onClick={onClose}>Cancel</button>
-        <button type="submit" form="session-form" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : session ? 'Save session' : 'Add session'}</button>
+        <button type="submit" form="session-form" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save session'}</button>
       </>}>
       <form id="session-form" className="form" onSubmit={submit} noValidate>
         {save.error && <div className="form-error" role="alert" style={{ marginBottom: 16 }}>{save.error.message}</div>}

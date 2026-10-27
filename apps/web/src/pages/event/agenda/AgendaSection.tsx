@@ -9,8 +9,9 @@ import { Avatar } from '../../../components/Avatar';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { SessionModal } from './SessionModal';
+import { InlineSessionRow } from './InlineSessionRow';
 import {
-  localParts, minutesBetween, sessionsKey, speakerKey, speakerName, useSessions, useSpeakerOptions, type Session,
+  localParts, minutesBetween, sessionsKey, speakerKey, speakerName, useSessionKinds, useSessions, useSpeakerOptions, type Session,
 } from './agendaData';
 
 interface EventLite { id: string; timezone: string; starts_at: string | null; ends_at: string | null }
@@ -24,9 +25,12 @@ export function AgendaSection({ event }: { event: EventLite }) {
   const qc = useQueryClient();
   const sessions = useSessions(event.id);
   const options = useSpeakerOptions(event.id);
+  const kinds = useSessionKinds();
   const [extraDays, setExtraDays] = useState<string[]>([]);
   const [day, setDay] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ session?: Session; defaults?: { date: string; time: string } } | null>(null);
+  const [editing, setEditing] = useState<Session | null>(null);
+  // The inline new-session row: its day, suggested start, and a counter so each new row starts fresh
+  const [adding, setAdding] = useState<{ date: string; start: string; n: number } | null>(null);
   const [deleting, setDeleting] = useState<Session | null>(null);
   const tz = event.timezone;
   const canAdd = can(me, 'event_session', 'create');
@@ -44,7 +48,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
     sessions.data?.forEach((s) => set.add(localParts(s.starts_at, tz).date));
     return [...set].sort();
   }, [event.starts_at, event.ends_at, tz, sessions.data, extraDays]);
-  const current = day && days.includes(day) ? day : days[0] ?? null;
+  const current = day && days.includes(day) ? day : days[0] ?? (adding?.date ?? null);
   const todays = (sessions.data ?? []).filter((s) => localParts(s.starts_at, tz).date === current);
 
   const span = todays.length ? `${localParts(todays[0].starts_at, tz).time}–${localParts(todays[todays.length - 1].ends_at, tz).time}` : null;
@@ -53,11 +57,13 @@ export function AgendaSection({ event }: { event: EventLite }) {
     : `${total} session${total === 1 ? '' : 's'}${days.length > 1 ? ` over ${days.length} days` : ''}${span ? ` · ${span}` : ''}`;
 
   // New sessions start where the day's last one ends, or at the event's start time
-  const nextDefaults = () => {
+  const startAdding = () => {
     const last = todays[todays.length - 1];
-    const time = last ? localParts(last.ends_at, tz).time : event.starts_at && current === localParts(event.starts_at, tz).date ? localParts(event.starts_at, tz).time : '09:00';
-    return { date: current ?? (event.starts_at ? localParts(event.starts_at, tz).date : ''), time };
+    const date = current ?? (event.starts_at ? localParts(event.starts_at, tz).date : new Date().toISOString().slice(0, 10));
+    const start = last ? localParts(last.ends_at, tz).time : event.starts_at && date === localParts(event.starts_at, tz).date ? localParts(event.starts_at, tz).time : '09:00';
+    setAdding((a) => ({ date, start, n: (a?.n ?? 0) + 1 }));
   };
+  const showAdding = adding && adding.date === current;
 
   const addSpeaker = useMutation({
     mutationFn: async ({ s, key }: { s: Session; key: string }) => {
@@ -94,23 +100,23 @@ export function AgendaSection({ event }: { event: EventLite }) {
           {(days.length > 1 || canAdd) && days.length > 0 && (
             <div className="segmented agenda-days" role="tablist" aria-label="Agenda day">
               {days.map((d, i) => (
-                <button key={d} role="tab" aria-selected={d === current} aria-pressed={d === current} onClick={() => setDay(d)}>
+                <button key={d} role="tab" aria-selected={d === current} aria-pressed={d === current} onClick={() => { setDay(d); setAdding(null); }}>
                   Day {i + 1}<span className="agenda-day-date">{dayLabel(d)}</span>
                 </button>
               ))}
               {canAdd && <button className="agenda-add-day" aria-label="Add a day" title="Add a day" onClick={addDay}><Plus size={13} strokeWidth={2.6} /></button>}
             </div>
           )}
-          {canAdd && <button className="btn btn-outline btn-sm" onClick={() => setEditing({ defaults: nextDefaults() })}><Plus size={14} strokeWidth={2.6} />Add session</button>}
+          {canAdd && <button className="btn btn-outline btn-sm" onClick={startAdding} disabled={Boolean(showAdding)}><Plus size={14} strokeWidth={2.6} />Add session</button>}
         </div>
       </div>
 
       {(addSpeaker.error || sessions.error) && <div className="form-error" role="alert">{(addSpeaker.error ?? sessions.error)!.message}</div>}
 
-      {sessions.isLoading ? <div className="ov-empty text-muted">Loading…</div> : todays.length === 0 ? (
+      {sessions.isLoading ? <div className="ov-empty text-muted">Loading…</div> : todays.length === 0 && !showAdding ? (
         <div className="ov-empty">
           <span><strong>Nothing scheduled{days.length > 1 && current ? ` on ${dayLabel(current)}` : ''}.</strong> Add the first session to build the day's timeline.</span>
-          {canAdd && <button className="btn btn-primary btn-sm" onClick={() => setEditing({ defaults: nextDefaults() })}><Plus size={14} strokeWidth={2.6} />Add session</button>}
+          {canAdd && <button className="btn btn-primary btn-sm" onClick={startAdding}><Plus size={14} strokeWidth={2.6} />Add session</button>}
         </div>
       ) : (
         <div className="table-scroll">
@@ -128,7 +134,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
                     <td className="agenda-end">{localParts(s.ends_at, tz).time}</td>
                     <td className="num">{minutesBetween(s.starts_at, s.ends_at)}</td>
                     <td>
-                      {canEdit ? <button className="agenda-title as-link" onClick={() => setEditing({ session: s })}>{s.title}</button>
+                      {canEdit ? <button className="agenda-title as-link" onClick={() => setEditing(s)}>{s.title}</button>
                         : <span className="agenda-title">{s.title}</span>}
                       <div className="dt-sub">{[s.session_kind, s.location].filter(Boolean).join(' · ')}</div>
                     </td>
@@ -155,7 +161,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
                       {(canEdit || canDelete) && (
                         <Menu label={`Actions for ${s.title}`} width={170}
                           items={[
-                            ...(canEdit ? [{ key: 'edit', label: 'Edit session', icon: <Pencil size={14} />, onSelect: () => setEditing({ session: s }) }] : []),
+                            ...(canEdit ? [{ key: 'edit', label: 'Edit session', icon: <Pencil size={14} />, onSelect: () => setEditing(s) }] : []),
                             ...(canDelete ? [{ key: 'delete', label: 'Delete', icon: <Trash2 size={14} />, danger: true, onSelect: () => setDeleting(s) }] : []),
                           ]}
                           trigger={(t) => <button className="icon-btn" aria-label={`Actions for ${s.title}`} {...t}><MoreVertical size={16} /></button>} />
@@ -164,12 +170,18 @@ export function AgendaSection({ event }: { event: EventLite }) {
                   </tr>
                 );
               })}
+              {showAdding && (
+                <InlineSessionRow key={adding.n} eventId={event.id} date={adding.date} start={adding.start}
+                  kinds={kinds.data ?? []} speakers={options.data ?? []}
+                  onSaved={(next) => setAdding((a) => a && { ...a, start: next, n: a.n + 1 })}
+                  onCancel={() => setAdding(null)} />
+              )}
             </tbody>
           </table>
         </div>
       )}
 
-      {editing && <SessionModal eventId={event.id} timezone={tz} session={editing.session} defaults={editing.defaults} onClose={() => setEditing(null)} />}
+      {editing && <SessionModal eventId={event.id} timezone={tz} session={editing} onClose={() => setEditing(null)} />}
       {deleting && (
         <ConfirmDialog title="Delete session?" confirmLabel="Delete session" pending={remove.isPending} error={remove.error?.message}
           onConfirm={() => remove.mutate(deleting)} onCancel={() => { remove.reset(); setDeleting(null); }}>

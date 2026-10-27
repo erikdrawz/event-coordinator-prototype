@@ -79,6 +79,23 @@
 }
 .speaker-add:hover, .speaker-add[aria-expanded='true'] { border-color: var(--color-accent); background: var(--color-accent-softer); }
 .agenda-menu { width: 40px; text-align: right; }
+.agenda-table tbody tr:has(+ tr.agenda-inline) td { border-bottom: 1px solid var(--color-border); }
+
+/* Inline new-session row */
+.agenda-table tbody tr.agenda-inline td { background: var(--color-accent-softer); border-bottom: 0; vertical-align: top; padding-top: 8px; }
+.agenda-table tbody tr.agenda-inline:hover td { background: var(--color-accent-softer); }
+.agenda-inline .ti-icon { display: none; }
+.agenda-inline .input.ti-input { width: 64px; height: 32px; padding: 0 6px; font-size: var(--text-md); text-align: center; }
+.agenda-inline td.num { padding-top: 15px; color: var(--color-text-muted); }
+.agenda-inline .agenda-end .ti-input { color: var(--color-text); }
+.agenda-inline .input[aria-invalid='true'] { border-color: var(--tone-red-fg); }
+.agenda-inline-main { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 6px; }
+.agenda-inline-main .input { height: 32px; padding: 0 8px; font-size: var(--text-md); }
+.agenda-inline .agenda-speakers { padding-top: 4px; }
+.agenda-inline-actions { white-space: nowrap; width: 72px; }
+.icon-btn.ok { color: var(--color-accent); }
+.agenda-table tbody tr.agenda-inline-note td { background: var(--color-accent-softer); padding: 2px 8px 8px; }
+.agenda-table tbody tr.agenda-inline-note:hover td { background: var(--color-accent-softer); }
 
 /* Session modal */
 .session-times { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
