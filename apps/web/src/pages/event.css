@@ -109,21 +109,29 @@
 .elig-mark:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .speakers-table td { white-space: nowrap; }
 .speakers-table .num { width: auto; }
-.service-h { color: var(--color-text-secondary); cursor: help; }
 .speakers-table td.total { font-weight: 700; }
 .speakers-table tfoot td { padding: 12px 8px 4px; border-top: 1px solid var(--color-border); font-weight: 600; color: var(--color-text-secondary); }
 .speakers-table tfoot td.total { font-size: var(--text-lg); color: var(--color-text); }
 .speakers-note { margin-top: 8px; }
 .contract-ref { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--color-accent); }
+/* Editable grid values sit in a visible box; read-only ones (service hours) are plain text */
 .hours-input {
-  width: 58px; height: 30px; padding: 0 6px; text-align: right; font: inherit; font-variant-numeric: tabular-nums;
-  border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--color-text);
+  width: 52px; height: 30px; padding: 0 6px; text-align: right; font: inherit; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text);
 }
-.hours-input:hover { border-color: var(--color-border-strong); background: var(--color-surface); }
-.hours-input:focus { outline: none; border-color: var(--color-accent); background: var(--color-surface); box-shadow: 0 0 0 2px var(--color-accent-soft); }
-.agenda-inline .hours-input { border-color: var(--color-border-strong); background: var(--color-surface); }
+.hours-input:hover { border-color: var(--color-text-faint); }
+.hours-input:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent-soft); }
+.money-input {
+  display: inline-flex; align-items: center; height: 30px; padding-left: 7px; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-muted);
+}
+.money-input:hover { border-color: var(--color-text-faint); }
+.money-input:focus-within { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent-soft); }
+.money-input .hours-input, .money-input .hours-input:focus { width: 38px; height: 28px; padding-left: 2px; border: 0; box-shadow: none; background: transparent; }
+.money-input:has(.hours-input[aria-invalid='true']) { border-color: var(--tone-red-fg); }
+.speakers-table .service-h { display: inline-block; padding-right: 7px; color: var(--color-text-secondary); cursor: help; }
 /* A select that looks like plain text in a grid until hovered */
-.cell-select .sel-trigger { height: 30px; min-width: 120px; padding: 0 6px; border-color: transparent; background: transparent; }
+.cell-select .sel-trigger { height: 30px; min-width: 104px; padding: 0 6px; border-color: transparent; background: transparent; }
 .cell-select .sel-trigger:hover, .cell-select .sel-trigger[aria-expanded='true'] { border-color: var(--color-border-strong); background: var(--color-surface); }
 .cell-select .sel-chevron { opacity: 0; }
 .cell-select .sel-trigger:hover .sel-chevron, .cell-select .sel-trigger:focus-visible .sel-chevron { opacity: 1; }

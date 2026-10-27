@@ -64,8 +64,21 @@ export const money = (n: number, currency = 'EUR') =>
 /** 1.5 → "1.5", 1.17 → "1.17", 2 → "2.0" */
 export const hours = (n: number) => n.toFixed(Math.round(n * 100) % 10 ? 2 : 1);
 
-/** The temporary flat rate shown before a speaker is saved; the database's app.expert_rate() is the source. */
-export const TEMP_RATE = 100;
+export interface RatePolicy { mode: 'negotiable' | 'fixed'; default: number; min: number; max: number; currency: string }
+
+/** How speaker rates may be set (expert_rate_policy): today EUR 100, negotiable 80–120; later per HCP from FMV. */
+export function useRatePolicy() {
+  return useQuery({
+    queryKey: ['expert-rate-policy'], staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('expert_rate_policy');
+      if (error) throw error;
+      return data as RatePolicy;
+    },
+  });
+}
+export const rateRange = (p: RatePolicy) => (p.mode === 'fixed' ? `Fixed at ${money(p.default, p.currency)}` : `Negotiable: ${money(p.min, p.currency)}–${money(p.max, p.currency)}`);
+export const currencySymbol = (c = 'EUR') => new Intl.NumberFormat('en-GB', { style: 'currency', currency: c }).formatToParts(0).find((x) => x.type === 'currency')?.value ?? c;
 
 /** Mirrors app.expert_keeps_without_sessions(): a sent or executed contract keeps a speaker without sessions. */
 export const keepsWithoutSessions = (x: Pick<Expert, 'event_expert_contract'>) =>
