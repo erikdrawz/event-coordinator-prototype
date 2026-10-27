@@ -286,10 +286,10 @@ select app.sid('contract:' || k), app.sid('tenant:alera'),
        null, date_trunc('year', current_date)::date, (date_trunc('year', current_date) + interval '1 year - 1 day')::date,
        case when tpl is not null then app.sid('content:' || tpl) end, case when doc is not null then app.sid('content:' || doc) end, clm
   from (values
-    ('csa-muir',      'CSA', '114', 'service_agreement', 'executed', 'muir',      null,           'tpl-csa', null,        'ICX-AG-20114'),
-    ('csa-griffiths', 'CSA', '109', 'service_agreement', 'executed', 'griffiths', null,           'tpl-csa', null,        'ICX-AG-20109'),
-    ('csa-eriksson',  'CSA', '087', 'service_agreement', 'executed', 'eriksson',  null,           'tpl-csa', null,        'ICX-AG-20087'),
-    ('csa-vaaranen',  'CSA', '131', 'service_agreement', 'sent',     'vaaranen',  null,           'tpl-csa', null,        'ICX-AG-20131'),
+    ('csa-muir',      'CSA', '114', 'service_agreement', 'draft',    'muir',      null,           'tpl-csa', null,        'ICX-AG-20114'),
+    ('csa-griffiths', 'CSA', '109', 'service_agreement', 'draft',    'griffiths', null,           'tpl-csa', null,        'ICX-AG-20109'),
+    ('csa-eriksson',  'CSA', '087', 'service_agreement', 'draft',    'eriksson',  null,           'tpl-csa', null,        'ICX-AG-20087'),
+    ('csa-vaaranen',  'CSA', '131', 'service_agreement', 'draft',    'vaaranen',  null,           'tpl-csa', null,        'ICX-AG-20131'),
     ('venue-sma',     'VEN', '031', 'venue',             'sent',     null,        'marriott-cph', null,      'sma-venue', null)
   ) as t(k, prefix, num, ty, st, hcp, hco, tpl, doc, clm);
 
@@ -299,7 +299,7 @@ insert into public.contract (id, tenant_id, contract_number, contract_type, stat
 select app.sid('contract:wo-' || k), app.sid('tenant:alera'), 'WO-' || extract(year from current_date) || '-' || num,
        'work_order', st, app.sid('hcp:' || hcp), app.sid('contract:csa-' || hcp), current_date + 5, current_date + 5,
        app.sid('content:tpl-wo'), clm
-  from (values ('muir','0451','draft','muir',null), ('griffiths','0448','sent','griffiths','ICX-WO-30448')) t(k, num, st, hcp, clm);
+  from (values ('muir','0451','draft','muir',null), ('griffiths','0448','draft','griffiths','ICX-WO-30448')) t(k, num, st, hcp, clm);
 
 insert into public.event_expert_contract (event_expert_id, contract_id, tenant_id, event_id) values
   (app.sid('expert:sma-board:muir'),      app.sid('contract:csa-muir'),      app.sid('tenant:alera'), app.sid('event:sma-board')),

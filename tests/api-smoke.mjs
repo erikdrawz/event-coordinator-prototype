@@ -167,9 +167,27 @@ ok(Number(lind.service_hours) === 1, 'lengthening the session updates service ho
 await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { service_hours: 99, prep_hours: 1.5 } });
 lind = (await expertOf()).data?.[0];
 ok(Number(lind.service_hours) === 1 && Number(lind.total_payable) === 250, 'service hours cannot be typed in; total = (prep + service + travel) × rate');
+await saveSession(paul, { id: sess.data.id, speakers: [{ event_expert_id: lind.id }] });
+ok((await expertOf()).data?.length === 1, 're-saving a session keeps its speakers');
+await saveSession(paul, { id: sess.data.id, speakers: [] });
+ok((await expertOf()).data?.length === 0, 'a speaker taken off their last session leaves the speakers');
+await saveSession(paul, { id: sess.data.id, speakers: [{ hcp_id: lindHcp.data[0].id }] });
+lind = (await expertOf()).data?.[0];
 await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'DELETE' });
 const leftOnSession = await api(paul, `event_session_speaker?session_id=eq.${sess.data.id}&select=id`);
 ok(leftOnSession.data?.length === 0, 'removing a speaker removes them from the sessions');
+// …unless a contract is out for signature or signed
+await saveSession(paul, { id: sess.data.id, speakers: [{ hcp_id: lindHcp.data[0].id }] });
+lind = (await expertOf()).data?.[0];
+const lindContract = await api(paul, 'contract', { method: 'POST', body: { contract_number: `SMOKE-${Date.now()}`, contract_type: 'work_order', status: 'sent', counterparty_hcp_id: lindHcp.data[0].id } });
+await api(paul, 'event_expert_contract', { method: 'POST', body: { event_expert_id: lind.id, contract_id: lindContract.data?.[0]?.id, event_id: ev.id } });
+await saveSession(paul, { id: sess.data.id, speakers: [] });
+ok((await expertOf()).data?.length === 1, 'a speaker with a sent contract stays without sessions');
+// Deleting a session takes its only speakers with it
+const evaHcp = await api(paul, 'hcp?last_name=eq.Sørensen&select=id');
+const evaSess = await saveSession(paul, { event_id: ev.id, title: 'Smoke panel', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30', speakers: [{ hcp_id: evaHcp.data[0].id }] });
+await api(paul, `event_session?id=eq.${evaSess.data.id}`, { method: 'DELETE' });
+ok((await api(paul, `event_expert?event_id=eq.${ev.id}&hcp_id=eq.${evaHcp.data[0].id}&select=id`)).data?.length === 0, 'deleting a session removes speakers who had no other session');
 ok((await saveSession(sarah, { event_id: ev.id, title: 'Not allowed', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30' })).status >= 400,
    'collaborator cannot add sessions');
 
@@ -200,6 +218,7 @@ await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.
 await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });
 await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { job_title: lisa.data[0].job_title } });
 await api(paul, `event?id=eq.${ev.id}`, { method: 'DELETE' });
+await api(paul, `contract?id=eq.${lindContract.data?.[0]?.id}`, { method: 'DELETE' });
 await api(paul, `event_expert?id=eq.${holm.data[0].id}`, { method: 'PATCH', body: { check_status: 'pending', check_notes: null } });
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');

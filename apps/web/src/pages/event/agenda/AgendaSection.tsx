@@ -13,6 +13,7 @@ import { InlineSessionRow } from './InlineSessionRow';
 import {
   eventKey, localParts, minutesBetween, speakerKey, speakerPayload, speakerName, useSessionKinds, useSessions, useSpeakerOptions, type Session,
 } from './agendaData';
+import { keepsWithoutSessions, useExperts } from '../speakers/speakersData';
 
 interface EventLite { id: string; timezone: string; starts_at: string | null; ends_at: string | null }
 
@@ -26,6 +27,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
   const sessions = useSessions(event.id);
   const options = useSpeakerOptions(event.id);
   const kinds = useSessionKinds();
+  const experts = useExperts(event.id);
   const [extraDays, setExtraDays] = useState<string[]>([]);
   const [day, setDay] = useState<string | null>(null);
   const [editing, setEditing] = useState<Session | null>(null);
@@ -82,6 +84,10 @@ export function AgendaSection({ event }: { event: EventLite }) {
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: eventKey(event.id) }); setDeleting(null); },
   });
+
+  // Speakers whose only session this is leave the event with it (the database does the same at commit)
+  const leaving = deleting ? (experts.data ?? []).filter((x) => x.event_session_speaker.length > 0
+    && x.event_session_speaker.every((ss) => deleting.event_session_speaker.some((d) => d.id === ss.id)) && !keepsWithoutSessions(x)) : [];
 
   const addDay = () => {
     const d = nextDay(days[days.length - 1] ?? (event.starts_at ? localParts(event.starts_at, tz).date : new Date().toISOString().slice(0, 10)));
@@ -185,7 +191,8 @@ export function AgendaSection({ event }: { event: EventLite }) {
       {deleting && (
         <ConfirmDialog title="Delete session?" confirmLabel="Delete session" pending={remove.isPending} error={remove.error?.message}
           onConfirm={() => remove.mutate(deleting)} onCancel={() => { remove.reset(); setDeleting(null); }}>
-          “{deleting.title}” and its speaker assignments will be removed from the agenda. Speakers stay on the event.
+          “{deleting.title}” will be removed from the agenda.
+          {leaving.length > 0 && ` ${leaving.map((x) => x.hcp?.display_name).join(' and ')} ${leaving.length === 1 ? 'has' : 'have'} no other sessions and will also be removed from Speakers.`}
         </ConfirmDialog>
       )}
     </section>

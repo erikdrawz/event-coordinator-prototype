@@ -66,3 +66,7 @@ export const hours = (n: number) => n.toFixed(Math.round(n * 100) % 10 ? 2 : 1);
 
 /** The temporary flat rate shown before a speaker is saved; the database's app.expert_rate() is the source. */
 export const TEMP_RATE = 100;
+
+/** Mirrors app.expert_keeps_without_sessions(): a sent or executed contract keeps a speaker without sessions. */
+export const keepsWithoutSessions = (x: Pick<Expert, 'event_expert_contract'>) =>
+  x.event_expert_contract.some((c) => c.contract?.status === 'sent' || c.contract?.status === 'executed');
