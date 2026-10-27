@@ -27,21 +27,20 @@ export const sessionsKey = (eventId: string) => ['event', eventId, 'sessions'];
 /** Agenda changes can add speakers and change their hours, so they refresh everything under the event. */
 export const eventKey = (eventId: string) => ['event', eventId];
 
+export async function fetchSessions(eventId: string) {
+  const { data, error } = await supabase.from('event_session')
+    .select('id,title,session_kind,location,starts_at,ends_at,event_session_speaker(id,minutes,sort,event_expert_id,user_id,' +
+            'expert:event_expert(hcp(display_name)),user:app_user!event_session_speaker_user_id_fkey(display_name,initials,avatar_color))')
+    .eq('event_id', eventId)
+    .order('starts_at').order('sort');
+  if (error) throw error;
+  const rows = data as unknown as Session[];
+  rows.forEach((s) => s.event_session_speaker.sort((a, b) => a.sort - b.sort));
+  return rows;
+}
+
 export function useSessions(eventId: string) {
-  return useQuery({
-    queryKey: sessionsKey(eventId),
-    queryFn: async () => {
-      const { data, error } = await supabase.from('event_session')
-        .select('id,title,session_kind,location,starts_at,ends_at,event_session_speaker(id,minutes,sort,event_expert_id,user_id,' +
-                'expert:event_expert(hcp(display_name)),user:app_user!event_session_speaker_user_id_fkey(display_name,initials,avatar_color))')
-        .eq('event_id', eventId)
-        .order('starts_at').order('sort');
-      if (error) throw error;
-      const rows = data as unknown as Session[];
-      rows.forEach((s) => s.event_session_speaker.sort((a, b) => a.sort - b.sort));
-      return rows;
-    },
-  });
+  return useQuery({ queryKey: sessionsKey(eventId), queryFn: () => fetchSessions(eventId) });
 }
 
 export function useSpeakerOptions(eventId: string) {
@@ -54,7 +53,6 @@ export function useSpeakerOptions(eventId: string) {
         supabase.from('hcp').select('id,display_name,city,specialty(name)').eq('status', 'active').order('last_name'),
       ]);
       for (const r of [experts, team, hcps]) if (r.error) throw r.error;
-      const initials = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
       const ex = (experts.data as unknown as { id: string; hcp_id: string; role: string; hcp: { display_name: string; city: string | null } | null }[])
         .map((e): SpeakerOption => ({ key: `x:${e.id}`, event_expert_id: e.id, hcp_id: e.hcp_id, name: e.hcp?.display_name ?? 'Unknown HCP', group: 'speaker',
           sub: [e.role[0].toUpperCase() + e.role.slice(1), e.hcp?.city].filter(Boolean).join(' · '), initials: initials(e.hcp?.display_name ?? '?'), color: null }));
@@ -91,6 +89,8 @@ export function useSessionKinds() {
 export const speakerKey = (s: { event_expert_id: string | null; user_id: string | null }) =>
   s.event_expert_id ? `x:${s.event_expert_id}` : `u:${s.user_id}`;
 export const speakerName = (s: SessionSpeaker) => s.expert?.hcp?.display_name ?? s.user?.display_name ?? 'Unknown';
+/** "Dr Richard Griffiths" → "RG" */
+export const initials = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
 /** Session times as the event's wall clock. */
 export function localParts(iso: string, tz: string) {
@@ -104,4 +104,49 @@ export function addMinutes(time: string, mins: number) {
   const [h, m] = time.split(':').map(Number);
   const t = (((h * 60 + m + mins) % 1440) + 1440) % 1440;
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
+const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+/** Minutes from "HH:mm" to "HH:mm"; an end before the start runs past midnight. */
+export const sessionLength = (from: string, to: string) => (from && to ? (toMin(to) - toMin(from) + 1440) % 1440 : null);
+
+/** A session being edited in the agenda editor. Times are the event's wall clock. */
+export interface DraftSpeaker {
+  key: string; event_expert_id?: string; hcp_id?: string; user_id?: string;
+  name: string; initials: string | null; color: string | null;
+  /** '' = the whole session */
+  minutes: string;
+}
+export interface DraftSession {
+  key: string; id?: string; date: string; from: string; to: string;
+  title: string; kind: string; location: string; speakers: DraftSpeaker[];
+}
+
+export function toDraft(s: Session, tz: string): DraftSession {
+  const start = localParts(s.starts_at, tz);
+  return {
+    key: s.id, id: s.id, date: start.date, from: start.time, to: localParts(s.ends_at, tz).time,
+    title: s.title, kind: s.session_kind ?? '', location: s.location ?? '',
+    speakers: s.event_session_speaker.map((sp) => ({
+      key: speakerKey(sp), event_expert_id: sp.event_expert_id ?? undefined, user_id: sp.user_id ?? undefined,
+      name: speakerName(sp), initials: sp.user?.initials ?? initials(speakerName(sp)), color: sp.user?.avatar_color ?? null,
+      minutes: sp.minutes?.toString() ?? '',
+    })),
+  };
+}
+
+export const draftSpeaker = (o: SpeakerOption): DraftSpeaker => ({
+  key: o.key, event_expert_id: o.event_expert_id, hcp_id: o.event_expert_id ? undefined : o.hcp_id, user_id: o.user_id,
+  name: o.name, initials: o.initials, color: o.color, minutes: '',
+});
+
+/** One session as save_agenda expects it. */
+export function draftPayload(d: DraftSession) {
+  const endDate = d.to < d.from ? new Date(Date.parse(`${d.date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : d.date;
+  return {
+    ...(d.id ? { id: d.id } : {}),
+    title: d.title.trim(), session_kind: d.kind || null, location: d.location.trim() || null,
+    starts_local: `${d.date}T${d.from}`, ends_local: `${endDate}T${d.to}`,
+    speakers: d.speakers.map((sp) => speakerPayload(sp, sp.minutes ? Number(sp.minutes) : null)),
+  };
 }

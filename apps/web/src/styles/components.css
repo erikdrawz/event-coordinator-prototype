@@ -93,6 +93,7 @@
   border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted);
 }
 .icon-btn:hover, .icon-btn[aria-expanded='true'] { background: var(--color-accent-soft); color: var(--color-accent); }
+.icon-btn-danger:hover { background: var(--tone-red-bg); color: var(--tone-red-fg); }
 .confirm-body { font-size: var(--text-md); color: var(--color-text-secondary); line-height: 1.5; }
 .btn-lg { padding: 11px 16px; font-size: var(--text-lg); }
 .btn-block { width: 100%; }
