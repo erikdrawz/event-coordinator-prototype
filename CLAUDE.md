@@ -84,7 +84,7 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
 ### UI
 - Take every colour, radius and type size from `apps/web/src/styles/tokens.css`. Never hard-code a hex in components.
 - The design system lives in `apps/web/src/ui/` (see its `README.md`). Lists use `DataTable` + `useTableSort` with a `Toolbar` above them, and filters live in the URL. When a pattern appears on a second screen, move it into `ui/`.
-- Shared classes are in `styles/components.css`: `.card`, `.btn(-primary|-outline|-ghost)`, `.pill-<tone>`, `.date-tile`, `.segmented`, `.link`, `.topnav`, `.menu`.
+- Shared classes are in `styles/components.css`: `.card`, `.btn(-primary|-outline|-ghost)`, `.pill-<tone>`, `.date-tile`, `.segmented`, `.link`, `.topnav`, `.menu`, and `data-tip="…"` for a hover/focus tooltip.
 - Match the 4a/Event-page look:
   - cool grey ground `#eef1f5`, white cards with 1px `#dfe4eb` borders and 10px radius
   - blue accent `#1d6fd6`, pill nav, Lucide icons

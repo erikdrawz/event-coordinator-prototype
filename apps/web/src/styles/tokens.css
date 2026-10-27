@@ -41,6 +41,8 @@
   --tone-red-bg: #fee2e2;    --tone-red-fg: #991b1b;
   --tone-blue-bg: #dbeafe;   --tone-blue-fg: #1e40af;
   --tone-purple-bg: #ede9fe; --tone-purple-fg: #5b21b6;
+  /* Solid status marks (small indicators) */
+  --mark-green: #22a35a;     --mark-yellow: #f5b82e;
   --tone-grey-bg: #e5e7eb;   --tone-grey-fg: #374151;
 
   /* Type */

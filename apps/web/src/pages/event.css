@@ -98,7 +98,15 @@
 .agenda-table tbody tr.agenda-inline-note:hover td { background: var(--color-accent-softer); }
 
 /* Speakers (honorarium grid) */
-.speakers-table { min-width: 980px; }
+.speakers-table { min-width: 900px; }
+.speaker-name { display: inline-flex; align-items: center; gap: 6px; }
+.elig-mark {
+  display: inline-grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 50%;
+  font-size: 11px; font-weight: 800; line-height: 1; cursor: default;
+}
+.elig-mark.ok { background: var(--mark-green); color: #fff; }
+.elig-mark.warn { background: var(--mark-yellow); color: var(--tone-yellow-fg); }
+.elig-mark:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .speakers-table td { white-space: nowrap; }
 .speakers-table .num { width: auto; }
 .service-h { color: var(--color-text-secondary); cursor: help; }

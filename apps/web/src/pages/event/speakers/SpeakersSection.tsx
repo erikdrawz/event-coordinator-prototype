@@ -13,7 +13,17 @@ import { eventKey, initials, type SpeakerOption } from '../agenda/agendaData';
 import { PersonPicker } from '../people/PersonPicker';
 import { ROLES, TEMP_RATE, hcpSub, hours, money, roleLabel, useExperts, useHcps, type Expert, type ExpertRole } from './speakersData';
 
-const ELIG_TONE = { eligible: 'green', ineligible: 'grey', pending: 'yellow' } as const;
+const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility in review' } as const;
+
+/** Eligibility as a small mark by the name: green check when eligible, yellow "!" otherwise; the value shows on hover or focus. */
+function EligibilityMark({ value }: { value: Expert['eligibility'] }) {
+  const ok = value === 'eligible';
+  return (
+    <span className={`elig-mark ${ok ? 'ok' : 'warn'}`} role="img" tabIndex={0} aria-label={ELIGIBILITY[value]} data-tip={ELIGIBILITY[value]}>
+      {ok ? <Check size={10} strokeWidth={3.5} aria-hidden /> : '!'}
+    </span>
+  );
+}
 const CHECK_TONE = { passed: 'green', pending: 'yellow', failed: 'red' } as const;
 const initialsOf = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'That HCP is already a speaker on this event.' : m);
@@ -76,7 +86,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
           <table className="agenda-table speakers-table">
             <thead>
               <tr>
-                <th>HCP</th><th>Type</th><th>Status</th><th>Check</th><th>Contract</th>
+                <th>HCP</th><th>Role</th><th>Check</th><th>Contract</th>
                 <th className="num">Rate / h</th><th className="num">Prep h</th><th className="num">Service h</th><th className="num">Travel h</th>
                 <th className="num">Total</th><th aria-label="Actions" />
               </tr>
@@ -90,18 +100,17 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                     <td>
                       <span className="dt-person">
                         <Avatar size={30} initials={initialsOf(name)} color={avatarColorFor(name)} />
-                        <span><span className="agenda-title">{name}</span><div className="dt-sub">{hcpSub(x.hcp)}</div></span>
+                        <span><span className="speaker-name"><span className="agenda-title">{name}</span><EligibilityMark value={x.eligibility} /></span><div className="dt-sub">{hcpSub(x.hcp)}</div></span>
                       </span>
                     </td>
                     <td>
                       {canEdit ? (
                         <div className="cell-select">
-                          <Select aria-label={`Type for ${name}`} value={x.role} onChange={(v) => update.mutate({ id: x.id, patch: { role: v as ExpertRole } })}
+                          <Select aria-label={`Role for ${name}`} value={x.role} onChange={(v) => update.mutate({ id: x.id, patch: { role: v as ExpertRole } })}
                             options={ROLES.map((r) => ({ value: r, label: roleLabel(r) }))} />
                         </div>
                       ) : roleLabel(x.role)}
                     </td>
-                    <td><span className={`pill pill-${ELIG_TONE[x.eligibility]}`}>{roleLabel(x.eligibility)}</span></td>
                     <td><span className={`pill pill-${CHECK_TONE[x.check_status]}`} title={x.check_notes ?? undefined}>{roleLabel(x.check_status)}</span></td>
                     <td>{contract ? <span className="contract-ref"><FileText size={13} aria-hidden />{contract.contract_number}</span> : <span className="text-muted">—</span>}</td>
                     <td className="num" title="Temporary flat rate until FMV rates are in place">{x.hourly_rate != null ? money(x.hourly_rate, x.currency ?? 'EUR') : '—'}</td>
@@ -130,7 +139,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
             </tbody>
             {list.length > 0 && (
               <tfoot>
-                <tr><td colSpan={9}>Total payable for this event</td><td className="num total">{money(grand, currency)}</td><td /></tr>
+                <tr><td colSpan={8}>Total payable for this event</td><td className="num total">{money(grand, currency)}</td><td /></tr>
               </tfoot>
             )}
           </table>
@@ -214,10 +223,10 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
                   <span className={who ? 'sel-value' : 'sel-value placeholder'}>{who?.name ?? 'Choose an HCP…'}</span><ChevronDown size={15} className="sel-chevron" aria-hidden />
                 </button>
               )} />
-            <Select aria-label="Type" value={role} onChange={(v) => setRole(v as ExpertRole)} options={ROLES.map((r) => ({ value: r, label: roleLabel(r) }))} />
+            <Select aria-label="Role" value={role} onChange={(v) => setRole(v as ExpertRole)} options={ROLES.map((r) => ({ value: r, label: roleLabel(r) }))} />
           </div>
         </td>
-        <td colSpan={3}><span className="dt-sub">Checks and contracts follow once added</span></td>
+        <td colSpan={2}><span className="dt-sub">Checks and contracts follow once added</span></td>
         <td className="num">{money(TEMP_RATE)}</td>
         <td className="num"><input className="hours-input" inputMode="decimal" aria-label="Prep hours" placeholder="0.0" value={prep} onChange={(e) => setPrep(e.target.value)} /></td>
         <td className="num service-h" title="Comes from the agenda">0.0</td>
@@ -229,7 +238,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
         </td>
       </tr>
       <tr className="agenda-inline-note">
-        <td colSpan={11}>{error ? <span className="field-error" role="alert">{error}</span>
+        <td colSpan={10}>{error ? <span className="field-error" role="alert">{error}</span>
           : <span className="field-hint">Search Event Coordinator, then the CRMs if they're not there · Enter adds and starts the next · Esc cancels</span>}</td>
       </tr>
     </>
