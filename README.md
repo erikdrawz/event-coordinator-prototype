@@ -42,6 +42,7 @@ All demo logins use the password `EC-demo-2026!`. Change it before showing the e
 | Sarah Mitchell | sarah.mitchell@alera.example | Collaborator (medical lead) |
 | Michael Chen | michael.chen@alera.example | Collaborator |
 | Alex Morgan | alex.morgan@alera.example | System Admin |
+| Maria Castillo | maria.castillo@alera.example | Business Admin |
 | Compliance Agent | compliance-agent@agents.alera.example | Agent (owned by Paul) |
 | Invoice Agent | invoice-agent@agents.alera.example | Agent (owned by Lisa) |
 

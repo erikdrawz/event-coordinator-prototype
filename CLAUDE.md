@@ -27,7 +27,7 @@ Owner: Erik (co-founder, ex-Veeva CRM/Events architect). Read these before makin
 5. **Supabase = Postgres plus conveniences.**
    - No logic in dashboard-only features.
    - Everything is a SQL migration in the repo.
-   - Auth is touched only by `app.current_user_id()` (DB) and `apps/web/src/lib/auth.tsx` (UI).
+   - Auth is touched only by `app.current_user_id()` (DB), the auth adapter migration (`create_user_login`, `set_user_password`) and `apps/web/src/lib/auth.tsx` (UI).
 6. **Single tenant seeded, tenant-ready everywhere.** Every business table has `tenant_id`; `app.stamp_row()` fills it.
 
 ## Stack & layout
@@ -54,7 +54,7 @@ SUPABASE_URL=… SUPABASE_ANON_KEY=… npm run test:api    # smoke test any envi
 
 Hosted dev environment: Supabase project `jwydbztvfqmosjtkwkmx`. Its public URL and publishable key are in `apps/web/.env.production`, which is safe to commit.
 
-Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@alera.example` (Event Coordinator).
+Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@alera.example` (Event Coordinator). Business Admin: `maria.castillo@alera.example`. System Admin: `alex.morgan@alera.example`.
 
 ## How to change things
 
@@ -67,6 +67,7 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
 - Status/type values go in lookup tables (like `event_status`), not enums, so clients can read labels and tones.
 - Event capture goes through `create_event(p)` / `update_event(id, p)` (one call, products and custom fields included; times may be given as `starts_local` in the event's zone).
 - Custom fields: definitions in `custom_field`, placement per event type and section in `custom_field_layout`, values in `<table>.custom_fields` jsonb validated by `app.validate_custom_fields()`. Reporting reads `report.<table>` views, rebuilt by `app.refresh_report_view()`. Never `alter table` for a customer field.
+- Creating an event (or changing its country/type) needs the type enabled in that country (`event_type_country`) and the user allowed there (`app_user_country`); `app.check_event_rules()` enforces it. Products and therapeutic areas must be assigned to the type when it has assignments.
 - Event status changes go through `change_event_status()`. Allowed moves are data in `event_status_transition`.
 - Lifecycle: `draft → review → contract → execution → closed`, plus `cancelled` as an exit. Home pills use `event_status.home_label` (Planning / In approval / Approved).
 - When you add a security rule or workflow, add a check for it in `tests/api-smoke.mjs`.

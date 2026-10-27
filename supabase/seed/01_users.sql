@@ -15,6 +15,7 @@ with u(key, email) as (values
   ('klaus',   'klaus.weber@alera.example'),
   ('ingrid',  'ingrid.haugen@alera.example'),
   ('alex',    'alex.morgan@alera.example'),
+  ('maria',   'maria.castillo@alera.example'),
   ('agent-compliance', 'compliance-agent@agents.alera.example'),
   ('agent-invoice',    'invoice-agent@agents.alera.example')
 ),
@@ -46,7 +47,21 @@ insert into public.app_user (id, tenant_id, user_type, auth_user_id, first_name,
   (app.sid('user:carlos'),  app.sid('tenant:alera'), 'human', app.sid('auth:carlos'),  'Carlos',  'Rodriguez', 'Carlos Rodriguez', 'carlos.rodriguez@alera.example', 'Medical Science Liaison, Spain',  'CR', '#12b1a4', app.sid('profile:collaborator')),
   (app.sid('user:klaus'),   app.sid('tenant:alera'), 'human', app.sid('auth:klaus'),   'Klaus',   'Weber',     'Klaus Weber',      'klaus.weber@alera.example',      'Medical Manager, Germany',        'KW', '#1a9af0', app.sid('profile:collaborator')),
   (app.sid('user:ingrid'),  app.sid('tenant:alera'), 'human', app.sid('auth:ingrid'),  'Ingrid',  'Haugen',    'Ingrid Haugen',    'ingrid.haugen@alera.example',    'Country Medical Lead, Norway',    'IH', '#c2410c', app.sid('profile:collaborator')),
-  (app.sid('user:alex'),    app.sid('tenant:alera'), 'human', app.sid('auth:alex'),    'Alex',    'Morgan',    'Alex Morgan',      'alex.morgan@alera.example',       'EC System Administrator',         'AM', '#5c6670', app.sid('profile:admin'));
+  (app.sid('user:alex'),    app.sid('tenant:alera'), 'human', app.sid('auth:alex'),    'Alex',    'Morgan',    'Alex Morgan',      'alex.morgan@alera.example',       'EC System Administrator',         'AM', '#5c6670', app.sid('profile:admin')),
+  (app.sid('user:maria'),   app.sid('tenant:alera'), 'human', app.sid('auth:maria'),   'Maria',   'Castillo',  'Maria Castillo',   'maria.castillo@alera.example',    'Business Systems Manager',        'MA', '#0f766e', app.sid('profile:bizadmin'));
+
+-- Home countries, and the countries coordinators may create events in
+update public.app_user u set country_code = c.code
+  from (values ('paul','DK'), ('sarah','DK'), ('lisa','ES'), ('michael','GB'), ('emma','FI'), ('carlos','ES'),
+               ('klaus','DE'), ('ingrid','NO'), ('alex','GB'), ('maria','NL')) as c(k, code)
+ where u.id = app.sid('user:' || c.k);
+
+insert into public.app_user_country (user_id, country_code, tenant_id)
+select app.sid('user:' || k), code, app.sid('tenant:alera')
+  from (values
+    ('paul','DK'), ('paul','SE'), ('paul','NO'), ('paul','FI'), ('paul','DE'), ('paul','GB'), ('paul','FR'), ('paul','NL'),
+    ('lisa','ES'), ('lisa','PT'), ('lisa','IT'), ('lisa','FR'), ('lisa','NO'), ('lisa','NL')
+  ) as t(k, code);
 
 -- Agents --------------------------------------------------------------------
 insert into public.app_user (id, tenant_id, user_type, auth_user_id, display_name, email, job_title, initials,

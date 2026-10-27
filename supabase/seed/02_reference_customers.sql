@@ -89,3 +89,24 @@ select app.sid('fmv:' || k || ':' || svc), app.sid('tenant:alera'), app.sid('hcp
     ('novak','speaker','national','Tier 2',240), ('brandt','advisory','national','Tier 2',230),
     ('vogel','chair','national','Tier 1',290)
   ) as t(k, svc, sc, tier, rate);
+
+-- Event type configuration -----------------------------------------------------
+-- Countries each event type is available in
+insert into public.event_type_country (event_type_id, country_code, tenant_id)
+select app.sid('etype:' || t.k), c.code, app.sid('tenant:alera')
+  from (values ('advisory'), ('conference'), ('symposium'), ('seminar'), ('roundtable'), ('workshop'), ('internal')) as t(k)
+ cross join (values ('AT'),('BE'),('CH'),('DE'),('DK'),('ES'),('FI'),('FR'),('GB'),('IE'),('IT'),('NL'),('NO'),('PL'),('PT'),('SE')) as c(code)
+union all
+select app.sid('etype:conference'), 'US', app.sid('tenant:alera')
+union all
+select app.sid('etype:investigator'), c.code, app.sid('tenant:alera') from (values ('GB'), ('DE'), ('US')) as c(code);
+
+-- Advisory boards are product-led; Brevair (respiratory) isn't advised on yet
+insert into public.event_type_product (event_type_id, product_id, tenant_id)
+select app.sid('etype:advisory'), app.sid('product:' || p), app.sid('tenant:alera')
+  from (values ('telia'), ('raspinol'), ('oncavir'), ('dermalux')) as t(p);
+
+-- Investigator meetings only for the two areas with running trials
+insert into public.event_type_therapeutic_area (event_type_id, therapeutic_area_id, tenant_id)
+select app.sid('etype:investigator'), app.sid('ta:' || a), app.sid('tenant:alera')
+  from (values ('onc'), ('rare')) as t(a);

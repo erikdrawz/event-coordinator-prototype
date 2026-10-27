@@ -25,6 +25,7 @@ async function api(token, path, { method = 'GET', body, headers = {} } = {}) {
 const paul = await login('paul.taylor@alera.example');
 const sarah = await login('sarah.mitchell@alera.example');
 const agent = await login('compliance-agent@agents.alera.example');
+const maria = await login('maria.castillo@alera.example');   // Business Admin
 
 // Anonymous callers see nothing
 const anon = await api(null, 'event?select=id');
@@ -85,6 +86,35 @@ ok(defs.data?.length === 5, `collaborator can read custom field definitions (got
 const newDef = await api(paul, 'custom_field', { method: 'POST', body: { object_name: 'event', api_name: 'sneaky__c', label: 'Sneaky', field_type: 'text' } });
 ok(newDef.status >= 400, 'only admins can define custom fields');
 
+// Country rules: the event type must be enabled in the country, and the user allowed to create there
+ok(me.data?.country_code === 'DK' && me.data?.event_countries?.includes('FR') && !me.data?.event_countries?.includes('ES'),
+   "me() returns Paul's home country and event countries");
+ok((await capture({ ...base, country_code: 'ES' })).status >= 400, 'creating an event outside my countries is rejected');
+const investigator = await api(paul, 'event_type?name=eq.Investigator%20meeting&select=id');
+ok((await capture({ ...base, event_type_id: investigator.data[0].id })).status >= 400, 'an event type not enabled in the country is rejected');
+const brevair = await api(paul, 'product?name=eq.Brevair&select=id');
+ok((await capture({ ...base, product_ids: [brevair.data[0].id] })).status >= 400, 'a product not assigned to the event type is rejected');
+const moved = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { country_code: 'ES' } } });
+ok(moved.status >= 400, "moving an event into a country I don't manage is rejected");
+
+// Admin config: Business Admin maintains master data and users, not event types or System Admins
+const mProd = await api(maria, 'product', { method: 'POST', body: { name: 'Smoke Product' } });
+ok(mProd.status === 201, 'business admin can add a product');
+const mType = await api(maria, 'event_type', { method: 'POST', body: { name: 'Smoke Type' } });
+ok(mType.status >= 400, 'business admin cannot add event types');
+const lisa = await api(maria, 'app_user?email=eq.lisa.anderson@alera.example&select=id,job_title');
+const lisaUpd = await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { job_title: 'Smoke title' } });
+ok(lisaUpd.status === 200 && lisaUpd.data[0]?.job_title === 'Smoke title', 'business admin can edit a user');
+const adminProfile = await api(maria, 'profile?name=eq.System%20Admin&select=id');
+const promote = await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { profile_id: adminProfile.data[0].id } });
+ok(promote.status >= 400 || promote.data?.length === 0, 'business admin cannot make someone a System Admin');
+const alexEdit = await api(maria, 'app_user?email=eq.alex.morgan@alera.example', { method: 'PATCH', body: { job_title: 'Hijacked' } });
+ok(Array.isArray(alexEdit.data) && alexEdit.data.length === 0, 'business admin cannot edit System Admin accounts');
+const sarahLogin = await api(sarah, 'rpc/create_user_login', { method: 'POST', body: { p_user_id: lisa.data[0].id, p_password: 'Long-enough-1' } });
+ok(sarahLogin.status >= 400, 'only user managers can create logins');
+const dupLogin = await api(maria, 'rpc/create_user_login', { method: 'POST', body: { p_user_id: lisa.data[0].id, p_password: 'Long-enough-1' } });
+ok(dupLogin.status >= 400 && /already has a login/.test(dupLogin.data?.message), 'a user with a login cannot get a second one');
+
 // Collaborator: can post, cannot create events
 const sarahEvent = await api(sarah, 'rpc/create_event', { method: 'POST', body: { p: base } });
 ok(sarahEvent.status >= 400, 'collaborator cannot create events');
@@ -108,6 +138,8 @@ const spoofLog = await api(paul, `event_history?record_id=eq.${spoof.data?.[0]?.
 ok(spoofLog.data?.[0] && spoofLog.data[0].on_behalf_of_name === null, 'on-behalf-of header is ignored for human callers');
 
 // Cleanup
+await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });
+await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { job_title: lisa.data[0].job_title } });
 await api(paul, `event?id=eq.${ev.id}`, { method: 'DELETE' });
 await api(paul, `event_expert?id=eq.${holm.data[0].id}`, { method: 'PATCH', body: { check_status: 'pending', check_notes: null } });
 
