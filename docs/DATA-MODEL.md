@@ -95,7 +95,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 ## 8. Later phases
 
-`budget`, `event_budget`, `planned_expense`, `actual_expense`, `invoice`, `invoice_line` (Phase 5); `integration_outbox`, `crm_mock.*` (Phases 3–4).
+`budget`, `event_budget`, `planned_expense`, `actual_expense`, `invoice`, `invoice_line` (Phase 5); `integration_outbox` (Phases 3–4). `crm_mock.hcp` / `crm_mock.hco` exist: the mock CRMs behind `crm_search_hcp` / `crm_import_hcp`, keyed by (crm_connection_id, external_id). `hcp` and `hco` are unique per (crm_connection_id, crm_external_id).
 
 ## Relationship summary
 

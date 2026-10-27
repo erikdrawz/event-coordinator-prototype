@@ -17,7 +17,7 @@ Status: 26 Oct 2026. Supersedes v0.1 (Next.js/Vercel/Supabase). See [ARCHITECTUR
 | Users | `app_user` with `user_type` human/agent; agents have an owner and their own profile; changes audit actor + on-behalf-of |
 | Custom fields | Admin-defined, Salesforce/Vault style. Definitions in `custom_field` (object, API name `x__c`, type, options, required); layout assignment in `custom_field_layout` (object, event type or all, UI section, order). Values live in a `custom_fields jsonb` column on each customisable table, validated by a trigger against the definitions. Reporting gets generated typed views (`report.<object>`), rebuilt when fields change. Chosen over a value table (too awkward to query and report on) and over runtime `alter table` (breaks tenant sharing and the migration history) |
 | Event capture | **New event** opens a modal with base + custom fields; Save goes through `create_event()` (one call, one transaction) and lands on the Event page; **Edit event** reopens the same modal via `update_event()` |
-| Adding speakers and attendees | One "Add people" dialog with three sources: EC's own HCP table, **mock CRM search** (pulled forward from Phase 3 because it matters for demos), and file import |
+| Adding speakers and attendees | Speakers: one inline picker (`PersonPicker`) wherever a speaker is added (agenda "+ Speaker", Speakers "Add speaker"). It searches EC first; **CRM search** is a second step on request ("Search CRM for …"), across all CRM connections or one, with results grouped by connection. Picking a CRM person copies them into EC at once (`crm_import_hcp`); the agenda still saves speakers only with "Save agenda". Attendees will get a bulk "Add people" dialog (EC, CRM, file import), closer to the old 08 mockup |
 | Who may create events where | An event type is enabled per country (`event_type_country`); a user manages events in a set of countries (`app_user_country`). Creating an event, or moving it to another country or type, needs both. Enforced in the database; admins and seed scripts are exempt. Reading events is unchanged |
 | Products and therapeutic areas | Independent master lists, switched off rather than deleted. Not tied to event types for now (revisit later) |
 | Admin access | `profile.can_access_admin` opens the Admin area (System Admin, Business Admin). What can be changed there is permission rows + RLS: Business Admin maintains products, therapeutic areas and users (never System Admin accounts); event types, their countries and CRM connections stay with System Admin |
@@ -30,7 +30,7 @@ Status: 26 Oct 2026. Supersedes v0.1 (Next.js/Vercel/Supabase). See [ARCHITECTUR
 
 | Integration | Prototype behaviour |
 |---|---|
-| CRM search | Searches a seeded `crm_mock` schema (HCPs/HCOs "in Veeva EU" / "Salesforce US"), then imports into `hcp`/`hco` with CRM IDs |
+| CRM search | ✓ `crm_search_hcp(p)` searches a seeded `crm_mock` schema (one set of HCPs/HCOs per `crm_connection`; not exposed through the API). `crm_import_hcp(connection, id)` copies an HCP and their organisation into `hcp`/`hco` with CRM IDs; it never copies the same CRM record twice and reuses an EC HCP with the same OneKey ID. Connections with status `error` don't answer |
 | CRM reconciliation | Matches attendees against `crm_mock`, sets `crm_status` reconciled / not found |
 | CRM write-back | Writes to an `integration_outbox` table, the pattern a real connector would use |
 | Contracting (CLM) | `send_contract` moves status draft → sent → executed, with a fake CLM reference |

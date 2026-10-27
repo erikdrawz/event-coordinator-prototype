@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, FileText, MoreVertical, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, FileText, MoreVertical, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { can } from '../../../lib/permissions';
@@ -9,7 +9,8 @@ import { Avatar } from '../../../components/Avatar';
 import { Select } from '../../../ui/Select';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
-import { eventKey } from '../agenda/agendaData';
+import { eventKey, initials, type SpeakerOption } from '../agenda/agendaData';
+import { PersonPicker } from '../people/PersonPicker';
 import { ROLES, TEMP_RATE, hcpSub, hours, money, roleLabel, useExperts, useHcps, type Expert, type ExpertRole } from './speakersData';
 
 const ELIG_TONE = { eligible: 'green', ineligible: 'grey', pending: 'yellow' } as const;
@@ -168,16 +169,21 @@ function HoursCell({ value, onSave, label, disabled }: { value: number; onSave: 
   );
 }
 
+const HCP_GROUPS = [{ group: 'hcp' as const, label: 'In Event Coordinator' }];
+
 /** Add an HCP directly: choose who, their type, and prep/travel. Enter saves and opens the next row; Esc cancels. */
 function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string; taken: string[]; onSaved: () => void; onCancel: () => void }) {
   const qc = useQueryClient();
   const hcps = useHcps();
-  const [hcpId, setHcpId] = useState('');
+  const { me } = useAuth();
+  const [who, setWho] = useState<SpeakerOption | null>(null);
+  const hcpId = who?.hcp_id ?? '';
   const [role, setRole] = useState<ExpertRole>('speaker');
   const [prep, setPrep] = useState('');
   const [travel, setTravel] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const options = (hcps.data ?? []).filter((h) => !taken.includes(h.id)).map((h) => ({ value: h.id, label: `${h.display_name}${hcpSub(h) ? ` · ${hcpSub(h)}` : ''}` }));
+  const options = (hcps.data ?? []).filter((h) => !taken.includes(h.id)).map((h): SpeakerOption => ({
+    key: `h:${h.id}`, hcp_id: h.id, name: h.display_name, sub: hcpSub(h), initials: initials(h.display_name), color: null, group: 'hcp' }));
 
   const save = useMutation({
     mutationFn: async () => {
@@ -201,8 +207,13 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
       <tr className="agenda-inline" onKeyDown={onKey}>
         <td colSpan={2}>
           <div className="speaker-add-who">
-            <Select aria-label="HCP" value={hcpId} onChange={(v) => { setHcpId(v); setError(null); }} searchable placeholder="Choose an HCP…"
-              aria-invalid={error === 'Choose an HCP' || undefined} options={options} />
+            <PersonPicker label="Choose an HCP" options={options} groups={HCP_GROUPS} canSearchCrm={can(me, 'hcp', 'create')} autoOpen
+              onPick={(o) => { setWho(o); setError(null); }}
+              trigger={(t) => (
+                <button type="button" className="input sel-trigger picker-field" aria-label="HCP" aria-invalid={error === 'Choose an HCP' || undefined} {...t}>
+                  <span className={who ? 'sel-value' : 'sel-value placeholder'}>{who?.name ?? 'Choose an HCP…'}</span><ChevronDown size={15} className="sel-chevron" aria-hidden />
+                </button>
+              )} />
             <Select aria-label="Type" value={role} onChange={(v) => setRole(v as ExpertRole)} options={ROLES.map((r) => ({ value: r, label: roleLabel(r) }))} />
           </div>
         </td>
@@ -219,7 +230,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
       </tr>
       <tr className="agenda-inline-note">
         <td colSpan={11}>{error ? <span className="field-error" role="alert">{error}</span>
-          : <span className="field-hint">Search EC's HCP list · Enter adds and starts the next · Esc cancels · CRM search comes later</span>}</td>
+          : <span className="field-hint">Search Event Coordinator, then the CRMs if they're not there · Enter adds and starts the next · Esc cancels</span>}</td>
       </tr>
     </>
   );

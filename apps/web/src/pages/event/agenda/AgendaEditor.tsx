@@ -6,9 +6,11 @@ import { supabase } from '../../../lib/supabase';
 import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
 import { DateInput, TimeInput } from '../../../ui/DateInput';
-import { Menu } from '../../../ui/Menu';
+import { useAuth } from '../../../lib/auth';
+import { can } from '../../../lib/permissions';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { keepsWithoutSessions, useExperts } from '../speakers/speakersData';
+import { PersonPicker } from '../people/PersonPicker';
 import { AgendaDays, agendaDays, nextDay } from './AgendaDays';
 import {
   addMinutes, draftPayload, draftSpeaker, eventKey, localParts, sessionLength, useSpeakerOptions,
@@ -33,6 +35,11 @@ interface Props {
 
 const fingerprint = (rows: DraftSession[]) => JSON.stringify(rows.map((r) =>
   [r.id, r.date, r.from, r.to, r.title.trim(), r.kind, r.location.trim(), r.speakers.map((s) => [s.key, s.minutes])]));
+const SPEAKER_GROUPS = [
+  { group: 'speaker' as const, label: 'Speakers on this event' },
+  { group: 'team' as const, label: 'Event team (internal)' },
+  { group: 'hcp' as const, label: 'In Event Coordinator' },
+];
 const names = (list: string[]) => list.length <= 2 ? list.join(' and ') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
 
 /**
@@ -43,6 +50,8 @@ export function AgendaEditor({ event, initial, version, addFirst, day, onDay, ca
   const qc = useQueryClient();
   const options = useSpeakerOptions(event.id);
   const experts = useExperts(event.id);
+  const { me } = useAuth();
+  const canSearchCrm = can(me, 'hcp', 'create');
   const tz = event.timezone;
   const seq = useRef(0);
   const eventStart = event.starts_at ? localParts(event.starts_at, tz) : null;
@@ -151,7 +160,7 @@ export function AgendaEditor({ event, initial, version, addFirst, day, onDay, ca
           <tbody>
             {todays.map((r) => (
               <EditRow key={r.key} row={r} error={errors[r.key]} open={open.has(r.key)} options={options.data ?? []}
-                canDelete={canDelete}
+                canDelete={canDelete} canSearchCrm={canSearchCrm}
                 onChange={(patch) => { update(r.key, patch); if (patch.date) onDay(patch.date); }}
                 onToggle={() => setOpen((s) => { const n = new Set(s); if (n.has(r.key)) n.delete(r.key); else n.add(r.key); return n; })}
                 onRemove={() => setRows((list) => list.filter((x) => x.key !== r.key))}
@@ -208,13 +217,14 @@ interface RowProps {
   open: boolean;
   options: SpeakerOption[];
   canDelete: boolean;
+  canSearchCrm: boolean;
   onChange: (patch: Partial<DraftSession>) => void;
   onToggle: () => void;
   onRemove: () => void;
   onEnter?: () => void;
 }
 
-function EditRow({ row: r, error, open, options, canDelete, onChange, onToggle, onRemove, onEnter }: RowProps) {
+function EditRow({ row: r, error, open, options, canDelete, canSearchCrm, onChange, onToggle, onRemove, onEnter }: RowProps) {
   const length = sessionLength(r.from, r.to);
   const free = options.filter((o) => !r.speakers.some((s) => s.key === o.key));
   const label = r.title.trim() || 'new session';
@@ -247,11 +257,8 @@ function EditRow({ row: r, error, open, options, canDelete, onChange, onToggle, 
                   onClick={() => onChange({ speakers: r.speakers.filter((x) => x.key !== s.key) })}><X size={12} /></button>
               </span>
             ))}
-            <Menu label={`Add a speaker to ${label}`} width={280} searchable={free.length > 8}
-              empty={options.length ? 'Everyone is already on this session' : 'Add speakers or team members to the event first'}
-              items={free.map((o) => ({ key: o.key, text: o.name, label: <>{o.name}<span className="dt-sub"> · {o.sub}</span></>,
-                icon: <Avatar size={20} initials={o.initials} color={o.color ?? avatarColorFor(o.name)} />,
-                onSelect: () => onChange({ speakers: [...r.speakers, draftSpeaker(o)] }) }))}
+            <PersonPicker label={`Add a speaker to ${label}`} options={free} groups={SPEAKER_GROUPS} canSearchCrm={canSearchCrm}
+              onPick={(o) => onChange({ speakers: [...r.speakers, draftSpeaker(o)] })}
               trigger={(t) => <button type="button" className="speaker-add" aria-label={`Add a speaker to ${label}`} {...t}><Plus size={12} strokeWidth={2.6} />Speaker</button>} />
           </span>
         </td>
