@@ -196,6 +196,69 @@
 .picker-field { justify-content: space-between; text-align: left; width: 100%; }
 .picker-field .placeholder { color: var(--color-text-faint); }
 
+/* Team tab: discussion (2/3) and team (1/3) */
+.team-tab { display: grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); gap: 18px; align-items: start; }
+.team-card { padding: 18px 22px 20px; }
+.discussion .ov-title-row { margin-bottom: 14px; }
+.post { display: flex; gap: 12px; align-items: flex-start; }
+.post-new { margin-bottom: 18px; }
+.post-main { flex: 1; min-width: 0; }
+.posts { display: grid; gap: 0; }
+.posts > .post { padding: 16px 0; border-top: 1px solid var(--color-surface-sunken); }
+.post-head { display: flex; align-items: baseline; gap: 8px; }
+.post-who { font-weight: 700; color: var(--color-text); }
+.post-when { font-size: var(--text-sm); color: var(--color-text-muted); }
+.post-menu { margin-left: auto; width: 28px; height: 28px; opacity: 0; }
+.post:hover > .post-main > .post-head .post-menu, .post-menu:focus-visible, .post-menu[aria-expanded='true'] { opacity: 1; }
+.post-body { margin: 4px 0 0; color: var(--color-text); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.post-foot { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.post-reactions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.post-reactions.small { margin-top: 6px; }
+.reaction, .reaction-add {
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border); background: var(--color-surface); font: inherit; font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); cursor: pointer;
+}
+.reaction:hover, .reaction-add:hover, .reaction-add[aria-expanded='true'] { border-color: var(--color-accent); color: var(--color-accent); }
+.reaction.mine { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent); }
+.reaction-add { width: 26px; padding: 0; justify-content: center; border-style: dashed; border-color: var(--color-border-strong); color: var(--color-text-muted); }
+.reaction-option { font-size: 18px; }
+.post-reply { font-size: var(--text-base); font-weight: 600; text-decoration: none; }
+.post-thread { display: grid; gap: 12px; margin-top: 12px; padding-left: 14px; border-left: 2px solid var(--color-surface-sunken); }
+.post.reply .post-who { font-size: var(--text-base); }
+.post-more { justify-self: start; font-size: var(--text-base); text-decoration: none; }
+.composer {
+  flex: 1; min-width: 0; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface);
+}
+.composer:focus-within { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent-soft); }
+.composer-input { display: block; width: 100%; min-height: 40px; max-height: 240px; padding: 10px 12px 4px; border: 0; outline: 0; resize: none; background: transparent; font: inherit; color: var(--color-text); line-height: 1.5; }
+.composer-foot { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px 12px; }
+.composer-note { flex: 1; font-size: var(--text-sm); color: var(--color-text-muted); }
+
+.team-panel .ov-head { margin-bottom: 4px; }
+.team-intro { margin: 0 0 12px; font-size: var(--text-base); color: var(--color-text-secondary); }
+.team-list { list-style: none; margin: 0; padding: 0; }
+.team-member { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--color-surface-sunken); }
+.team-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.team-name { font-weight: 600; color: var(--color-text); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-you { font-size: var(--text-xs); font-weight: 700; padding: 1px 6px; border-radius: var(--radius-pill); background: var(--color-surface-sunken); color: var(--color-text-secondary); }
+.team-sub { font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-role { display: flex; align-items: center; gap: 2px; flex: none; }
+.team-role-select .sel-trigger { min-width: 0; padding-left: 8px; gap: 4px; }
+.team-role-pill { display: inline-block; padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600; background: var(--tone-grey-bg); color: var(--tone-grey-fg); cursor: default; }
+.team-role-pill.owner { background: var(--tone-blue-bg); color: var(--tone-blue-fg); }
+.team-role [data-tip]:hover::after, .team-role [data-tip]:focus-visible::after, .team-role [data-tip]:focus-within::after {
+  white-space: normal; width: 220px; left: auto; right: 0; transform: none; font-weight: 500;
+}
+.team-legend { margin: 14px 0 8px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-surface-muted); display: grid; gap: 6px; font-size: var(--text-sm); }
+.team-legend div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; }
+.team-legend dt { font-weight: 700; color: var(--color-text-secondary); }
+.team-legend dd { margin: 0; color: var(--color-text-muted); }
+.team-add { display: grid; gap: 8px; margin-bottom: 12px; padding: 12px; border-radius: var(--radius-md); background: var(--color-accent-softer); }
+.team-add .sel-trigger, .team-add .input { height: 34px; }
+.team-add-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; }
+.team-add-actions { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 960px) { .team-tab { grid-template-columns: minmax(0, 1fr); } }
+
 /* Event details tab */
 .details-card { padding: 20px 26px 24px; }
 .details-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }

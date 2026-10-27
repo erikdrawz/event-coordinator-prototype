@@ -56,8 +56,9 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 |---|---|---|---|
 | `event_request` | ✓ | request_number, title, event_type_id, status, requested_by, coordinator_id (null = unassigned), country, city, proposed_start/end, expected_attendees, estimated_spend, currency, rationale, event_id | ERD "Request"; 1:1 with an event once approved |
 | `event` | ✓ | event_number, name, event_type_id, status, request_id, owner_id, country, city, venue_name, venue_address, timezone, starts_at, ends_at, expected_attendees, estimated_spend, currency, description, crm ids | ERD "Event" |
-| `event_team_member` | ✓ | event_id, user_id, team_role (owner, co_host, medical, compliance, logistics, finance), is_primary | ERD "Event Team" → User |
+| `event_team_member` | ✓ | event_id, user_id, team_role (→ `team_role`: owner, organizer, approver, viewer), role_label (free, e.g. "Medical lead") | ERD "Event Team" → User. Decides who can access the event |
 | `event_session` | ✓ | event_id, title, session_kind, starts_at, ends_at, location, sort | ERD "Event Session": the agenda grid |
+| `team_role` | ✓ | code (owner, organizer, approver, viewer), label, description, can_edit, sort | **New**: event team access roles |
 | `event_session_speaker` | ✓ | session_id, event_expert_id, minutes, sort | **New**: agenda speakers + durations |
 | `event_history` | ✓ (view) | view over `audit_log` filtered by event | ERD "Event History" |
 

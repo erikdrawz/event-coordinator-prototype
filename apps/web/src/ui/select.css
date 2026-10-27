@@ -78,3 +78,6 @@
 .menu-option:focus { outline: none; background: var(--color-surface-muted); }
 .menu-option.danger { color: var(--tone-red-fg); }
 .menu-option.disabled { color: var(--color-text-faint); cursor: default; }
+/* Menu laid out in a row (e.g. emoji reactions): arrow keys still move through it */
+.menu-row .sel-list { display: flex; gap: 2px; }
+.menu-row .menu-option { justify-content: center; padding: 6px; }

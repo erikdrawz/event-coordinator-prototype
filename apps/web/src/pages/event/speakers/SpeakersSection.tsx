@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useEventAccess } from '../eventAccess';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, FileText, MoreVertical, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
@@ -26,7 +27,6 @@ function EligibilityMark({ value }: { value: Expert['eligibility'] }) {
     </span>
   );
 }
-const CHECK_TONE = { passed: 'green', pending: 'yellow', failed: 'red' } as const;
 const initialsOf = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'That HCP is already a speaker on this event.' : m);
 
@@ -36,17 +36,17 @@ const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'T
  */
 export function SpeakersSection({ eventId }: { eventId: string }) {
   const { me } = useAuth();
+  const { canEdit: canEditEvent } = useEventAccess();
   const qc = useQueryClient();
   const experts = useExperts(eventId);
   const [adding, setAdding] = useState<number | null>(null);
   const [removing, setRemoving] = useState<Expert | null>(null);
   const [cellError, setCellError] = useState<string | null>(null);
   const policy = useRatePolicy().data;
-  const canAdd = can(me, 'event_expert', 'create');
-  const canEdit = can(me, 'event_expert', 'edit');
-  const canDelete = can(me, 'event_expert', 'delete');
+  const canAdd = can(me, 'event_expert', 'create') && canEditEvent;
+  const canEdit = can(me, 'event_expert', 'edit') && canEditEvent;
+  const canDelete = can(me, 'event_expert', 'delete') && canEditEvent;
   const list = experts.data ?? [];
-  const pendingChecks = list.filter((x) => x.check_status === 'pending').length;
   const grand = list.reduce((a, x) => a + x.total_payable, 0);
   const currency = list[0]?.currency ?? 'EUR';
 
@@ -67,7 +67,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
   });
 
   const sub = list.length === 0 ? 'No speakers yet'
-    : `${list.length} HCP${list.length === 1 ? '' : 's'}${pendingChecks ? ` · ${pendingChecks} check${pendingChecks === 1 ? '' : 's'} pending` : ''}`;
+    : `${list.length} HCP${list.length === 1 ? '' : 's'}`;
 
   return (
     <section className="card ov-card" aria-labelledby="speakers-title">
@@ -91,7 +91,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
           <table className="agenda-table speakers-table">
             <thead>
               <tr>
-                <th>HCP</th><th>Role</th><th>Check</th><th>Contract</th>
+                <th>HCP</th><th>Role</th><th>Contract</th>
                 <th className="num">Rate / h</th><th className="num">Prep h</th><th className="num">Service h</th><th className="num">Travel h</th>
                 <th className="num">Total</th><th aria-label="Actions" />
               </tr>
@@ -116,7 +116,6 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                         </div>
                       ) : roleLabel(x.role)}
                     </td>
-                    <td><span className={`pill pill-${CHECK_TONE[x.check_status]}`} title={x.check_notes ?? undefined}>{roleLabel(x.check_status)}</span></td>
                     <td>{contract ? <span className="contract-ref"><FileText size={13} aria-hidden />{contract.contract_number}</span> : <span className="text-muted">—</span>}</td>
                     <td className="num"><RateCell value={x.hourly_rate} currency={x.currency ?? 'EUR'} policy={policy} label={`Hourly rate for ${name}`} disabled={!canEdit}
                       onInvalid={setCellError} onSave={(v) => update.mutate({ id: x.id, patch: { hourly_rate: v } })} /></td>
@@ -143,7 +142,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
             </tbody>
             {list.length > 0 && (
               <tfoot>
-                <tr><td colSpan={8}>Total payable for this event</td><td className="num total">{money(grand, currency)}</td><td /></tr>
+                <tr><td colSpan={7}>Total payable for this event</td><td className="num total">{money(grand, currency)}</td><td /></tr>
               </tfoot>
             )}
           </table>
@@ -275,7 +274,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
             <Select aria-label="Role" value={role} onChange={(v) => setRole(v as ExpertRole)} options={ROLES.map((r) => ({ value: r, label: roleLabel(r) }))} />
           </div>
         </td>
-        <td colSpan={2}><span className="dt-sub">Checks and contracts follow once added</span></td>
+        <td><span className="dt-sub">Contracts follow once added</span></td>
         <td className="num">
           <span className="money-input" data-tip={policy ? rateRange(policy) : undefined}><span aria-hidden>{currencySymbol(policy?.currency)}</span>
             <input className="hours-input" inputMode="decimal" aria-label="Hourly rate" placeholder={policy ? String(policy.default) : ''} value={rate}
@@ -291,7 +290,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
         </td>
       </tr>
       <tr className="agenda-inline-note">
-        <td colSpan={10}>{error ? <span className="field-error" role="alert">{error}</span>
+        <td colSpan={9}>{error ? <span className="field-error" role="alert">{error}</span>
           : <span className="field-hint">Search Event Coordinator, then the CRMs if they're not there · Enter adds and starts the next · Esc cancels</span>}</td>
       </tr>
     </>

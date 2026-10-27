@@ -13,6 +13,8 @@ import { useEventForm } from './event/EventFormProvider';
 import { EventDetailsTab } from './event/EventDetailsTab';
 import { OverviewTab } from './event/OverviewTab';
 import { CancelEventDialog } from './event/CancelEventDialog';
+import { TeamTab } from './event/team/TeamTab';
+import { EventAccessContext, useMyEventAccess } from './event/eventAccess';
 import type { EventStatus } from '../lib/types';
 import './event.css';
 
@@ -56,6 +58,7 @@ export function EventPage() {
   const { data: statuses } = useEventStatuses();
   const { data: transitions } = useStatusTransitions();
   const [cancelling, setCancelling] = useState(false);
+  const myAccess = useMyEventAccess(id);
   const { me } = useAuth();
   const { openEditEvent } = useEventForm();
   const [params, setParams] = useSearchParams();
@@ -79,7 +82,9 @@ export function EventPage() {
   const current = stages.findIndex((s) => s.code === e.status);
   const when = countdown(e.starts_at);
   const cancelled = e.status === 'cancelled';
-  const canEdit = can(me, 'event', 'edit');
+  // Profile allows editing events, and the Team gives me edit access to this one
+  const onTeamEdit = myAccess.data?.access === 'edit';
+  const canEdit = can(me, 'event', 'edit') && onTeamEdit;
   // Only moves the lifecycle allows from here; more status actions join this menu later
   const actions = canEdit && transitions?.some((t) => t.from_status === e.status && t.to_status === 'cancelled')
     ? [{ key: 'cancel', label: 'Cancel event', icon: <Ban size={14} />, danger: true, onSelect: () => setCancelling(true) }] : [];
@@ -129,12 +134,14 @@ export function EventPage() {
         </div>
       </section>
       <div id="event-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="event-tabpanel">
-        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : (
+        <EventAccessContext.Provider value={{ canEdit: onTeamEdit, teamRole: myAccess.data?.team_role ?? null }}>
+        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : tab === 'team' ? <TeamTab event={e} /> : (
           <section className="card empty-state">
             <div className="empty-state-title">{TABS.find((t) => t.id === tab)?.label} comes next</div>
-            This tab is being built on the same event data. Overview and Event details are ready.
+            This tab is being built on the same event data. Overview, Team and Event details are ready.
           </section>
         )}
+        </EventAccessContext.Provider>
       </div>
     </main>
   );

@@ -7,7 +7,7 @@ import { Segmented } from '../../ui/Toolbar';
 import { useEventForm } from '../event/EventFormProvider';
 import { useAgenda, type AgendaEvent, type Scope, type When } from './queries';
 
-const ROLE_NOTE: Record<string, string> = { owner: 'you own', co_host: 'co-host' };
+const ROLE_NOTE: Record<string, string> = { owner: 'you own', organizer: 'organizer', approver: 'approver', viewer: 'viewer' };
 
 const SUB: Record<Scope, Record<When, string>> = {
   mine: { upcoming: 'Events you own or work on, next 90 days', past: 'Events you owned or worked on, last 90 days' },
@@ -65,7 +65,7 @@ export function Agenda({ meId, scope, onScope, when, onWhen, canCreate }: Props)
               <>
                 <span className="home-agenda-empty-title">Your agenda is clear</span>
                 <span className="home-agenda-empty-text">
-                  Events you own or co-host appear here as soon as they're created, with their status alongside.
+                  Events whose team you're on appear here as soon as they're created, with their status alongside.
                 </span>
                 {canCreate && <button className="btn btn-primary home-agenda-empty-cta" onClick={openNewEvent}><Plus size={14} strokeWidth={2.6} />Create your first event</button>}
                 <button className="link" onClick={() => onScope('all')}>Browse team events</button>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useEventAccess } from '../eventAccess';
 import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
@@ -20,6 +21,7 @@ interface EventLite { id: string; timezone: string; starts_at: string | null; en
  */
 export function AgendaSection({ event }: { event: EventLite }) {
   const { me } = useAuth();
+  const { canEdit: canEditEvent } = useEventAccess();
   const qc = useQueryClient();
   const sessions = useSessions(event.id);
   const [day, setDay] = useState<string | null>(null);
@@ -27,9 +29,9 @@ export function AgendaSection({ event }: { event: EventLite }) {
   const [opening, setOpening] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
   const tz = event.timezone;
-  const canEdit = can(me, 'event_session', 'edit');
-  const canAdd = can(me, 'event_session', 'create');
-  const canDelete = can(me, 'event_session', 'delete');
+  const canEdit = can(me, 'event_session', 'edit') && canEditEvent;
+  const canAdd = can(me, 'event_session', 'create') && canEditEvent;
+  const canDelete = can(me, 'event_session', 'delete') && canEditEvent;
 
   // Edit from the agenda as it is now: read the version first, then the sessions, so a change
   // in between makes the save refuse rather than overwrite it

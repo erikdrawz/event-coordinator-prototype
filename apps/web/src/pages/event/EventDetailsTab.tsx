@@ -9,6 +9,7 @@ import { Avatar } from '../../components/Avatar';
 import { formatDate } from '../../ui/DateInput';
 import { useEventForm } from './EventFormProvider';
 import { fieldsForType, useEventFormOptions, type CustomFieldDef, type UserOpt } from './eventForm';
+import { useEventAccess } from './eventAccess';
 
 interface Details {
   id: string; event_number: string; event_type_id: string; timezone: string; starts_at: string | null; ends_at: string | null;
@@ -54,6 +55,7 @@ function Row({ label, children, hint, wide }: { label: string; children: ReactNo
 /** Everything captured on the event: base fields, then the custom fields its type shows. */
 export function EventDetailsTab({ eventId }: { eventId: string }) {
   const { me } = useAuth();
+  const { canEdit: canEditEvent } = useEventAccess();
   const { openEditEvent } = useEventForm();
   const options = useEventFormOptions();
   const { data: e, isLoading, error } = useQuery({
@@ -76,7 +78,7 @@ export function EventDetailsTab({ eventId }: { eventId: string }) {
     <section className="card details-card" aria-labelledby="details-title">
       <div className="details-head">
         <h2 id="details-title" className="card-title">Event details</h2>
-        {can(me, 'event', 'edit') && <button className="btn" onClick={() => openEditEvent(e.id)}><Pencil size={14} />Edit</button>}
+        {can(me, 'event', 'edit') && canEditEvent && <button className="btn" onClick={() => openEditEvent(e.id)}><Pencil size={14} />Edit</button>}
       </div>
 
       <h3 className="details-section">Event</h3>

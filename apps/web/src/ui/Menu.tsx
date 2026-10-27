@@ -23,10 +23,12 @@ interface Props {
   searchable?: boolean;
   empty?: string;
   width?: number;
+  /** Extra class on the popup, e.g. `menu-row` to lay items out in a row (emoji). */
+  className?: string;
 }
 
 /** A button that opens a list of actions, e.g. a row's ⋮ menu or "+ Speaker". */
-export function Menu({ trigger, items, label, searchable, empty = 'Nothing to choose', width = 220 }: Props) {
+export function Menu({ trigger, items, label, searchable, empty = 'Nothing to choose', width = 220, className }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -60,7 +62,7 @@ export function Menu({ trigger, items, label, searchable, empty = 'Nothing to ch
     <>
       {trigger({ ref: (el) => { triggerRef.current = el; }, onClick: () => (open ? close() : setOpen(true)), 'aria-expanded': open, 'aria-haspopup': 'menu' })}
       {open && style && (
-        <div ref={popRef} className="sel-pop" style={style} onKeyDown={onKey}>
+        <div ref={popRef} className={`sel-pop${className ? ` ${className}` : ''}`} style={style} onKeyDown={onKey}>
           {canSearch && (
             <div className="sel-search"><Search size={14} aria-hidden />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" aria-label={`Search ${label}`} /></div>
