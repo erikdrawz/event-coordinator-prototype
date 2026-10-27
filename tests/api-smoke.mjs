@@ -26,6 +26,7 @@ const paul = await login('paul.taylor@alera.example');
 const sarah = await login('sarah.mitchell@alera.example');
 const agent = await login('compliance-agent@agents.alera.example');
 const maria = await login('maria.castillo@alera.example');   // Business Admin
+const alex = await login('alex.morgan@alera.example');       // System Admin
 
 // Anonymous callers see nothing
 const anon = await api(null, 'event?select=id');
@@ -82,7 +83,7 @@ ok(upd1.status === 200 && upd1.data.city === 'Lyon' && upd1.data.name === 'Smoke
 const virt = await api(paul, 'event?custom_fields->>meeting_format__c=eq.virtual&select=name');
 ok(virt.data?.length === 1 && virt.data[0].name === 'Immunology Webinar Series', 'events can be filtered on a custom field through the API');
 const defs = await api(sarah, 'custom_field?object_name=eq.event&select=api_name,custom_field_layout(section)');
-ok(defs.data?.length === 5, `collaborator can read custom field definitions (got ${defs.data?.length})`);
+ok(defs.data?.length === 6, `collaborator can read custom field definitions (got ${defs.data?.length})`);
 const newDef = await api(paul, 'custom_field', { method: 'POST', body: { object_name: 'event', api_name: 'sneaky__c', label: 'Sneaky', field_type: 'text' } });
 ok(newDef.status >= 400, 'only admins can define custom fields');
 
@@ -114,6 +115,26 @@ ok(sarahLogin.status >= 400, 'only user managers can create logins');
 const dupLogin = await api(maria, 'rpc/create_user_login', { method: 'POST', body: { p_user_id: lisa.data[0].id, p_password: 'Long-enough-1' } });
 ok(dupLogin.status >= 400 && /already has a login/.test(dupLogin.data?.message), 'a user with a login cannot get a second one');
 
+// Custom fields from Admin: a System Admin defines and assigns them; the database checks values
+const mkField = (body) => api(alex, 'custom_field', { method: 'POST', body: { object_name: 'event', ...body } });
+const linkF = await mkField({ api_name: 'smoke_link__c', label: 'Smoke link', field_type: 'url' });
+const scoreF = await mkField({ api_name: 'smoke_score__c', label: 'Smoke score', field_type: 'number', decimals: 2 });
+ok(linkF.status === 201 && scoreF.status === 201, 'system admin can create url and number custom fields');
+const layout = await api(alex, 'custom_field_layout', { method: 'POST', body: [
+  { custom_field_id: linkF.data[0].id, event_type_id: types.data[0].id }, { custom_field_id: scoreF.data[0].id, event_type_id: types.data[0].id }] });
+ok(layout.status === 201, 'system admin can assign custom fields to an event type');
+const setCf = (cf) => api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { custom_fields: cf } } });
+ok((await setCf({ smoke_link__c: 'not a link' })).status >= 400, 'a url custom field rejects text that is not a link');
+ok((await setCf({ smoke_score__c: 1.234 })).status >= 400, 'a number custom field rejects more decimals than allowed');
+const goodCf = await setCf({ smoke_link__c: 'https://congress.example/2026', smoke_score__c: 1.25 });
+ok(goodCf.status === 200 && goodCf.data.custom_fields.smoke_score__c === 1.25, 'valid url and number values are saved');
+const rename = await api(alex, `custom_field?id=eq.${linkF.data[0].id}`, { method: 'PATCH', body: { api_name: 'renamed__c' } });
+ok(rename.status >= 400, "a custom field's name can't change once created");
+const relabel = await api(alex, `custom_field?id=eq.${linkF.data[0].id}`, { method: 'PATCH', body: { label: 'Smoke website' } });
+ok(relabel.status === 200, "a custom field's label can change");
+ok((await api(maria, 'custom_field', { method: 'POST', body: { object_name: 'event', api_name: 'maria__c', label: 'Maria', field_type: 'text' } })).status >= 400,
+   'business admin cannot define custom fields');
+
 // Collaborator: can post, cannot create events
 const sarahEvent = await api(sarah, 'rpc/create_event', { method: 'POST', body: { p: base } });
 ok(sarahEvent.status >= 400, 'collaborator cannot create events');
@@ -137,6 +158,7 @@ const spoofLog = await api(paul, `event_history?record_id=eq.${spoof.data?.[0]?.
 ok(spoofLog.data?.[0] && spoofLog.data[0].on_behalf_of_name === null, 'on-behalf-of header is ignored for human callers');
 
 // Cleanup
+await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.id})`, { method: 'DELETE' });
 await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });
 await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { job_title: lisa.data[0].job_title } });
 await api(paul, `event?id=eq.${ev.id}`, { method: 'DELETE' });

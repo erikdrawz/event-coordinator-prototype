@@ -100,31 +100,33 @@ update public.event e set request_id = r.id from public.event_request r where r.
 -- ---------------------------------------------------------------------
 -- Custom fields (configuration Alera's admin would set up) and their values
 -- ---------------------------------------------------------------------
-insert into public.custom_field (id, tenant_id, object_name, api_name, label, field_type, options, is_required, help_text)
-select app.sid('cf:' || k), app.sid('tenant:alera'), 'event', api, lbl, ty, opts::jsonb, req, help
+insert into public.custom_field (id, tenant_id, object_name, api_name, label, field_type, options, is_required, help_text, decimals, created_at)
+select app.sid('cf:' || k), app.sid('tenant:alera'), 'event', api, lbl, ty, opts::jsonb, req, help, dec, now() - make_interval(days => age)
   from (values
-    ('format',   'meeting_format__c',    'Meeting format',   'picklist',  '[{"value":"in_person","label":"In person"},{"value":"virtual","label":"Virtual"},{"value":"hybrid","label":"Hybrid"}]', true,  null),
-    ('cost',     'cost_center__c',       'Cost centre',      'text',      '[]', false, 'Finance cost centre the spend is booked to, e.g. NOR-MED-410.'),
-    ('tov',      'tov_reportable__c',    'Reportable transfer of value', 'checkbox', '[]', false, 'Payments or hospitality to HCPs on this event must be disclosed (EFPIA, Sunshine Act).'),
-    ('question', 'advisory_question__c', 'Advisory question','long_text', '[]', false, 'The question the board is asked to advise on. Shown to compliance reviewers.'),
-    ('cme',      'cme_credits__c',       'CME credits',      'number',    '[]', false, null)
-  ) as t(k, api, lbl, ty, opts, req, help);
+    ('format',   'meeting_format__c',    'Meeting format',   'picklist',  '[{"value":"in_person","label":"In person"},{"value":"virtual","label":"Virtual"},{"value":"hybrid","label":"Hybrid"}]', true,  null, null, 60),
+    ('cost',     'cost_center__c',       'Cost centre',      'text',      '[]', false, 'Finance cost centre the spend is booked to, e.g. NOR-MED-410.', null, 59),
+    ('tov',      'tov_reportable__c',    'Reportable transfer of value', 'checkbox', '[]', false, 'Payments or hospitality to HCPs on this event must be disclosed (EFPIA, Sunshine Act).', null, 58),
+    ('question', 'advisory_question__c', 'Advisory question','long_text', '[]', false, 'The question the board is asked to advise on. Shown to compliance reviewers.', null, 57),
+    ('cme',      'cme_credits__c',       'CME credits',      'number',    '[]', false, 'Accredited CME hours, e.g. 3.5.', 1, 56),
+    ('website',  'event_website__c',     'Event website',    'url',       '[]', false, 'Public page for the congress or meeting.', null, 20)
+  ) as t(k, api, lbl, ty, opts, req, help, dec, age);
 
-insert into public.custom_field_layout (tenant_id, custom_field_id, event_type_id, section, sort)
-select app.sid('tenant:alera'), app.sid('cf:' || f), case when ty is not null then app.sid('etype:' || ty) end, sec, srt
-  from (values
-    ('format',   null,         'details',    10),
-    ('question', 'advisory',   'details',    20),
-    ('cme',      'seminar',    'details',    30), ('cme', 'workshop', 'details', 30), ('cme', 'conference', 'details', 30),
-    ('cost',     null,         'finance',    10),
-    ('tov',      null,         'compliance', 10)
-  ) as t(f, ty, sec, srt);
+-- Which event types show which fields
+insert into public.custom_field_layout (tenant_id, custom_field_id, event_type_id)
+select app.sid('tenant:alera'), app.sid('cf:' || f), app.sid('etype:' || ty)
+  from (values ('format'), ('cost'), ('tov')) as a(f)
+ cross join (values ('advisory'), ('conference'), ('symposium'), ('seminar'), ('roundtable'), ('workshop'), ('investigator'), ('internal')) as b(ty)
+union all
+select app.sid('tenant:alera'), app.sid('cf:' || f), app.sid('etype:' || ty)
+  from (values ('question', 'advisory'),
+               ('cme', 'seminar'), ('cme', 'workshop'), ('cme', 'conference'),
+               ('website', 'conference'), ('website', 'symposium')) as c(f, ty);
 
 update public.event e set custom_fields = v.cf::jsonb
   from (values
     ('sma-board',       '{"meeting_format__c":"in_person","cost_center__c":"DK-MED-210","tov_reportable__c":true,"advisory_question__c":"How should Nordic registry outcomes shape the national SMA guideline update?"}'),
     ('neuro-meet',      '{"meeting_format__c":"in_person","cost_center__c":"NO-MED-410","tov_reportable__c":true,"cme_credits__c":4}'),
-    ('bioforum',        '{"meeting_format__c":"in_person","cost_center__c":"HQ-RARE-100","tov_reportable__c":true,"cme_credits__c":6}'),
+    ('bioforum',        '{"meeting_format__c":"in_person","cost_center__c":"HQ-RARE-100","tov_reportable__c":true,"cme_credits__c":6,"event_website__c":"https://bioforum.example/2026"}'),
     ('sma-symposium',   '{"meeting_format__c":"hybrid","cost_center__c":"SE-MED-310"}'),
     ('derm-roundtable', '{"meeting_format__c":"in_person","cost_center__c":"DE-DERM-120","tov_reportable__c":true}'),
     ('cardio-workshop', '{"meeting_format__c":"in_person","cost_center__c":"ES-CARD-220","cme_credits__c":3}'),
