@@ -22,6 +22,7 @@ Status: 26 Oct 2026. Supersedes v0.1 (Next.js/Vercel/Supabase). See [ARCHITECTUR
 | Products and therapeutic areas | Independent master lists, switched off rather than deleted. Not tied to event types for now (revisit later) |
 | Admin access | `profile.can_access_admin` opens the Admin area (System Admin, Business Admin). What can be changed there is permission rows + RLS: Business Admin maintains products, therapeutic areas and users (never System Admin accounts); event types, their countries and CRM connections stay with System Admin |
 | User logins | Created from Admin with a temporary password through the **auth adapter** (`create_user_login`, `set_user_password`): the only database code that writes to the identity provider |
+| Speakers and the agenda | Putting an HCP on a session adds them to the event's speakers; service hours are the sum of their session time, computed in the database. Prep and travel are entered. Honorarium = (prep + service + travel) × rate; a temporary flat EUR 100/h until FMV rates are wired in. Removing a speaker removes them from the sessions |
 | Repo | `github.com/erikdrawz/event-coordinator-prototype` (private, personal) |
 
 ## Mocked integrations (real interface, fake implementation)
@@ -50,7 +51,7 @@ Each phase ends in something demoable.
 - ✓ Events list (sort/filter), on the reusable `DataTable` in `apps/web/src/ui/`
 - Event capture: New/Edit event modal with base + custom fields, via `create_event()` / `update_event()`; status changes via `change_event_status()`
 - ✓ Custom fields: definitions, layout assignment, jsonb values with validation, generated reporting views; Admin page to create them (dropdown, text, number with decimals, URL) and assign them to event types; shown on the Event details tab in creation order
-- Event page: header + stepper, Overview (✓ agenda, speakers/honorarium grid, content), Team (posts, tasks), Attendees, Documents, ✓ Event details
+- Event page: header + stepper, Overview (✓ agenda, ✓ speakers/honorarium grid, content), Team (posts, tasks), Attendees, Documents, ✓ Event details
 - Capture of related data: sessions, speakers (experts), attendees, content
 - "Add people" dialog: EC HCP table first, then **mock CRM search** (`crm_mock` schema + search/import functions), then file import
 - Admin basics (pulled forward from Phase 6): event types with their countries; product and therapeutic area lists; users with profile, home country, event countries and logins

@@ -14,10 +14,18 @@ export interface Session {
   event_session_speaker: SessionSpeaker[];
 }
 
-/** Someone who can speak at a session: one of the event's experts, or a member of its team. */
-export interface SpeakerOption { key: string; event_expert_id?: string; user_id?: string; name: string; sub: string; initials: string | null; color: string | null }
+/**
+ * Someone who can speak at a session: one of the event's speakers, any other HCP (who becomes a speaker
+ * when saved), or a member of the event team (internal, no honorarium).
+ */
+export interface SpeakerOption {
+  key: string; event_expert_id?: string; hcp_id?: string; user_id?: string;
+  name: string; sub: string; initials: string | null; color: string | null; group: 'speaker' | 'hcp' | 'team';
+}
 
 export const sessionsKey = (eventId: string) => ['event', eventId, 'sessions'];
+/** Agenda changes can add speakers and change their hours, so they refresh everything under the event. */
+export const eventKey = (eventId: string) => ['event', eventId];
 
 export function useSessions(eventId: string) {
   return useQuery({
@@ -40,23 +48,34 @@ export function useSpeakerOptions(eventId: string) {
   return useQuery({
     queryKey: ['event', eventId, 'speaker-options'],
     queryFn: async () => {
-      const [experts, team] = await Promise.all([
-        supabase.from('event_expert').select('id,role,hcp(display_name,city)').eq('event_id', eventId),
+      const [experts, team, hcps] = await Promise.all([
+        supabase.from('event_expert').select('id,hcp_id,role,hcp(display_name,city)').eq('event_id', eventId),
         supabase.from('event_team_member').select('user_id,role_label,user:app_user!event_team_member_user_id_fkey(display_name,initials,avatar_color)').eq('event_id', eventId),
+        supabase.from('hcp').select('id,display_name,city,specialty(name)').eq('status', 'active').order('last_name'),
       ]);
-      if (experts.error) throw experts.error;
-      if (team.error) throw team.error;
+      for (const r of [experts, team, hcps]) if (r.error) throw r.error;
       const initials = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-      const ex = (experts.data as unknown as { id: string; role: string; hcp: { display_name: string; city: string | null } | null }[])
-        .map((e): SpeakerOption => ({ key: `x:${e.id}`, event_expert_id: e.id, name: e.hcp?.display_name ?? 'Unknown HCP',
+      const ex = (experts.data as unknown as { id: string; hcp_id: string; role: string; hcp: { display_name: string; city: string | null } | null }[])
+        .map((e): SpeakerOption => ({ key: `x:${e.id}`, event_expert_id: e.id, hcp_id: e.hcp_id, name: e.hcp?.display_name ?? 'Unknown HCP', group: 'speaker',
           sub: [e.role[0].toUpperCase() + e.role.slice(1), e.hcp?.city].filter(Boolean).join(' · '), initials: initials(e.hcp?.display_name ?? '?'), color: null }));
+      const onEvent = new Set(ex.map((e) => e.hcp_id));
+      const others = (hcps.data as unknown as { id: string; display_name: string; city: string | null; specialty: { name: string } | null }[])
+        .filter((h) => !onEvent.has(h.id))
+        .map((h): SpeakerOption => ({ key: `h:${h.id}`, hcp_id: h.id, name: h.display_name, group: 'hcp',
+          sub: ['New speaker', h.specialty?.name, h.city].filter(Boolean).join(' · '), initials: initials(h.display_name), color: null }));
       const tm = (team.data as unknown as { user_id: string; role_label: string | null; user: Person | null }[])
-        .map((t): SpeakerOption => ({ key: `u:${t.user_id}`, user_id: t.user_id, name: t.user?.display_name ?? 'Unknown user',
-          sub: t.role_label ?? 'Team', initials: t.user?.initials ?? null, color: t.user?.avatar_color ?? null }));
-      return [...ex.sort((a, b) => a.name.localeCompare(b.name)), ...tm.sort((a, b) => a.name.localeCompare(b.name))];
+        .map((t): SpeakerOption => ({ key: `u:${t.user_id}`, user_id: t.user_id, name: t.user?.display_name ?? 'Unknown user', group: 'team',
+          sub: `${t.role_label ?? 'Team'} · internal`, initials: t.user?.initials ?? null, color: t.user?.avatar_color ?? null }));
+      const byName = (a: SpeakerOption, b: SpeakerOption) => a.name.localeCompare(b.name);
+      return [...ex.sort(byName), ...tm.sort(byName), ...others];
     },
   });
 }
+
+/** What to send to save_event_session for a picked option. */
+export const speakerPayload = (o: { event_expert_id?: string | null; hcp_id?: string | null; user_id?: string | null }, minutes: number | null) =>
+  o.event_expert_id ? { event_expert_id: o.event_expert_id, minutes }
+    : o.hcp_id ? { hcp_id: o.hcp_id, minutes } : { user_id: o.user_id, minutes };
 
 export function useSessionKinds() {
   return useQuery({

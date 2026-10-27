@@ -11,7 +11,7 @@ import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { SessionModal } from './SessionModal';
 import { InlineSessionRow } from './InlineSessionRow';
 import {
-  localParts, minutesBetween, sessionsKey, speakerKey, speakerName, useSessionKinds, useSessions, useSpeakerOptions, type Session,
+  eventKey, localParts, minutesBetween, speakerKey, speakerPayload, speakerName, useSessionKinds, useSessions, useSpeakerOptions, type Session,
 } from './agendaData';
 
 interface EventLite { id: string; timezone: string; starts_at: string | null; ends_at: string | null }
@@ -68,19 +68,19 @@ export function AgendaSection({ event }: { event: EventLite }) {
   const addSpeaker = useMutation({
     mutationFn: async ({ s, key }: { s: Session; key: string }) => {
       const o = options.data?.find((x) => x.key === key);
-      const speakers = [...s.event_session_speaker.map((x) => ({ event_expert_id: x.event_expert_id, user_id: x.user_id, minutes: x.minutes })),
-        { event_expert_id: o?.event_expert_id ?? null, user_id: o?.user_id ?? null, minutes: s.event_session_speaker.length ? null : minutesBetween(s.starts_at, s.ends_at) }];
+      const speakers = [...s.event_session_speaker.map((x) => speakerPayload(x, x.minutes)),
+        speakerPayload(o ?? {}, s.event_session_speaker.length ? null : minutesBetween(s.starts_at, s.ends_at))];
       const { error } = await supabase.rpc('save_event_session', { p: { id: s.id, speakers } });
       if (error) throw new Error(error.message);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: sessionsKey(event.id) }),
+    onSettled: () => qc.invalidateQueries({ queryKey: eventKey(event.id) }),
   });
   const remove = useMutation({
     mutationFn: async (s: Session) => {
       const { error } = await supabase.from('event_session').delete().eq('id', s.id);
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: sessionsKey(event.id) }); setDeleting(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: eventKey(event.id) }); setDeleting(null); },
   });
 
   const addDay = () => {

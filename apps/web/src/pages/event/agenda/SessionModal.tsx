@@ -10,10 +10,10 @@ import { Select } from '../../../ui/Select';
 import { DateInput, TimeInput } from '../../../ui/DateInput';
 import { Menu } from '../../../ui/Menu';
 import {
-  addMinutes, localParts, sessionsKey, speakerKey, useSessionKinds, useSpeakerOptions, type Session, type SpeakerOption,
+  addMinutes, eventKey, localParts, speakerKey, speakerPayload, useSessionKinds, useSpeakerOptions, type Session, type SpeakerOption,
 } from './agendaData';
 
-interface Draft { key: string; event_expert_id?: string; user_id?: string; minutes: string }
+interface Draft { key: string; event_expert_id?: string; hcp_id?: string; user_id?: string; minutes: string }
 
 interface Props {
   eventId: string;
@@ -56,7 +56,7 @@ export function SessionModal({ eventId, timezone, session, onClose }: Props) {
     setFrom(t);
   };
   const addSpeaker = (o: SpeakerOption) => setSpeakers((list) => [...list, {
-    key: o.key, event_expert_id: o.event_expert_id, user_id: o.user_id,
+    key: o.key, event_expert_id: o.event_expert_id, hcp_id: o.hcp_id, user_id: o.user_id,
     minutes: list.length === 0 && length && length > 0 ? String(length) : '',
   }]);
 
@@ -68,12 +68,12 @@ export function SessionModal({ eventId, timezone, session, onClose }: Props) {
         id: session.id,
         title: title.trim(), session_kind: kind || null, location: location.trim() || null,
         starts_local: `${date}T${from}`, ends_local: `${endDate}T${to}`,
-        speakers: speakers.map((s) => ({ event_expert_id: s.event_expert_id ?? null, user_id: s.user_id ?? null, minutes: s.minutes ? Number(s.minutes) : null })),
+        speakers: speakers.map((s) => speakerPayload(s, s.minutes ? Number(s.minutes) : null)),
       };
       const { error } = await supabase.rpc('save_event_session', { p });
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: sessionsKey(eventId) }); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: eventKey(eventId) }); onClose(); },
   });
 
   const submit = (e: React.FormEvent) => {

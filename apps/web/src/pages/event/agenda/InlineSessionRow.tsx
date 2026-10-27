@@ -7,7 +7,7 @@ import { Avatar } from '../../../components/Avatar';
 import { Select } from '../../../ui/Select';
 import { TimeInput } from '../../../ui/DateInput';
 import { Menu } from '../../../ui/Menu';
-import { addMinutes, sessionsKey, type SpeakerOption } from './agendaData';
+import { addMinutes, eventKey, speakerPayload, type SpeakerOption } from './agendaData';
 
 interface Props {
   eventId: string;
@@ -52,11 +52,11 @@ export function InlineSessionRow({ eventId, date, start, kinds, speakers, onSave
         event_id: eventId, title: title.trim(), session_kind: kind || null,
         starts_local: `${date}T${from}`, ends_local: `${endDate}T${to}`,
         // One speaker gets the whole slot; with several, minutes are set in the edit form
-        speakers: picked.map((o) => ({ event_expert_id: o.event_expert_id ?? null, user_id: o.user_id ?? null, minutes: picked.length === 1 ? length : null })),
+        speakers: picked.map((o) => speakerPayload(o, picked.length === 1 ? length : null)),
       } });
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: sessionsKey(eventId) }); onSaved(to); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: eventKey(eventId) }); onSaved(to); },
     onError: (e) => setError(e.message),
   });
 
