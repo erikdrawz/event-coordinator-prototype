@@ -26,7 +26,7 @@ export function CustomFieldInput({ def, value, onChange, error, users }: Props) 
             return <textarea {...common} rows={3} value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value)} />;
           case 'number':
           case 'currency':
-            return <input {...common} type="number" step="any" value={value == null ? '' : String(value)}
+            return <input {...common} type="number" step={def.decimals != null ? 10 ** -def.decimals : 'any'} value={value == null ? '' : String(value)}
               onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))} />;
           case 'date':
             return <DateInput id={id} aria-describedby={describedBy} aria-invalid={Boolean(error) || undefined}
@@ -45,6 +45,9 @@ export function CustomFieldInput({ def, value, onChange, error, users }: Props) 
                 value={(value as string) ?? ''} onChange={(v) => onChange(v || null)} emptyLabel={def.is_required ? undefined : 'None'}
                 options={users.map((u) => ({ value: u.id, label: u.display_name }))} />
             );
+          case 'url':
+            return <input {...common} type="url" inputMode="url" placeholder="https://" value={(value as string) ?? ''}
+              onChange={(e) => onChange(e.target.value.trim())} />;
           default:
             return <input {...common} type="text" maxLength={255} value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value)} />;
         }

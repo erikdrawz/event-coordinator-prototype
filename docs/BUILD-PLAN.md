@@ -49,7 +49,7 @@ Each phase ends in something demoable.
 - ✓ Home 4a on live data: agenda (my/all, upcoming/past), mini calendar, recently worked on, needs my action, unassigned requests, notifications
 - ✓ Events list (sort/filter), on the reusable `DataTable` in `apps/web/src/ui/`
 - Event capture: New/Edit event modal with base + custom fields, via `create_event()` / `update_event()`; status changes via `change_event_status()`
-- Custom field foundation: definitions, layout assignment, jsonb values with validation, generated reporting views (admin screens come in Phase 6)
+- ✓ Custom fields: definitions, layout assignment, jsonb values with validation, generated reporting views; Admin page to create them (dropdown, text, number with decimals, URL) and assign them to event types; shown on the Event details tab in creation order
 - Event page: header + stepper, Overview (agenda, speakers/honorarium grid, content), Team (posts, tasks), Attendees, Documents, Event details
 - Capture of related data: sessions, speakers (experts), attendees, content
 - "Add people" dialog: EC HCP table first, then **mock CRM search** (`crm_mock` schema + search/import functions), then file import
@@ -69,7 +69,7 @@ Invite/attend tracking, bulk actions, **mock reconciliation**, CRM write-back vi
 Budgets, planned/actual expenses, invoice upload + extraction (an agent-user demo).
 
 ### Phase 6: Admin (rest)
-Still to come after the Phase 1 basics: business rules, approval processes, event statuses per event type, custom field management, CRM connections.
+Still to come after the Phase 1 basics: business rules, approval processes, event statuses per event type, custom field ordering and sections, more field types in the Admin UI, CRM connections.
 Users and profiles, event types, custom fields, approval process builder, integration settings over the mocks.
 
 ### Later / optional

@@ -132,6 +132,10 @@ const rename = await api(alex, `custom_field?id=eq.${linkF.data[0].id}`, { metho
 ok(rename.status >= 400, "a custom field's name can't change once created");
 const relabel = await api(alex, `custom_field?id=eq.${linkF.data[0].id}`, { method: 'PATCH', body: { label: 'Smoke website' } });
 ok(relabel.status === 200, "a custom field's label can change");
+await api(alex, `custom_field?id=eq.${scoreF.data[0].id}`, { method: 'PATCH', body: { is_active: false } });
+const keepOld = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { city: 'Lyon' } } });
+ok(keepOld.status === 200 && keepOld.data.custom_fields.smoke_score__c === 1.25, 'switching a field off keeps existing values and edits still save');
+ok((await setCf({ smoke_score__c: 2 })).status >= 400, 'a switched-off field takes no new values');
 ok((await api(maria, 'custom_field', { method: 'POST', body: { object_name: 'event', api_name: 'maria__c', label: 'Maria', field_type: 'text' } })).status >= 400,
    'business admin cannot define custom fields');
 

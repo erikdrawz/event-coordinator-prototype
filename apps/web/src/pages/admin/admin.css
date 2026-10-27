@@ -51,3 +51,10 @@
   .admin-nav { position: static; flex-direction: row; flex-wrap: wrap; }
   .admin-nav-title, .admin-nav-sub, .admin-nav-link.disabled { display: none; }
 }
+
+/* Custom fields */
+.admin-api { font-family: ui-monospace, Menlo, monospace; font-size: var(--text-sm); color: var(--color-text-secondary); }
+.input.admin-api-input { font-family: ui-monospace, Menlo, monospace; font-size: var(--text-base); }
+.cf-options { display: grid; gap: 6px; }
+.cf-option { display: flex; align-items: center; gap: 8px; }
+.cf-option .input { flex: 1; }

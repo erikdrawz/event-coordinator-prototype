@@ -10,7 +10,7 @@ import { Modal } from '../../ui/Modal';
 import { CheckboxField, Field, FormSection } from '../../ui/Form';
 import { MultiSelect } from '../../ui/MultiSelect';
 import { AdminPage } from './AdminLayout';
-import { ADMIN_KEY, must, syncLinks, useCountries, useEventTypes, type EventTypeRow } from './adminData';
+import { ADMIN_KEY, must, syncLinks, useCountries, useCustomFields, useEventTypes, type EventTypeRow } from './adminData';
 
 function Codes({ values, all, allLabel }: { values: string[]; all?: boolean; allLabel: string }) {
   if (!values.length) return <span className="admin-all">{all ? allLabel : 'None'}</span>;
@@ -21,18 +21,24 @@ function Codes({ values, all, allLabel }: { values: string[]; all?: boolean; all
 export function EventTypesAdmin() {
   const { me } = useAuth();
   const types = useEventTypes();
+  const fields = useCustomFields();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<EventTypeRow | 'new' | null>(null);
 
   const columns = useMemo<Column<EventTypeRow>[]>(() => [
-    { id: 'name', header: 'Event type', width: '36%', sortValue: (t) => t.name,
+    { id: 'name', header: 'Event type', width: '28%', sortValue: (t) => t.name,
       cell: (t) => <><button className="dt-primary as-button" onClick={() => setEditing(t)}>{t.name}</button>
         {t.description && <div className="dt-sub">{t.description}</div>}</> },
-    { id: 'countries', header: 'Countries', width: '44%', sortValue: (t) => t.event_type_country.length,
+    { id: 'countries', header: 'Countries', width: '32%', sortValue: (t) => t.event_type_country.length,
       cell: (t) => <Codes values={t.event_type_country.map((c) => c.country_code).sort()} allLabel="" /> },
-    { id: 'active', header: 'Status', width: '20%', sortValue: (t) => (t.is_active ? 0 : 1),
+    { id: 'fields', header: 'Event details fields', width: '26%',
+      cell: (t) => {
+        const names = (fields.data ?? []).filter((f) => f.is_active && f.custom_field_layout.some((l) => l.event_type_id === t.id || l.event_type_id === null)).map((f) => f.label);
+        return <span className="dt-sub">{names.length ? names.join(', ') : 'None'}</span>;
+      } },
+    { id: 'active', header: 'Status', width: '14%', sortValue: (t) => (t.is_active ? 0 : 1),
       cell: (t) => <span className={`pill ${t.is_active ? 'pill-green' : 'pill-grey'}`}>{t.is_active ? 'Active' : 'Inactive'}</span> },
-  ], []);
+  ], [fields.data]);
 
   const filtered = useMemo(() => types.data?.filter((t) => !q || t.name.toLowerCase().includes(q.toLowerCase())), [types.data, q]);
   const { rows, sort, setSort } = useTableSort(filtered, columns, { columnId: 'name', dir: 'asc' });
@@ -54,6 +60,12 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
   const { me } = useAuth();
   const qc = useQueryClient();
   const countries = useCountries();
+  const fields = useCustomFields();
+  // Fields shown on this type, oldest first. "All types" assignments (API-made) show as locked.
+  const allTypes = (fields.data ?? []).filter((f) => f.custom_field_layout.some((l) => l.event_type_id === null));
+  const beforeFields = (fields.data ?? []).filter((f) => type && f.custom_field_layout.some((l) => l.event_type_id === type.id)).map((f) => f.id);
+  const [fieldIds, setFieldIds] = useState<string[] | null>(null);
+  const chosenFields = fieldIds ?? beforeFields;
   const beforeCountries = type?.event_type_country.map((c) => c.country_code) ?? [];
   const [name, setName] = useState(type?.name ?? '');
   const [description, setDescription] = useState(type?.description ?? '');
@@ -64,6 +76,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
 
   const canType = can(me, 'event_type', type ? 'edit' : 'create');
   const canCountries = can(me, 'event_type_country', 'create');
+  const canFields = can(me, 'custom_field_layout', 'create');
 
   const save = useMutation({
     mutationFn: async () => {
@@ -76,6 +89,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
       }
       if (!id) return;
       if (canCountries) await syncLinks('event_type_country', 'event_type_id', id, 'country_code', beforeCountries, ctry);
+      if (canFields && fieldIds) await syncLinks('custom_field_layout', 'event_type_id', id, 'custom_field_id', beforeFields, fieldIds);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: [ADMIN_KEY] }); qc.invalidateQueries({ queryKey: ['event-form-options'] }); onClose(); },
   });
@@ -88,7 +102,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
 
   return (
     <Modal open size="lg" title={type ? type.name : 'New event type'} onClose={onClose}
-      footer={canType || canCountries ? <>
+      footer={canType || canCountries || canFields ? <>
         <button type="button" className="btn" onClick={onClose}>Cancel</button>
         <button type="submit" form="event-type-form" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
       </> : <button type="button" className="btn" onClick={onClose}>Close</button>}>
@@ -114,6 +128,14 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
             {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Countries" value={ctry} onChange={setCtry} disabled={!canCountries}
               placeholder="No countries yet" options={(countries.data ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))} />}
           </Field>
+        </FormSection>
+        <FormSection title="Event details">
+          <Field label="Custom fields" wide hint="Shown on the Event details tab and in the event form, in the order the fields were created.">
+            {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Custom fields" value={chosenFields} onChange={setFieldIds}
+              disabled={!canFields || fields.isLoading} placeholder="No custom fields" maxChips={10}
+              options={(fields.data ?? []).filter((f) => (f.is_active || chosenFields.includes(f.id)) && !allTypes.includes(f)).map((f) => ({ value: f.id, label: f.label }))} />}
+          </Field>
+          {allTypes.length > 0 && <p className="admin-section-note">Also shown on every event type: {allTypes.map((f) => f.label).join(', ')}.</p>}
         </FormSection>
       </form>
     </Modal>

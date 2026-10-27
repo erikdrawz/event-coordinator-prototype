@@ -24,6 +24,13 @@ export interface UserRow {
   app_user_country: { country_code: string }[];
 }
 
+export type CustomFieldType = 'text' | 'long_text' | 'number' | 'currency' | 'date' | 'checkbox' | 'picklist' | 'multi_picklist' | 'lookup_user' | 'url';
+export interface CustomFieldRow {
+  id: string; api_name: string; label: string; field_type: CustomFieldType; help_text: string | null;
+  options: { value: string; label: string }[]; decimals: number | null; is_required: boolean; is_active: boolean; created_at: string;
+  custom_field_layout: { event_type_id: string | null }[];
+}
+
 /** Admin lists share one query key prefix, so a save can refresh them all at once. */
 export const ADMIN_KEY = 'admin';
 
@@ -51,6 +58,15 @@ export function useEventTypes() {
     queryFn: () => rows<EventTypeRow>(supabase.from('event_type')
       .select('id,name,description,default_duration_minutes,is_active,event_type_country(country_code)')
       .order('name')),
+  });
+}
+/** Event custom fields, oldest first (the order they're shown in). */
+export function useCustomFields() {
+  return useQuery({
+    queryKey: [ADMIN_KEY, 'custom-fields'],
+    queryFn: () => rows<CustomFieldRow>(supabase.from('custom_field')
+      .select('id,api_name,label,field_type,help_text,options,decimals,is_required,is_active,created_at,custom_field_layout(event_type_id)')
+      .eq('object_name', 'event').order('created_at')),
   });
 }
 export function useProfiles() {
@@ -94,6 +110,7 @@ export async function must<T>(q: PromiseLike<{ data: T; error: { message: string
 
 /** A few raw database messages, rephrased. */
 export function friendly(msg: string) {
+  if (/custom_field_tenant_id_object_name_api_name_key/.test(msg)) return 'Another custom field already has that name.';
   if (/duplicate key value.*_name_key/.test(msg) || /duplicate key value.*\(tenant_id, name\)/.test(msg)) return 'That name is already in use.';
   if (/row-level security/.test(msg)) return "You don't have permission to make this change.";
   return msg;

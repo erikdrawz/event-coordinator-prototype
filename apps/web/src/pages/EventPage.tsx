@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, MapPin, Clock, Users, Ban } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,7 @@ import { useEventStatuses } from '../components/StatusPill';
 import { useAuth } from '../lib/auth';
 import { can } from '../lib/permissions';
 import { useEventForm } from './event/EventFormProvider';
+import { EventDetailsTab } from './event/EventDetailsTab';
 import type { EventStatus } from '../lib/types';
 import './event.css';
 
@@ -39,14 +40,21 @@ function countdown(iso: string | null): string | null {
   return d === -1 ? 'Yesterday' : `${-d} days ago`;
 }
 
-const TABS = ['Overview', 'Team', 'Attendees', 'Documents', 'Event details'];
+const TABS = [
+  { id: 'overview', label: 'Overview' }, { id: 'team', label: 'Team' }, { id: 'attendees', label: 'Attendees' },
+  { id: 'documents', label: 'Documents' }, { id: 'details', label: 'Event details' },
+] as const;
+type TabId = (typeof TABS)[number]['id'];
 
-/** Phase 0: header, lifecycle stepper and tabs on live data. Tab content is built in Phase 1. */
+/** Header, lifecycle stepper and tabs. The open tab is in the URL (?tab=details) so it can be linked to. */
 export function EventPage() {
   const { id } = useParams();
   const { data: statuses } = useEventStatuses();
   const { me } = useAuth();
   const { openEditEvent } = useEventForm();
+  const [params, setParams] = useSearchParams();
+  const tab = (TABS.find((t) => t.id === params.get('tab'))?.id ?? 'overview') as TabId;
+  const pickTab = (t: TabId) => setParams((p) => { const n = new URLSearchParams(p); if (t === 'overview') n.delete('tab'); else n.set('tab', t); return n; }, { replace: true });
   const { data: e, isLoading } = useQuery({
     queryKey: ['event', id],
     queryFn: async () => {
@@ -98,14 +106,21 @@ export function EventPage() {
             ))}
           </ol>
         )}
-        <div className="tabs" role="tablist">
-          {TABS.map((t, i) => <button key={t} role="tab" aria-selected={i === 0} className={`tab${i === 0 ? ' active' : ''}`}>{t}</button>)}
+        <div className="tabs" role="tablist" aria-label="Event sections">
+          {TABS.map((t) => (
+            <button key={t.id} id={`tab-${t.id}`} role="tab" aria-selected={tab === t.id} aria-controls="event-tabpanel"
+              className={`tab${tab === t.id ? ' active' : ''}`} onClick={() => pickTab(t.id)}>{t.label}</button>
+          ))}
         </div>
       </section>
-      <section className="card empty-state" style={{ marginTop: 18 }}>
-        <div className="empty-state-title">Agenda, speakers and content come next</div>
-        The Overview, Team, Attendees, Documents and Event details tabs are built in Phase 1 on this same data.
-      </section>
+      <div id="event-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="event-tabpanel">
+        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : (
+          <section className="card empty-state">
+            <div className="empty-state-title">{TABS.find((t) => t.id === tab)?.label} comes next</div>
+            Agenda, speakers, attendees and documents are being built on this same data. Event details is ready.
+          </section>
+        )}
+      </div>
     </main>
   );
 }

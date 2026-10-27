@@ -8,11 +8,11 @@ const SECTIONS = [
   { to: 'event-types', label: 'Event types', icon: CalendarCog },
   { to: 'products', label: 'Products', icon: Boxes },
   { to: 'therapeutic-areas', label: 'Therapeutic areas', icon: FlaskConical },
+  { to: 'custom-fields', label: 'Custom fields', icon: SlidersHorizontal },
   { to: 'users', label: 'Users', icon: Users },
 ];
 // On the roadmap, shown so admins can see where configuration is heading
 const LATER = [
-  { label: 'Custom fields', icon: SlidersHorizontal },
   { label: 'Statuses per event type', icon: ListChecks },
   { label: 'Business rules and approvals', icon: Workflow },
   { label: 'CRM connections', icon: Plug },

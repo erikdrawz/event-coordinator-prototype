@@ -10,9 +10,11 @@ export interface EventTypeOpt {
 export interface CountryOpt { code: string; name: string; default_timezone: string | null }
 export interface CustomFieldDef {
   id: string; api_name: string; label: string; is_required: boolean; help_text: string | null;
-  field_type: 'text' | 'long_text' | 'number' | 'currency' | 'date' | 'checkbox' | 'picklist' | 'multi_picklist' | 'lookup_user';
+  field_type: 'text' | 'long_text' | 'number' | 'currency' | 'date' | 'checkbox' | 'picklist' | 'multi_picklist' | 'lookup_user' | 'url';
   options: { value: string; label: string }[];
-  custom_field_layout: { event_type_id: string | null; section: string; sort: number }[];
+  decimals: number | null;
+  created_at: string;
+  custom_field_layout: { event_type_id: string | null }[];
 }
 export interface UserOpt { id: string; display_name: string }
 
@@ -37,32 +39,28 @@ export function useEventFormOptions() {
         rows<{ id: string; name: string; is_active: boolean; therapeutic_area_id: string | null }>(supabase.from('product').select('id,name,is_active,therapeutic_area_id').order('name')),
         rows<UserOpt>(supabase.from('app_user').select('id,display_name').eq('user_type', 'human').eq('status', 'active').order('display_name')),
         rows<CustomFieldDef>(supabase.from('custom_field')
-          .select('id,api_name,label,field_type,options,is_required,help_text,custom_field_layout(event_type_id,section,sort)')
-          .eq('object_name', 'event').eq('is_active', true)),
+          .select('id,api_name,label,field_type,options,is_required,help_text,decimals,created_at,custom_field_layout(event_type_id)')
+          .eq('object_name', 'event').eq('is_active', true).order('created_at')),
       ]);
       return { types, countries, areas, products, users, fields };
     },
   });
 }
 
-/** Custom fields shown for an event type, grouped by layout section in display order. */
+/**
+ * Custom fields shown for an event type, in the order they were created.
+ * One group for now; layout sections (custom_field_layout.section) can split it later.
+ */
 export function fieldsForType(defs: CustomFieldDef[], typeId: string) {
-  const placed = defs.flatMap((d) => {
-    // A type-specific layout wins over the "all types" one
-    const l = d.custom_field_layout.find((x) => x.event_type_id === typeId) ?? d.custom_field_layout.find((x) => x.event_type_id === null);
-    return l ? [{ def: d, section: l.section, sort: l.sort }] : [];
-  }).sort((a, b) => a.sort - b.sort || a.def.label.localeCompare(b.def.label));
-  const sections = new Map<string, CustomFieldDef[]>();
-  const rank = (s: string) => { const i = SECTION_ORDER.indexOf(s); return i < 0 ? SECTION_ORDER.length : i; };
-  [...new Set(placed.map((p) => p.section))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
-    .forEach((s) => sections.set(s, placed.filter((p) => p.section === s).map((p) => p.def)));
-  return sections;
+  const shown = defs.filter((d) => d.custom_field_layout.some((l) => l.event_type_id === typeId || l.event_type_id === null))
+    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.label.localeCompare(b.label));
+  return new Map(shown.length ? [['details', shown] as [string, CustomFieldDef[]]] : []);
 }
 
-/** Known layout sections in display order; admin-made sections follow alphabetically. */
-const SECTION_ORDER = ['details', 'finance', 'compliance'];
-export const SECTION_TITLES: Record<string, string> = { details: 'Additional details', finance: 'Finance', compliance: 'Compliance' };
-export const sectionTitle = (s: string) => SECTION_TITLES[s] ?? s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+export const sectionTitle = (s: string) => (s === 'details' ? 'Additional details' : s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()));
+
+/** True when a link looks usable: http(s) and a host. The database applies the same rule. */
+export const isUrl = (v: string) => /^https?:\/\/[^\s/$.?#][^\s]*$/i.test(v);
 
 // ---------- Form state ----------
 
@@ -141,7 +139,13 @@ export function validate(f: EventFormState, shown: CustomFieldDef[]) {
   if (!f.event_type_id) errors.event_type_id = 'Choose an event type';
   if (!f.country_code) errors.country_code = 'Choose a country';
   if (f.starts_local && f.ends_local && f.ends_local < f.starts_local) errors.ends_local = 'Ends before it starts';
-  shown.forEach((d) => { if (d.is_required && isEmpty(f.custom[d.api_name])) errors[d.api_name] = `${d.label} is required`; });
+  shown.forEach((d) => {
+    const v = f.custom[d.api_name];
+    if (d.is_required && isEmpty(v)) errors[d.api_name] = `${d.label} is required`;
+    else if (d.field_type === 'url' && typeof v === 'string' && v && !isUrl(v)) errors[d.api_name] = 'Enter a full link, starting with https://';
+    else if (typeof v === 'number' && d.decimals != null && Number(v.toFixed(d.decimals)) !== v)
+      errors[d.api_name] = d.decimals === 0 ? 'Use a whole number' : `Use at most ${d.decimals} decimal place${d.decimals === 1 ? '' : 's'}`;
+  });
   return errors;
 }
 

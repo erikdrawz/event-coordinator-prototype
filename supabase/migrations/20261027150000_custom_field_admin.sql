@@ -30,7 +30,7 @@ end $$;
 create trigger custom_field_keys_fixed before update on public.custom_field
   for each row execute function app.custom_field_keys_fixed();
 
--- Same rules as before, plus url format and number decimals
+-- Same rules as before, plus url format, number decimals, and switched-off fields keeping their values
 create or replace function app.validate_custom_fields() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -45,9 +45,14 @@ begin
 
   for k, v in select * from jsonb_each(new.custom_fields) loop
     select * into f from public.custom_field
-     where tenant_id = new.tenant_id and object_name = tg_table_name and api_name = k and is_active;
+     where tenant_id = new.tenant_id and object_name = tg_table_name and api_name = k;
     if not found then
       raise exception 'Unknown custom field "%" on %', k, tg_table_name using errcode = '22023';
+    end if;
+    -- A switched-off field keeps the values events already have, but takes no new ones
+    if not f.is_active then
+      if tg_op = 'UPDATE' and (old.custom_fields -> k) = v then continue; end if;
+      raise exception '% is no longer in use', f.label using errcode = '22023';
     end if;
     allowed := array(select o ->> 'value' from jsonb_array_elements(f.options) o);
 
