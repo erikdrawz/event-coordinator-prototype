@@ -215,6 +215,9 @@ ok((await saveAgenda(sarah, { event_id: ev.id, sessions: [] })).status >= 400 &&
 const ag3 = await saveAgenda(paul, { event_id: ev.id, version: ag2.data?.version, sessions: [{ ...slotA, speakers: [] }] });
 ok(ag3.status === 200 && (await sessionsNow()).length === 1 && (await evaOf()).data?.length === 0,
    'sessions left out of the agenda are deleted, and speakers with no session left leave');
+const lindNow = (await expertOf()).data?.[0];
+await saveAgenda(paul, { event_id: ev.id, sessions: [{ ...slotA, speakers: [{ event_expert_id: lindNow?.id, minutes: 120 }] }] });
+ok(Number((await expertOf()).data?.[0]?.service_hours) === 0.5, 'speaking time counts up to the session length');
 ok((await saveSession(sarah, { event_id: ev.id, title: 'Not allowed', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30' })).status >= 400,
    'collaborator cannot add sessions');
 

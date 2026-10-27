@@ -220,13 +220,15 @@ function EditRow({ row: r, error, open, options, canDelete, onChange, onToggle, 
   const label = r.title.trim() || 'new session';
   // Keep the session's length when its start moves
   const moveStart = (t: string) => onChange(t && r.from && r.to ? { from: t, to: addMinutes(t, length ?? 0) } : { from: t });
+  // A speaking time typed as the whole session keeps following it when the end moves
+  const moveEnd = (to: string) => onChange({ to, speakers: r.speakers.map((s) => (length != null && s.minutes === String(length) ? { ...s, minutes: '' } : s)) });
   const setMinutes = (key: string, minutes: string) => onChange({ speakers: r.speakers.map((s) => (s.key === key ? { ...s, minutes } : s)) });
 
   return (
     <>
       <tr className={`agenda-edit${open ? ' is-open' : ''}${error ? ' has-error' : ''}`}>
         <td className="agenda-start"><TimeInput aria-label={`Start of ${label}`} value={r.from} onChange={moveStart} /></td>
-        <td className="agenda-end"><TimeInput aria-label={`End of ${label}`} value={r.to} onChange={(to) => onChange({ to })} /></td>
+        <td className="agenda-end"><TimeInput aria-label={`End of ${label}`} value={r.to} onChange={moveEnd} /></td>
         <td className="num">{length ?? ''}</td>
         <td>
           <div className="agenda-edit-main">

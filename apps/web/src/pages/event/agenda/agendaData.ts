@@ -113,13 +113,15 @@ export interface DraftSession {
 
 export function toDraft(s: Session, tz: string): DraftSession {
   const start = localParts(s.starts_at, tz);
+  const length = minutesBetween(s.starts_at, s.ends_at);
   return {
     key: s.id, id: s.id, date: start.date, from: start.time, to: localParts(s.ends_at, tz).time,
     title: s.title, kind: s.session_kind ?? '', location: s.location ?? '',
     speakers: s.event_session_speaker.map((sp) => ({
       key: speakerKey(sp), event_expert_id: sp.event_expert_id ?? undefined, user_id: sp.user_id ?? undefined,
       name: speakerName(sp), initials: sp.user?.initials ?? initials(speakerName(sp)), color: sp.user?.avatar_color ?? null,
-      minutes: sp.minutes?.toString() ?? '',
+      // Speaking for the whole session is stored as no minutes, so it follows the session's times
+      minutes: sp.minutes == null || sp.minutes >= length ? '' : String(sp.minutes),
     })),
   };
 }

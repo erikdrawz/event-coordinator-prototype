@@ -199,13 +199,14 @@ select app.sid('tenant:alera'), app.sid('event:' || e), app.sid('session:' || e 
        case when h is not null then app.sid('expert:' || e || ':' || h) end,
        case when u is not null then app.sid('user:' || u) end, m, srt
   from (values
-    ('sma-board',1,null,'sarah',5,1), ('sma-board',2,'muir',null,15,1), ('sma-board',3,'griffiths',null,30,1),
-    ('sma-board',5,'griffiths',null,30,1), ('sma-board',6,'muir',null,10,1), ('sma-board',6,'griffiths',null,10,2),
-    ('sma-board',7,'muir',null,5,1),
-    ('neuro-meet',2,'solberg',null,50,1), ('neuro-meet',3,'lind',null,75,1),
-    ('bioforum',1,'vaaranen',null,45,1), ('bioforum',2,'huesh',null,30,1), ('bioforum',3,'eriksson',null,30,1),
-    ('derm-roundtable',1,'vogel',null,15,1), ('derm-roundtable',2,'vogel',null,50,1), ('derm-roundtable',2,'brandt',null,55,2),
-    ('derm-roundtable',3,'vogel',null,30,1)
+    -- minutes null = the whole session; set only where speakers share a session
+    ('sma-board',1,null,'sarah',null,1), ('sma-board',2,'muir',null,null,1), ('sma-board',3,'griffiths',null,null,1),
+    ('sma-board',5,'griffiths',null,null,1), ('sma-board',6,'muir',null,10,1), ('sma-board',6,'griffiths',null,10,2),
+    ('sma-board',7,'muir',null,null,1),
+    ('neuro-meet',2,'solberg',null,null,1), ('neuro-meet',3,'lind',null,null,1),
+    ('bioforum',1,'vaaranen',null,null,1), ('bioforum',2,'huesh',null,null,1), ('bioforum',3,'eriksson',null,null,1),
+    ('derm-roundtable',1,'vogel',null,null,1), ('derm-roundtable',2,'vogel',null,50,1), ('derm-roundtable',2,'brandt',null,55,2),
+    ('derm-roundtable',3,'vogel',null,null,1)
   ) as t(e, n, h, u, m, srt);
 
 -- ---------------------------------------------------------------------

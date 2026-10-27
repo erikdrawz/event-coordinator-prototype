@@ -144,12 +144,14 @@ export function TimeInput({ value, onChange, disabled, ...a11y }: { value: strin
         onBlur={(e) => { if (!popRef.current?.contains(e.relatedTarget as Node)) { commit(); setOpen(false); } }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') { e.preventDefault(); commit(); setOpen(false); }
+          // Tab moves on with the typed time (the list isn't a tab stop)
+          else if (e.key === 'Tab') { commit(); setOpen(false); }
           else if (e.key === 'Escape' && open) { e.preventDefault(); e.stopPropagation(); setText(value); setOpen(false); }
           else if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); listRef.current?.querySelector<HTMLElement>('[aria-selected="true"], li')?.focus(); }
         }} />
       {open && style && (
         <div ref={popRef} className="sel-pop" style={style}>
-          <ul ref={listRef} className="sel-list" role="listbox" aria-label="Times">
+          <ul ref={listRef} className="sel-list" role="listbox" aria-label="Times" tabIndex={-1}>
             {SLOTS.map((s) => (
               <li key={s} data-slot={s} role="option" tabIndex={-1} aria-selected={s === value}
                 className="sel-option ti-option" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(s)}
