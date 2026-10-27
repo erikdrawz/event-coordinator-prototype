@@ -5,14 +5,13 @@ import { ChevronDown, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
-import { Select } from '../../../ui/Select';
 import { DateInput, TimeInput } from '../../../ui/DateInput';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { keepsWithoutSessions, useExperts } from '../speakers/speakersData';
 import { AgendaDays, agendaDays, nextDay } from './AgendaDays';
 import {
-  addMinutes, draftPayload, draftSpeaker, eventKey, localParts, sessionLength, useSessionKinds, useSpeakerOptions,
+  addMinutes, draftPayload, draftSpeaker, eventKey, localParts, sessionLength, useSpeakerOptions,
   type DraftSession, type SpeakerOption,
 } from './agendaData';
 
@@ -43,7 +42,6 @@ const names = (list: string[]) => list.length <= 2 ? list.join(' and ') : `${lis
 export function AgendaEditor({ event, initial, version, addFirst, day, onDay, canAdd, canDelete, onClose }: Props) {
   const qc = useQueryClient();
   const options = useSpeakerOptions(event.id);
-  const kinds = useSessionKinds();
   const experts = useExperts(event.id);
   const tz = event.timezone;
   const seq = useRef(0);
@@ -152,7 +150,7 @@ export function AgendaEditor({ event, initial, version, addFirst, day, onDay, ca
           </thead>
           <tbody>
             {todays.map((r) => (
-              <EditRow key={r.key} row={r} error={errors[r.key]} open={open.has(r.key)} options={options.data ?? []} kinds={kinds.data ?? []}
+              <EditRow key={r.key} row={r} error={errors[r.key]} open={open.has(r.key)} options={options.data ?? []}
                 canDelete={canDelete}
                 onChange={(patch) => { update(r.key, patch); if (patch.date) onDay(patch.date); }}
                 onToggle={() => setOpen((s) => { const n = new Set(s); if (n.has(r.key)) n.delete(r.key); else n.add(r.key); return n; })}
@@ -209,7 +207,6 @@ interface RowProps {
   error?: string;
   open: boolean;
   options: SpeakerOption[];
-  kinds: string[];
   canDelete: boolean;
   onChange: (patch: Partial<DraftSession>) => void;
   onToggle: () => void;
@@ -217,7 +214,7 @@ interface RowProps {
   onEnter?: () => void;
 }
 
-function EditRow({ row: r, error, open, options, kinds, canDelete, onChange, onToggle, onRemove, onEnter }: RowProps) {
+function EditRow({ row: r, error, open, options, canDelete, onChange, onToggle, onRemove, onEnter }: RowProps) {
   const length = sessionLength(r.from, r.to);
   const free = options.filter((o) => !r.speakers.some((s) => s.key === o.key));
   const label = r.title.trim() || 'new session';
@@ -237,8 +234,6 @@ function EditRow({ row: r, error, open, options, kinds, canDelete, onChange, onT
               aria-invalid={error === 'Give the session a title' || undefined}
               onChange={(e) => onChange({ title: e.target.value })}
               onKeyDown={(e) => { if (e.key === 'Enter' && onEnter) { e.preventDefault(); onEnter(); } }} />
-            <Select aria-label={`Kind of ${label}`} value={r.kind} onChange={(kind) => onChange({ kind })} emptyLabel="No kind" placeholder="Kind"
-              options={[...kinds, ...(r.kind && !kinds.includes(r.kind) ? [r.kind] : [])].map((k) => ({ value: k, label: k }))} />
           </div>
         </td>
         <td>

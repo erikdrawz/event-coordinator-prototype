@@ -132,9 +132,8 @@
 .agenda-edit .agenda-end .ti-input { color: var(--color-text); }
 .agenda-edit td.num { padding-top: 15px; color: var(--color-text-muted); }
 .agenda-edit .input[aria-invalid='true'] { border-color: var(--tone-red-fg); }
-.agenda-edit-main { display: grid; gap: 4px; min-width: 260px; }
+.agenda-edit-main { display: grid; min-width: 260px; }
 .agenda-edit-main .input { height: 32px; padding: 0 8px; font-size: var(--text-md); font-weight: 600; }
-.agenda-edit-main .sel-trigger { max-width: 200px; height: 28px; font-size: var(--text-base); font-weight: 400; color: var(--color-text-secondary); }
 .agenda-edit .agenda-speakers { padding-top: 4px; }
 .agenda-edit-actions { white-space: nowrap; width: 72px; text-align: right; }
 .agenda-more svg { transition: transform 0.15s ease; }

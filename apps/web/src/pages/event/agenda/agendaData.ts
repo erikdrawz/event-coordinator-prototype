@@ -75,17 +75,6 @@ export const speakerPayload = (o: { event_expert_id?: string | null; hcp_id?: st
   o.event_expert_id ? { event_expert_id: o.event_expert_id, minutes }
     : o.hcp_id ? { hcp_id: o.hcp_id, minutes } : { user_id: o.user_id, minutes };
 
-export function useSessionKinds() {
-  return useQuery({
-    queryKey: ['session-kinds'], staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('session_kind').select('name').eq('is_active', true).order('sort');
-      if (error) throw error;
-      return (data as { name: string }[]).map((k) => k.name);
-    },
-  });
-}
-
 export const speakerKey = (s: { event_expert_id: string | null; user_id: string | null }) =>
   s.event_expert_id ? `x:${s.event_expert_id}` : `u:${s.user_id}`;
 export const speakerName = (s: SessionSpeaker) => s.expert?.hcp?.display_name ?? s.user?.display_name ?? 'Unknown';

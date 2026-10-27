@@ -102,7 +102,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
                   <td className="num">{minutesBetween(s.starts_at, s.ends_at)}</td>
                   <td>
                     <span className="agenda-title">{s.title}</span>
-                    <div className="dt-sub">{[s.session_kind, s.location].filter(Boolean).join(' · ')}</div>
+                    {s.location && <div className="dt-sub">{s.location}</div>}
                   </td>
                   <td>
                     <span className="agenda-speakers">
