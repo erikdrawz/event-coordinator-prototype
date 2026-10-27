@@ -44,7 +44,7 @@ const sma = await api(paul, `event?name=eq.SMA%20Board&select=id,status,event_ex
 const s = sma.data?.[0];
 ok(s && s.event_session.length === 7, 'SMA Board has 7 agenda sessions');
 const total = s?.event_expert.reduce((a, e) => a + Number(e.total_payable), 0);
-ok(total === 1456, `SMA Board honoraria total €1,456 (got ${total})`);
+ok(total === 517, `SMA Board honoraria total €517 at the temporary €100/h rate (got ${total})`);
 
 // Lifecycle rules
 const bad = await api(paul, 'rpc/change_event_status', { method: 'POST', body: { p_event_id: s.id, p_status: 'closed' } });
@@ -153,6 +153,23 @@ ok((await saveSession(paul, { id: sess.data.id, starts_local: '2026-12-01T10:00'
 const renamed = await saveSession(paul, { id: sess.data.id, title: 'Smoke session (renamed)', speakers: [] });
 const spkAfter = await api(paul, `event_session_speaker?session_id=eq.${sess.data.id}&select=id`);
 ok(renamed.status === 200 && renamed.data.title === 'Smoke session (renamed)' && spkAfter.data?.length === 0, 'editing a session can replace its speakers');
+
+// Speakers follow the agenda: adding an HCP to a session adds them to the speakers, with service hours from the session
+const lindHcp = await api(paul, 'hcp?last_name=eq.Lind&select=id');
+await saveSession(paul, { id: sess.data.id, speakers: [{ hcp_id: lindHcp.data[0].id }] });
+const expertOf = () => api(paul, `event_expert?event_id=eq.${ev.id}&hcp_id=eq.${lindHcp.data[0].id}&select=id,role,hourly_rate,service_hours,prep_hours,total_payable`);
+let lind = (await expertOf()).data?.[0];
+ok(lind && lind.role === 'speaker' && Number(lind.hourly_rate) === 100 && Number(lind.service_hours) === 0.5,
+   'an HCP added to a session joins the speakers at the flat rate, with the session as service hours');
+await saveSession(paul, { id: sess.data.id, ends_local: '2026-12-01T10:00' });
+lind = (await expertOf()).data?.[0];
+ok(Number(lind.service_hours) === 1, 'lengthening the session updates service hours');
+await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { service_hours: 99, prep_hours: 1.5 } });
+lind = (await expertOf()).data?.[0];
+ok(Number(lind.service_hours) === 1 && Number(lind.total_payable) === 250, 'service hours cannot be typed in; total = (prep + service + travel) × rate');
+await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'DELETE' });
+const leftOnSession = await api(paul, `event_session_speaker?session_id=eq.${sess.data.id}&select=id`);
+ok(leftOnSession.data?.length === 0, 'removing a speaker removes them from the sessions');
 ok((await saveSession(sarah, { event_id: ev.id, title: 'Not allowed', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30' })).status >= 400,
    'collaborator cannot add sessions');
 
