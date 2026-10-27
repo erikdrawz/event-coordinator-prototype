@@ -1,4 +1,5 @@
 import { CheckboxField, ChipPicker, Field } from '../../ui/Form';
+import { Select } from '../../ui/Select';
 import type { CustomFieldDef, UserOpt } from './eventForm';
 
 interface Props {
@@ -30,19 +31,17 @@ export function CustomFieldInput({ def, value, onChange, error, users }: Props) 
             return <input {...common} type="date" value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value || null)} />;
           case 'picklist':
             return (
-              <select {...common} value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-                <option value="">Choose…</option>
-                {def.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <Select id={id} aria-describedby={describedBy} aria-invalid={Boolean(error) || undefined}
+                value={(value as string) ?? ''} onChange={(v) => onChange(v || null)} options={def.options}
+                emptyLabel={def.is_required ? undefined : 'None'} />
             );
           case 'multi_picklist':
             return <ChipPicker label={def.label} options={def.options} value={(value as string[]) ?? []} onChange={onChange} />;
           case 'lookup_user':
             return (
-              <select {...common} value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-                <option value="">Choose…</option>
-                {users.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
-              </select>
+              <Select id={id} aria-describedby={describedBy} aria-invalid={Boolean(error) || undefined} searchable
+                value={(value as string) ?? ''} onChange={(v) => onChange(v || null)} emptyLabel={def.is_required ? undefined : 'None'}
+                options={users.map((u) => ({ value: u.id, label: u.display_name }))} />
             );
           default:
             return <input {...common} type="text" maxLength={255} value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value)} />;

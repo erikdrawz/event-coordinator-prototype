@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { Modal } from '../../ui/Modal';
 import { ChipPicker, Field, FormSection } from '../../ui/Form';
+import { Select } from '../../ui/Select';
 import { CustomFieldInput } from './CustomFieldInput';
 import {
   addMinutesLocal, emptyForm, EVENT_RECORD_SELECT, fieldsForType, formFromRecord, sectionTitle, TIME_ZONES,
@@ -54,6 +55,8 @@ function EventForm({ eventId, record, options, onClose, title }:
   const sections = useMemo(() => (f.event_type_id ? fieldsForType(options.fields, f.event_type_id) : new Map<string, CustomFieldDef[]>()), [options.fields, f.event_type_id]);
   const shown = useMemo(() => [...sections.values()].flat(), [sections]);
   const dirty = JSON.stringify(f) !== JSON.stringify(initial);
+  const zoneOptions = useMemo(() => (TIME_ZONES.includes(f.timezone) ? TIME_ZONES : [f.timezone, ...TIME_ZONES])
+    .map((z) => ({ value: z, label: z.replace(/_/g, ' ') })), [f.timezone]);
 
   const set = <K extends keyof EventFormState>(k: K, v: EventFormState[K]) => {
     setF((prev) => ({ ...prev, [k]: v }));
@@ -136,26 +139,20 @@ function EventForm({ eventId, record, options, onClose, title }:
           </Field>
           <Field label="Event type" required error={err('event_type_id')}>
             {(id, d) => (
-              <select id={id} aria-describedby={d} aria-invalid={inv('event_type_id')} className="input" value={f.event_type_id}
-                onChange={(e) => set('event_type_id', e.target.value)}>
-                <option value="">Choose…</option>
-                {options.types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+              <Select id={id} aria-describedby={d} aria-invalid={inv('event_type_id')} value={f.event_type_id}
+                onChange={(v) => set('event_type_id', v)} options={options.types.map((t) => ({ value: t.id, label: t.name }))} />
             )}
           </Field>
           <Field label="Owner">
             {(id) => (
-              <select id={id} className="input" value={f.owner_id} onChange={(e) => set('owner_id', e.target.value)}>
-                {options.users.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
-              </select>
+              <Select id={id} value={f.owner_id} onChange={(v) => set('owner_id', v)} searchable
+                options={options.users.map((u) => ({ value: u.id, label: u.display_name }))} />
             )}
           </Field>
           <Field label="Therapeutic area">
             {(id) => (
-              <select id={id} className="input" value={f.therapeutic_area_id} onChange={(e) => set('therapeutic_area_id', e.target.value)}>
-                <option value="">None</option>
-                {options.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <Select id={id} value={f.therapeutic_area_id} onChange={(v) => set('therapeutic_area_id', v)} emptyLabel="None"
+                options={options.areas.map((a) => ({ value: a.id, label: a.name }))} />
             )}
           </Field>
           <Field label="Products" wide hint={areaProducts.length ? null : 'No products in this therapeutic area.'}>
@@ -167,10 +164,8 @@ function EventForm({ eventId, record, options, onClose, title }:
         <FormSection title="When and where">
           <Field label="Country">
             {(id) => (
-              <select id={id} className="input" value={f.country_code} onChange={(e) => pickCountry(e.target.value)}>
-                <option value="">Choose…</option>
-                {options.countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-              </select>
+              <Select id={id} value={f.country_code} onChange={pickCountry}
+                options={options.countries.map((c) => ({ value: c.code, label: c.name }))} />
             )}
           </Field>
           <Field label="City">
@@ -191,10 +186,8 @@ function EventForm({ eventId, record, options, onClose, title }:
           </Field>
           <Field label="Time zone" wide hint={tzTouched ? null : 'Follows the country until you change it.'}>
             {(id, d) => (
-              <select id={id} aria-describedby={d} className="input" value={f.timezone}
-                onChange={(e) => { setTzTouched(true); set('timezone', e.target.value); }}>
-                {(TIME_ZONES.includes(f.timezone) ? TIME_ZONES : [f.timezone, ...TIME_ZONES]).map((z) => <option key={z} value={z}>{z.replace(/_/g, ' ')}</option>)}
-              </select>
+              <Select id={id} aria-describedby={d} value={f.timezone} options={zoneOptions}
+                onChange={(v) => { setTzTouched(true); set('timezone', v); }} />
             )}
           </Field>
         </FormSection>
@@ -207,9 +200,8 @@ function EventForm({ eventId, record, options, onClose, title }:
             {(id) => (
               <div className="input-group">
                 <input id={id} type="number" min={0} step="any" className="input" value={f.estimated_spend} onChange={(e) => set('estimated_spend', e.target.value)} />
-                <select aria-label="Currency" className="input" value={f.currency} onChange={(e) => set('currency', e.target.value)}>
-                  {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
+                <Select aria-label="Currency" value={f.currency} onChange={(v) => set('currency', v)}
+                  options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
               </div>
             )}
           </Field>

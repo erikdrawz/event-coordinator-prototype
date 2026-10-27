@@ -34,10 +34,17 @@ The controls above a list.
 - `Toolbar`: the wrapping row (`role="search"`).
 - `SearchInput`: text search.
 - `Segmented`: mutually exclusive choices (My events / All). Uses the shared `.segmented` style.
-- `FilterSelect`: a labelled select. The empty value means "any", and the control highlights when a filter is set.
+- `FilterSelect`: a `Select` in its filter variant. The empty value means "any", and the control highlights when a filter is set.
 - `ClearFilters`: resets filters. Show it only when a filter is active.
 
 Keep list filters in the URL (`useSearchParams`) so a filtered view can be bookmarked and shared. See `pages/EventsPage.tsx`.
+
+### `Select` (`Select.tsx`)
+Use it for every dropdown instead of a native `<select>`. It's a button that opens a listbox in the app's style, the same height as text inputs (it carries `.input`).
+- Keyboard: arrows, Home/End, Enter, Esc (closes the list, not a surrounding modal), type-to-jump.
+- Lists longer than 12 get a search box (force it with `searchable`). `emptyLabel` adds a first "None"/"All" option.
+- `variant="filter"` with a `label` is the compact toolbar version ("Status  All"); `FilterSelect` wraps it.
+- The list is fixed-positioned, so a scrolling modal body doesn't clip it, and it opens upwards when there's no room below.
 
 ### `Modal` (`Modal.tsx`)
 A dialog on the native `<dialog>` element, so focus trapping, Esc and the backdrop come from the browser. Header and footer stay fixed while the body scrolls, and it goes full screen on phones. Pass `confirmClose="Discard your changes…?"` while a form has unsaved changes. Submit buttons in the `footer` point at the form with `form="<form id>"`.

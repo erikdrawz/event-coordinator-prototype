@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Search, X } from 'lucide-react';
+import { Select } from './Select';
 import './toolbar.css';
 
 /** A row of list controls above a DataTable: search, segmented choices, selects, clear. */
@@ -35,18 +36,10 @@ export function SearchInput({ value, onChange, placeholder = 'Search' }: { value
 
 export interface Option { value: string; label: string }
 
-/** A labelled native select. The empty value means "any". */
+/** A filter dropdown with its label inside ("Status  All"). The empty value means "any". */
 export function FilterSelect({ label, value, options, onChange, anyLabel = 'All' }:
   { label: string; value: string; options: Option[]; onChange: (v: string) => void; anyLabel?: string }) {
-  return (
-    <label className={`tb-select${value ? ' active' : ''}`}>
-      <span className="tb-select-label">{label}</span>
-      <select value={value} aria-label={label} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{anyLabel}</option>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    </label>
-  );
+  return <Select variant="filter" label={label} aria-label={label} value={value} options={options} onChange={onChange} emptyLabel={anyLabel} />;
 }
 
 /** Mutually exclusive choices, e.g. My events / All. Uses the shared .segmented style. */

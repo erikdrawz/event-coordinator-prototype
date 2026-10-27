@@ -1,0 +1,45 @@
+/* Select — button + styled listbox. The field trigger also carries .input, so it matches text inputs. */
+.sel-trigger {
+  display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer; color: var(--color-text);
+}
+.sel-trigger:disabled { cursor: not-allowed; background: var(--color-surface-muted); }
+.sel-trigger[aria-expanded='true'] { border-color: var(--color-accent); outline: 2px solid var(--color-accent-soft); }
+.sel-value { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-placeholder { color: var(--color-text-faint); }
+.sel-chevron { flex: none; color: var(--color-text-muted); transition: transform 0.12s; }
+[aria-expanded='true'] > .sel-chevron { transform: rotate(180deg); }
+
+/* Filter variant: "Status  All ⌄" in a toolbar */
+.sel-filter {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px 0 12px; max-width: 260px;
+  background: var(--color-surface); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md);
+  font-size: var(--text-md); color: var(--color-text); cursor: pointer;
+}
+.sel-filter:hover { border-color: var(--color-text-faint); }
+.sel-filter.active { border-color: var(--color-accent); background: var(--color-accent-softer); }
+.sel-filter[aria-expanded='true'] { border-color: var(--color-accent); outline: 2px solid var(--color-accent-soft); }
+.sel-filter-label { color: var(--color-text-muted); white-space: nowrap; }
+.sel-filter .sel-value { font-weight: 600; }
+
+/* The list */
+.sel-pop {
+  position: fixed; z-index: 50; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.sel-search {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex: none;
+  border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);
+}
+.sel-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: var(--text-md); color: var(--color-text); }
+.sel-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; }
+.sel-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 7px 10px; border-radius: var(--radius-sm); font-size: var(--text-md); cursor: pointer; color: var(--color-text);
+}
+.sel-option.active { background: var(--color-surface-muted); }
+.sel-option[aria-selected='true'] { color: var(--color-accent-hover); font-weight: 600; }
+.sel-option.active[aria-selected='true'] { background: var(--color-accent-softer); }
+.sel-empty { color: var(--color-text-muted); }
+.sel-check { flex: none; color: var(--color-accent); }
+.sel-none { padding: 10px; font-size: var(--text-base); color: var(--color-text-muted); }

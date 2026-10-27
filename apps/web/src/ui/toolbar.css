@@ -8,17 +8,6 @@
 .tb-search:focus-within { border-color: var(--color-accent); outline: 2px solid var(--color-accent-soft); }
 .tb-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: var(--text-md); color: var(--color-text); }
 
-.tb-select {
-  position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px 0 12px;
-  background: var(--color-surface); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-md);
-}
-.tb-select.active { border-color: var(--color-accent); background: var(--color-accent-softer); }
-.tb-select:focus-within { outline: 2px solid var(--color-accent-soft); border-color: var(--color-accent); }
-.tb-select-label { color: var(--color-text-muted); white-space: nowrap; }
-.tb-select select {
-  border: 0; outline: 0; background: transparent; font-weight: 600; color: var(--color-text); cursor: pointer; max-width: 180px;
-}
-
 /* On the grey page ground the segmented control needs its own surface */
 .toolbar .segmented {
   height: 36px; align-items: center; background: var(--color-surface);
