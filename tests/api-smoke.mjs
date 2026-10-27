@@ -167,6 +167,15 @@ ok(Number(lind.service_hours) === 1, 'lengthening the session updates service ho
 await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { service_hours: 99, prep_hours: 1.5 } });
 lind = (await expertOf()).data?.[0];
 ok(Number(lind.service_hours) === 1 && Number(lind.total_payable) === 250, 'service hours cannot be typed in; total = (prep + service + travel) × rate');
+// Negotiable rate: default 100, between 80 and 120
+const policy = await api(paul, 'rpc/expert_rate_policy', { method: 'POST', body: {} });
+ok(policy.data?.mode === 'negotiable' && policy.data.default === 100 && policy.data.min === 80 && policy.data.max === 120, 'the rate policy is negotiable, €100 within €80–€120');
+const setRate = (rate) => api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { hourly_rate: rate } });
+ok((await setRate(121)).status >= 400 && (await setRate(79)).status >= 400, 'a rate outside €80–€120 is refused');
+await setRate(120);
+lind = (await expertOf()).data?.[0];
+ok(Number(lind.hourly_rate) === 120 && Number(lind.total_payable) === 300, 'a negotiated rate is used in the total');
+await setRate(100);
 await saveSession(paul, { id: sess.data.id, speakers: [{ event_expert_id: lind.id }] });
 ok((await expertOf()).data?.length === 1, 're-saving a session keeps its speakers');
 await saveSession(paul, { id: sess.data.id, speakers: [] });
