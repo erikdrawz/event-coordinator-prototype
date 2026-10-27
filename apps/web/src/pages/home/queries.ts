@@ -24,19 +24,21 @@ const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); retur
  * Events in a time window, either all visible ones or only those the user is on the team of.
  * RLS decides what "all" means for this user.
  */
-async function fetchEvents(meId: string, scope: Scope, from: Date, to: Date, ascending: boolean) {
+async function fetchEvents(meId: string, scope: Scope, from: Date, to: Date, ascending: boolean, withCancelled = true) {
   const team = scope === 'mine' ? 'event_team_member!inner(team_role)' : 'event_team_member(team_role)';
-  const { data, error } = await supabase.from('event')
+  let q = supabase.from('event')
     .select(`id,name,status,starts_at,timezone,city,country_code,event_type(name),owner:app_user!event_owner_id_fkey(display_name),${team}`)
     .eq('event_team_member.user_id', meId)
     .gte('starts_at', from.toISOString())
     .lt('starts_at', to.toISOString())
     .order('starts_at', { ascending });
+  if (!withCancelled) q = q.neq('status', 'cancelled');
+  const { data, error } = await q;
   if (error) throw error;
   return data as unknown as AgendaEvent[];
 }
 
-/** The agenda: next 90 days, or the last 90 days newest first. */
+/** The agenda: next 90 days, or the last 90 days newest first. Cancelled events are left out (the calendar keeps them). */
 export function useAgenda(meId: string | undefined, scope: Scope, when: When) {
   return useQuery({
     queryKey: ['home', 'agenda', meId, scope, when],
@@ -44,8 +46,8 @@ export function useAgenda(meId: string | undefined, scope: Scope, when: When) {
     queryFn: () => {
       const today = startOfToday();
       return when === 'upcoming'
-        ? fetchEvents(meId!, scope, today, new Date(today.getTime() + 90 * DAY), true)
-        : fetchEvents(meId!, scope, new Date(today.getTime() - 90 * DAY), today, false);
+        ? fetchEvents(meId!, scope, today, new Date(today.getTime() + 90 * DAY), true, false)
+        : fetchEvents(meId!, scope, new Date(today.getTime() - 90 * DAY), today, false, false);
     },
   });
 }
