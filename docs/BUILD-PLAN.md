@@ -50,7 +50,7 @@ Each phase ends in something demoable.
 - ✓ Events list (sort/filter), on the reusable `DataTable` in `apps/web/src/ui/`
 - Event capture: New/Edit event modal with base + custom fields, via `create_event()` / `update_event()`; status changes via `change_event_status()`
 - ✓ Custom fields: definitions, layout assignment, jsonb values with validation, generated reporting views; Admin page to create them (dropdown, text, number with decimals, URL) and assign them to event types; shown on the Event details tab in creation order
-- Event page: header + stepper, Overview (agenda, speakers/honorarium grid, content), Team (posts, tasks), Attendees, Documents, Event details
+- Event page: header + stepper, Overview (✓ agenda, speakers/honorarium grid, content), Team (posts, tasks), Attendees, Documents, ✓ Event details
 - Capture of related data: sessions, speakers (experts), attendees, content
 - "Add people" dialog: EC HCP table first, then **mock CRM search** (`crm_mock` schema + search/import functions), then file import
 - Admin basics (pulled forward from Phase 6): event types with their countries; product and therapeutic area lists; users with profile, home country, event countries and logins

@@ -85,6 +85,15 @@
 .btn-outline { border-color: var(--color-accent); color: var(--color-accent); }
 .btn-outline:hover { background: var(--color-accent-softer); color: var(--color-accent-hover); }
 .btn-ghost { border-color: transparent; background: transparent; }
+.btn-danger { background: var(--tone-red-fg); border-color: var(--tone-red-fg); color: #fff; }
+.btn-danger:hover { background: var(--tone-red-fg); border-color: var(--tone-red-fg); color: #fff; filter: brightness(0.92); }
+.btn-sm { padding: 4px 9px; font-size: var(--text-base); }
+.icon-btn {
+  width: 30px; height: 30px; display: inline-grid; place-items: center; flex: none; padding: 0; cursor: pointer;
+  border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-muted);
+}
+.icon-btn:hover, .icon-btn[aria-expanded='true'] { background: var(--color-accent-soft); color: var(--color-accent); }
+.confirm-body { font-size: var(--text-md); color: var(--color-text-secondary); line-height: 1.5; }
 .btn-lg { padding: 11px 16px; font-size: var(--text-lg); }
 .btn-block { width: 100%; }
 

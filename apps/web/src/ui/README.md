@@ -58,6 +58,12 @@ Choose several values: chips in the field (with remove buttons), a searchable ch
 ### `usePopover` (`usePopover.ts`)
 Positions any popup under its trigger (above it when there's no room), follows scrolling, closes on outside clicks. `Select` and the date/time inputs use it. The popup is placed one render after opening, so wait for `style` before focusing inside it.
 
+### `Menu` (`Menu.tsx`)
+A button that opens a list of actions: a row's ⋮ menu, or a picker like "+ Speaker". You render the trigger (it gets `ref`, `onClick` and ARIA props to spread); items have a label, optional icon, `danger`, `disabled`. Lists over 8 get a search box.
+
+### `ConfirmDialog` (`ConfirmDialog.tsx`)
+"Are you sure?" for destructive actions, in the app's style. Say what happens and what stays, e.g. "Speakers stay on the event."
+
 ### `Modal` (`Modal.tsx`)
 A dialog on the native `<dialog>` element, so focus trapping, Esc and the backdrop come from the browser. Header and footer stay fixed while the body scrolls, and it goes full screen on phones. Opens with focus in the first field of the body. Pass `confirmClose="Discard your changes…?"` while a form has unsaved changes. Submit buttons in the `footer` point at the form with `form="<form id>"`.
 

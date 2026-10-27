@@ -72,3 +72,9 @@
 }
 .ms-box.on { background: var(--color-accent); border-color: var(--color-accent); }
 .ms-label { flex: 1; }
+
+/* Menu */
+.menu-option { justify-content: flex-start; gap: 8px; }
+.menu-option:focus { outline: none; background: var(--color-surface-muted); }
+.menu-option.danger { color: var(--tone-red-fg); }
+.menu-option.disabled { color: var(--color-text-faint); cursor: default; }

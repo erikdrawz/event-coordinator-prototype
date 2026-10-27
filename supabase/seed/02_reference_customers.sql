@@ -100,3 +100,9 @@ union all
 select app.sid('etype:conference'), 'US', app.sid('tenant:alera')
 union all
 select app.sid('etype:investigator'), c.code, app.sid('tenant:alera') from (values ('GB'), ('DE'), ('US')) as c(code);
+
+-- Kinds of agenda item
+insert into public.session_kind (tenant_id, name, sort)
+select app.sid('tenant:alera'), n, srt
+  from (values ('Housekeeping', 10), ('Chair introduction', 20), ('Presentation', 30), ('Panel / Q&A', 40), ('Discussion', 50),
+               ('Workshop', 60), ('Break', 70), ('Meal', 80), ('Networking', 90), ('Summary', 100)) as t(n, srt);

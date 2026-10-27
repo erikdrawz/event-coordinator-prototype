@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth';
 import { can } from '../lib/permissions';
 import { useEventForm } from './event/EventFormProvider';
 import { EventDetailsTab } from './event/EventDetailsTab';
+import { OverviewTab } from './event/OverviewTab';
 import type { EventStatus } from '../lib/types';
 import './event.css';
 
@@ -114,10 +115,10 @@ export function EventPage() {
         </div>
       </section>
       <div id="event-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="event-tabpanel">
-        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : (
+        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : (
           <section className="card empty-state">
             <div className="empty-state-title">{TABS.find((t) => t.id === tab)?.label} comes next</div>
-            Agenda, speakers, attendees and documents are being built on this same data. Event details is ready.
+            This tab is being built on the same event data. Overview and Event details are ready.
           </section>
         )}
       </div>

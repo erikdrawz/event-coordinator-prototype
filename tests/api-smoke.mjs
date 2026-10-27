@@ -139,6 +139,23 @@ ok((await setCf({ smoke_score__c: 2 })).status >= 400, 'a switched-off field tak
 ok((await api(maria, 'custom_field', { method: 'POST', body: { object_name: 'event', api_name: 'maria__c', label: 'Maria', field_type: 'text' } })).status >= 400,
    'business admin cannot define custom fields');
 
+// Agenda: sessions with local times and speakers, in one call
+const saveSession = (who, p) => api(who, 'rpc/save_event_session', { method: 'POST', body: { p } });
+const sess = await saveSession(paul, { event_id: ev.id, title: 'Smoke session', session_kind: 'Presentation',
+  starts_local: '2026-12-01T09:00', ends_local: '2026-12-01T09:30', speakers: [{ user_id: me.data.id, minutes: 30 }] });
+ok(sess.status === 200 && sess.data.starts_at?.startsWith('2026-12-01T08:00'), 'a session is saved with local times converted in the event zone');
+const sessSpk = await api(paul, `event_session_speaker?session_id=eq.${sess.data?.id}&select=user_id,minutes,event_id`);
+ok(sessSpk.data?.length === 1 && sessSpk.data[0].event_id === ev.id, 'its speakers are saved with it');
+const otherExpert = await api(paul, `event_expert?event_id=eq.${s.id}&select=id&limit=1`);
+ok((await saveSession(paul, { id: sess.data.id, speakers: [{ event_expert_id: otherExpert.data[0].id }] })).status >= 400,
+   "another event's expert can't speak at this event");
+ok((await saveSession(paul, { id: sess.data.id, starts_local: '2026-12-01T10:00' })).status >= 400, 'a session cannot end before it starts');
+const renamed = await saveSession(paul, { id: sess.data.id, title: 'Smoke session (renamed)', speakers: [] });
+const spkAfter = await api(paul, `event_session_speaker?session_id=eq.${sess.data.id}&select=id`);
+ok(renamed.status === 200 && renamed.data.title === 'Smoke session (renamed)' && spkAfter.data?.length === 0, 'editing a session can replace its speakers');
+ok((await saveSession(sarah, { event_id: ev.id, title: 'Not allowed', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30' })).status >= 400,
+   'collaborator cannot add sessions');
+
 // Collaborator: can post, cannot create events
 const sarahEvent = await api(sarah, 'rpc/create_event', { method: 'POST', body: { p: base } });
 ok(sarahEvent.status >= 400, 'collaborator cannot create events');

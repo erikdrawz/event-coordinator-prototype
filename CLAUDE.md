@@ -68,6 +68,7 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
 - Event capture goes through `create_event(p)` / `update_event(id, p)` (one call, products and custom fields included; times may be given as `starts_local` in the event's zone).
 - Custom fields: definitions in `custom_field`, placement per event type and section in `custom_field_layout`, values in `<table>.custom_fields` jsonb validated by `app.validate_custom_fields()`. Reporting reads `report.<table>` views, rebuilt by `app.refresh_report_view()`. Never `alter table` for a customer field.
 - Creating an event (or changing its country/type) needs the type enabled in that country (`event_type_country`) and the user allowed there (`app_user_country`); `app.check_event_rules()` enforces it.
+- Agenda sessions go through `save_event_session(p)` (local times, speakers replaced in the same call). Speakers must be the event's experts or team members. Session kinds come from `session_kind`.
 - Event status changes go through `change_event_status()`. Allowed moves are data in `event_status_transition`.
 - Lifecycle: `draft → review → contract → execution → closed`, plus `cancelled` as an exit. Home pills use `event_status.home_label` (Planning / In approval / Approved).
 - When you add a security rule or workflow, add a check for it in `tests/api-smoke.mjs`.
@@ -94,7 +95,7 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
 ## Where we are
 
 - **Phase 0, done:** schema, security, seed, CI, login, app shell with notifications, interim Home / events list / Event page header.
-- **Phase 1, in progress.** Done: Home 4a, events list (`DataTable`), New/Edit event modal with custom fields, Admin basics (`/admin`: event types with countries and custom fields, products, therapeutic areas, custom fields, users with countries and logins), Event details tab. Next:
+- **Phase 1, in progress.** Done: Home 4a, events list (`DataTable`), New/Edit event modal with custom fields, Admin basics (`/admin`: event types with countries and custom fields, products, therapeutic areas, custom fields, users with countries and logins), Event details tab, Overview → Agenda (days, add/edit/delete sessions, speakers). Next:
   - Event page tabs, in `event-page.png` order:
     - Overview: agenda grid by day, speakers/honorarium grid with total, content grid
     - Team: message board with replies/reactions, tasks
