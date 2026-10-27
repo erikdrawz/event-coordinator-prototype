@@ -2,6 +2,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { NotificationsMenu } from './NotificationsMenu';
 import { UserMenu } from './UserMenu';
+import { EventFormProvider } from '../pages/event/EventFormProvider';
 
 const NAV = [
   { to: '/', label: 'Home', end: true },
@@ -32,7 +33,9 @@ export function AppShell() {
           <UserMenu />
         </div>
       </nav>
-      <Outlet />
+      <EventFormProvider>
+        <Outlet />
+      </EventFormProvider>
     </>
   );
 }

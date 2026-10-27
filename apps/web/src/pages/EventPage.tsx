@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { daysUntil, eventDateParts } from '../lib/format';
 import { DateTile } from '../components/DateTile';
 import { useEventStatuses } from '../components/StatusPill';
+import { useAuth } from '../lib/auth';
+import { useEventForm } from './event/EventFormProvider';
 import type { EventStatus } from '../lib/types';
 import './event.css';
 
@@ -42,6 +44,8 @@ const TABS = ['Overview', 'Team', 'Attendees', 'Documents', 'Event details'];
 export function EventPage() {
   const { id } = useParams();
   const { data: statuses } = useEventStatuses();
+  const { me } = useAuth();
+  const { openEditEvent } = useEventForm();
   const { data: e, isLoading } = useQuery({
     queryKey: ['event', id],
     queryFn: async () => {
@@ -78,8 +82,8 @@ export function EventPage() {
             </div>
           </div>
           <div className="event-actions">
-            <button className="btn" disabled title="Coming in Phase 1">Edit event</button>
-            <button className="btn btn-primary" disabled title="Coming in Phase 1">Actions <ChevronDown size={16} /></button>
+            {me?.permissions.event?.edit && <button className="btn" onClick={() => openEditEvent(e.id)}>Edit event</button>}
+            <button className="btn btn-primary" disabled title="Status changes come next">Actions <ChevronDown size={16} /></button>
           </div>
         </div>
         {e.status === 'cancelled' ? (

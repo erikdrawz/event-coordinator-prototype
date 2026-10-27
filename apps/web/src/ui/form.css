@@ -1,0 +1,36 @@
+/* Form building blocks. Inputs use .input from styles/components.css. */
+.form-section { border: 0; margin: 0; padding: 0; min-width: 0; }
+.form-section + .form-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--color-surface-sunken); }
+.form-section-title {
+  padding: 0; margin-bottom: 12px; font-size: var(--text-xs); font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted);
+}
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.field-wide { grid-column: 1 / -1; }
+.field-required { color: var(--color-brand); }
+.field-hint { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.4; }
+.field-error { font-size: var(--text-sm); color: var(--tone-red-fg); font-weight: 600; }
+.field-invalid .input { border-color: var(--tone-red-fg); }
+.form .input { padding: 8px 10px; font-size: var(--text-md); }
+textarea.input { resize: vertical; min-height: 72px; line-height: 1.45; }
+select.input { cursor: pointer; }
+
+.field-check { justify-content: center; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-md); font-weight: 600; cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--color-accent); }
+
+.input-group { display: flex; gap: 8px; }
+.input-group > .input:first-child { flex: 1; min-width: 0; }
+.input-group > .input:last-child:not(:first-child) { width: 96px; flex: none; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 5px 11px; border-radius: var(--radius-pill); border: 1px solid var(--color-border-strong);
+  background: var(--color-surface); font-size: var(--text-base); font-weight: 600; color: var(--color-text-secondary); cursor: pointer;
+}
+.chip:hover { border-color: var(--color-accent); }
+.chip.on { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent-hover); }
+
+@media (max-width: 760px) {
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
+}

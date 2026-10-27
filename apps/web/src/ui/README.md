@@ -39,5 +39,15 @@ The controls above a list.
 
 Keep list filters in the URL (`useSearchParams`) so a filtered view can be bookmarked and shared. See `pages/EventsPage.tsx`.
 
+### `Modal` (`Modal.tsx`)
+A dialog on the native `<dialog>` element, so focus trapping, Esc and the backdrop come from the browser. Header and footer stay fixed while the body scrolls, and it goes full screen on phones. Pass `confirmClose="Discard your changes…?"` while a form has unsaved changes. Submit buttons in the `footer` point at the form with `form="<form id>"`.
+
+### Form (`Form.tsx`)
+- `FormSection`: a titled group laid out on a two-column grid (one column on phones).
+- `Field`: label, required mark, hint and error. Children get `(id, describedBy)` so the label and messages are wired to the control. Controls use the shared `.input` class.
+- `CheckboxField`: a yes/no field. `ChipPicker`: pick several values from a short list.
+
+Validate in the browser so people see problems early, but the database is the authority: show its error messages as they are, because they're written for people. See `pages/event/EventFormModal.tsx`.
+
 ## Still in `components/` (to move here when next touched)
 `Avatar`, `StatusPill`, `DateTile`, plus the shared classes in `styles/components.css` (`.card`, `.btn-*`, `.pill-*`, `.segmented`, `.link`).

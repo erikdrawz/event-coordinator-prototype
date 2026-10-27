@@ -4,6 +4,7 @@ import { eventDateParts } from '../../lib/format';
 import { DateTile } from '../../components/DateTile';
 import { StatusPill } from '../../components/StatusPill';
 import { Segmented } from '../../ui/Toolbar';
+import { useEventForm } from '../event/EventFormProvider';
 import { useAgenda, type AgendaEvent, type Scope, type When } from './queries';
 
 const ROLE_NOTE: Record<string, string> = { owner: 'you own', co_host: 'co-host' };
@@ -30,6 +31,7 @@ interface Props {
 export function Agenda({ meId, scope, onScope, when, onWhen, canCreate }: Props) {
   const { data, isLoading, error } = useAgenda(meId, scope, when);
   const today = new Date();
+  const { openNewEvent } = useEventForm();
 
   return (
     <section className="card home-agenda" aria-labelledby="agenda-title">
@@ -65,7 +67,7 @@ export function Agenda({ meId, scope, onScope, when, onWhen, canCreate }: Props)
                 <span className="home-agenda-empty-text">
                   Events you own or co-host appear here as soon as they're created, with their status alongside.
                 </span>
-                {canCreate && <Link to="/events/new" className="btn btn-primary home-agenda-empty-cta"><Plus size={14} strokeWidth={2.6} />Create your first event</Link>}
+                {canCreate && <button className="btn btn-primary home-agenda-empty-cta" onClick={openNewEvent}><Plus size={14} strokeWidth={2.6} />Create your first event</button>}
                 <button className="link" onClick={() => onScope('all')}>Browse team events</button>
               </>
             ) : (

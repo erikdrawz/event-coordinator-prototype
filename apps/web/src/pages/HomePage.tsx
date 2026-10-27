@@ -7,6 +7,7 @@ import { MiniCalendar } from './home/MiniCalendar';
 import { NeedsMyAction } from './home/NeedsMyAction';
 import { UnassignedRequests } from './home/UnassignedRequests';
 import { RecentlyWorkedOn } from './home/RecentlyWorkedOn';
+import { useEventForm } from './event/EventFormProvider';
 import type { Scope, When } from './home/queries';
 import './home.css';
 
@@ -15,6 +16,7 @@ export function HomePage() {
   const { me } = useAuth();
   const [scope, setScope] = useState<Scope>('mine');
   const [when, setWhen] = useState<When>('upcoming');
+  const { openNewEvent } = useEventForm();
   if (!me) return null;
 
   // Buttons follow object permissions for clarity; the database enforces them regardless.
@@ -26,7 +28,7 @@ export function HomePage() {
       <div className="home-left">
         {(canCreateEvent || canCreateRequest) && (
           <div className="home-create">
-            {canCreateEvent && <Link to="/events/new" className="btn btn-primary btn-lg btn-block"><Plus size={15} strokeWidth={2.6} />New event…</Link>}
+            {canCreateEvent && <button className="btn btn-primary btn-lg btn-block" onClick={openNewEvent}><Plus size={15} strokeWidth={2.6} />New event…</button>}
             {canCreateRequest && <Link to="/requests" className="btn btn-lg btn-block">New request…</Link>}
           </div>
         )}

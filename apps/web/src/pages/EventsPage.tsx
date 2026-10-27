@@ -9,6 +9,7 @@ import { Avatar } from '../components/Avatar';
 import { StatusPill, useEventStatuses } from '../components/StatusPill';
 import { DataTable, useTableSort, type Column } from '../ui/DataTable';
 import { ClearFilters, FilterSelect, SearchInput, Segmented, Toolbar } from '../ui/Toolbar';
+import { useEventForm } from './event/EventFormProvider';
 import type { EventStatus } from '../lib/types';
 
 interface EventRow {
@@ -35,6 +36,7 @@ function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d
 export function EventsPage() {
   const { me } = useAuth();
   const [params, setParams] = useSearchParams();
+  const { openNewEvent } = useEventForm();
   const get = <K extends keyof typeof DEFAULTS>(k: K) => params.get(k) ?? DEFAULTS[k];
   const scope = get('scope') as Scope;
   const when = get('when') as When;
@@ -130,7 +132,7 @@ export function EventsPage() {
           <h1 className="page-title">Events</h1>
           {rows && <div className="card-sub">{rows.length} {rows.length === 1 ? 'event' : 'events'}</div>}
         </div>
-        {me?.permissions.event?.create && <Link to="/events/new" className="btn btn-primary"><Plus size={15} strokeWidth={2.6} />New event…</Link>}
+        {me?.permissions.event?.create && <button className="btn btn-primary" onClick={openNewEvent}><Plus size={15} strokeWidth={2.6} />New event…</button>}
       </div>
 
       <Toolbar label="Filter events">
