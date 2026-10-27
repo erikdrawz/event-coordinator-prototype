@@ -9,7 +9,7 @@ import { Select } from '../../ui/Select';
 import { DateTimeInput } from '../../ui/DateInput';
 import { CustomFieldInput } from './CustomFieldInput';
 import {
-  addMinutesLocal, emptyForm, EVENT_RECORD_SELECT, fieldsForType, formFromRecord, sectionTitle, TIME_ZONES,
+  addMinutesLocal, allowedFor, creationScope, emptyForm, EVENT_RECORD_SELECT, fieldsForType, formFromRecord, sectionTitle, TIME_ZONES,
   toPayload, useEventFormOptions, validate, type CustomFieldDef, type EventFormState, type EventRecord,
 } from './eventForm';
 
@@ -47,7 +47,9 @@ function EventForm({ eventId, record, options, onClose, title }:
   const { me } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const initial = useMemo(() => (record ? formFromRecord(record) : emptyForm(me!.id)), [record, me]);
+  const scope = useMemo(() => creationScope(me!, options), [me, options]);
+  const initial = useMemo(() => (record ? formFromRecord(record)
+    : emptyForm(me!.id, scope.home, options.countries.find((c) => c.code === scope.home)?.default_timezone ?? null)), [record, me, scope, options.countries]);
   const [f, setF] = useState<EventFormState>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tzTouched, setTzTouched] = useState(Boolean(record));
@@ -74,6 +76,27 @@ function EventForm({ eventId, record, options, onClose, title }:
       return { ...prev, country_code: code, timezone: !tzTouched && tz ? tz : prev.timezone };
     });
   };
+  const type = options.types.find((t) => t.id === f.event_type_id);
+  const typeAreas = type?.event_type_therapeutic_area.map((a) => a.therapeutic_area_id) ?? [];
+  const typeProducts = type?.event_type_product.map((p) => p.product_id) ?? [];
+
+  // A new type keeps only the country, area and products it allows
+  const pickType = (typeId: string) => {
+    setF((prev) => {
+      const t = options.types.find((x) => x.id === typeId);
+      const areas = t?.event_type_therapeutic_area.map((a) => a.therapeutic_area_id) ?? [];
+      const prods = t?.event_type_product.map((p) => p.product_id) ?? [];
+      const countryOk = scope.countriesFor(typeId).some((c) => c.code === prev.country_code);
+      return {
+        ...prev, event_type_id: typeId,
+        country_code: countryOk || eventId ? prev.country_code : '',
+        therapeutic_area_id: !areas.length || areas.includes(prev.therapeutic_area_id) ? prev.therapeutic_area_id : '',
+        product_ids: prods.length ? prev.product_ids.filter((p) => prods.includes(p)) : prev.product_ids,
+      };
+    });
+    setErrors(({ event_type_id: _, ...rest }) => rest);
+  };
+
   // A new start fills in the end from the event type's usual length
   const pickStart = (v: string) => {
     setF((prev) => {
@@ -117,8 +140,13 @@ function EventForm({ eventId, record, options, onClose, title }:
 
   const err = (k: string) => errors[k];
   const inv = (k: string) => (errors[k] ? true : undefined);
-  const areaProducts = options.products.filter((p) => !f.therapeutic_area_id || p.therapeutic_area_id === f.therapeutic_area_id
-    || f.product_ids.includes(p.id));
+  const typeOptions = scope.types.some((t) => t.id === f.event_type_id) || !type ? scope.types : [type, ...scope.types];
+  const countryOptions = scope.countriesFor(f.event_type_id);
+  const currentCountry = options.countries.find((c) => c.code === f.country_code);
+  if (currentCountry && !countryOptions.includes(currentCountry)) countryOptions.unshift(currentCountry);  // an existing event elsewhere
+  const areaOptions = allowedFor(options.areas, typeAreas, [f.therapeutic_area_id]);
+  const areaProducts = allowedFor(options.products, typeProducts, f.product_ids)
+    .filter((p) => !f.therapeutic_area_id || p.therapeutic_area_id === f.therapeutic_area_id || f.product_ids.includes(p.id));
 
   return (
     <Modal open size="lg" title={title} onClose={onClose}
@@ -141,7 +169,7 @@ function EventForm({ eventId, record, options, onClose, title }:
           <Field label="Event type" required error={err('event_type_id')}>
             {(id, d) => (
               <Select id={id} aria-describedby={d} aria-invalid={inv('event_type_id')} value={f.event_type_id}
-                onChange={(v) => set('event_type_id', v)} options={options.types.map((t) => ({ value: t.id, label: t.name }))} />
+                onChange={pickType} options={typeOptions.map((t) => ({ value: t.id, label: t.name }))} />
             )}
           </Field>
           <Field label="Owner">
@@ -153,20 +181,23 @@ function EventForm({ eventId, record, options, onClose, title }:
           <Field label="Therapeutic area">
             {(id) => (
               <Select id={id} value={f.therapeutic_area_id} onChange={(v) => set('therapeutic_area_id', v)} emptyLabel="None"
-                options={options.areas.map((a) => ({ value: a.id, label: a.name }))} />
+                options={areaOptions.map((a) => ({ value: a.id, label: a.name }))} />
             )}
           </Field>
-          <Field label="Products" wide hint={areaProducts.length ? null : 'No products in this therapeutic area.'}>
+          <Field label="Products" wide hint={areaProducts.length ? null : 'No products available for this event type and area.'}>
             {() => <ChipPicker label="Products" value={f.product_ids} onChange={(v) => set('product_ids', v)}
               options={areaProducts.map((p) => ({ value: p.id, label: p.name }))} />}
           </Field>
         </FormSection>
 
         <FormSection title="When and where">
-          <Field label="Country">
-            {(id) => (
-              <Select id={id} value={f.country_code} onChange={pickCountry}
-                options={options.countries.map((c) => ({ value: c.code, label: c.name }))} />
+          <Field label="Country" required error={err('country_code')}
+            hint={f.event_type_id && countryOptions.length === 0 ? `${type?.name} events aren't available in any of your countries.`
+              : !f.event_type_id ? 'Countries you can create events in.' : null}>
+            {(id, d) => (
+              <Select id={id} aria-describedby={d} aria-invalid={inv('country_code')} value={f.country_code}
+                onChange={(v) => { pickCountry(v); setErrors(({ country_code: _, ...rest }) => rest); }}
+                options={countryOptions.map((c) => ({ value: c.code, label: c.name }))} />
             )}
           </Field>
           <Field label="City">

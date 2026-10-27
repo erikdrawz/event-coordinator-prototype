@@ -27,7 +27,11 @@ export function Modal({ open, title, onClose, children, footer, footerNote, conf
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    if (open && !d.open) {
+      d.showModal();
+      // showModal() focuses the first focusable element (the Close button); start in the first field instead
+      d.querySelector<HTMLElement>('.modal-body :is(input, textarea, button.input, [role="combobox"]):not(:disabled):not([aria-disabled="true"])')?.focus();
+    }
     if (!open && d.open) d.close();
   }, [open]);
 

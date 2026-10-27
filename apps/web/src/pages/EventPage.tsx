@@ -6,6 +6,7 @@ import { daysUntil, eventDateParts } from '../lib/format';
 import { DateTile } from '../components/DateTile';
 import { useEventStatuses } from '../components/StatusPill';
 import { useAuth } from '../lib/auth';
+import { can } from '../lib/permissions';
 import { useEventForm } from './event/EventFormProvider';
 import type { EventStatus } from '../lib/types';
 import './event.css';
@@ -82,7 +83,7 @@ export function EventPage() {
             </div>
           </div>
           <div className="event-actions">
-            {me?.permissions.event?.edit && <button className="btn" onClick={() => openEditEvent(e.id)}>Edit event</button>}
+            {can(me, 'event', 'edit') && <button className="btn" onClick={() => openEditEvent(e.id)}>Edit event</button>}
             <button className="btn btn-primary" disabled title="Status changes come next">Actions <ChevronDown size={16} /></button>
           </div>
         </div>

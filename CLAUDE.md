@@ -94,7 +94,7 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
 ## Where we are
 
 - **Phase 0, done:** schema, security, seed, CI, login, app shell with notifications, interim Home / events list / Event page header.
-- **Phase 1, in progress.** Done: Home 4a, events list (`DataTable`), New/Edit event modal with custom fields. Next:
+- **Phase 1, in progress.** Done: Home 4a, events list (`DataTable`), New/Edit event modal with custom fields, Admin basics (`/admin`: event types with countries/products/areas, products, therapeutic areas, users with countries and logins). Next:
   - Event page tabs, in `event-page.png` order:
     - Overview: agenda grid by day, speakers/honorarium grid with total, content grid
     - Team: message board with replies/reactions, tasks

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { LogOut, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { Avatar } from './Avatar';
 import { useDismiss } from './useDismiss';
@@ -32,6 +33,11 @@ export function UserMenu() {
               <span>{me.profile.name} · {me.tenant.name}</span>
             </div>
           </div>
+          {me.profile.can_access_admin && (
+            <div className="menu-section">
+              <Link to="/admin" className="menu-item" onClick={() => setOpen(false)}><Settings size={16} /> Admin</Link>
+            </div>
+          )}
           <div className="menu-section">
             <button className="menu-item" onClick={() => signOut()}><LogOut size={16} /> Sign out</button>
           </div>

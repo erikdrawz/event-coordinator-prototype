@@ -3,7 +3,12 @@ import { supabase } from '../../lib/supabase';
 
 // ---------- Reference data for the form ----------
 
-export interface EventTypeOpt { id: string; name: string; default_duration_minutes: number | null }
+export interface EventTypeOpt {
+  id: string; name: string; default_duration_minutes: number | null;
+  event_type_country: { country_code: string }[];
+  event_type_product: { product_id: string }[];
+  event_type_therapeutic_area: { therapeutic_area_id: string }[];
+}
 export interface CountryOpt { code: string; name: string; default_timezone: string | null }
 export interface CustomFieldDef {
   id: string; api_name: string; label: string; is_required: boolean; help_text: string | null;
@@ -26,10 +31,12 @@ export function useEventFormOptions() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const [types, countries, areas, products, users, fields] = await Promise.all([
-        rows<EventTypeOpt>(supabase.from('event_type').select('id,name,default_duration_minutes').eq('is_active', true).order('name')),
+        rows<EventTypeOpt>(supabase.from('event_type')
+          .select('id,name,default_duration_minutes,event_type_country(country_code),event_type_product(product_id),event_type_therapeutic_area(therapeutic_area_id)')
+          .eq('is_active', true).order('name')),
         rows<CountryOpt>(supabase.from('country').select('code,name,default_timezone').order('name')),
-        rows<{ id: string; name: string }>(supabase.from('therapeutic_area').select('id,name').order('name')),
-        rows<{ id: string; name: string; therapeutic_area_id: string | null }>(supabase.from('product').select('id,name,therapeutic_area_id').order('name')),
+        rows<{ id: string; name: string; is_active: boolean }>(supabase.from('therapeutic_area').select('id,name,is_active').order('name')),
+        rows<{ id: string; name: string; is_active: boolean; therapeutic_area_id: string | null }>(supabase.from('product').select('id,name,is_active,therapeutic_area_id').order('name')),
         rows<UserOpt>(supabase.from('app_user').select('id,display_name').eq('user_type', 'human').eq('status', 'active').order('display_name')),
         rows<CustomFieldDef>(supabase.from('custom_field')
           .select('id,api_name,label,field_type,options,is_required,help_text,custom_field_layout(event_type_id,section,sort)')
@@ -81,10 +88,11 @@ export const EVENT_RECORD_SELECT =
   'id,name,event_type_id,therapeutic_area_id,owner_id,country_code,city,venue_name,venue_address,timezone,starts_at,ends_at,' +
   'expected_attendees,estimated_spend,currency,description,custom_fields,event_product(product_id)';
 
-export function emptyForm(meId: string): EventFormState {
+/** A new event: owned by me, in my home country when I may create events there. */
+export function emptyForm(meId: string, country: string, timezone: string | null): EventFormState {
   return {
     name: '', event_type_id: '', therapeutic_area_id: '', product_ids: [], owner_id: meId,
-    country_code: '', city: '', venue_name: '', venue_address: '', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    country_code: country, city: '', venue_name: '', venue_address: '', timezone: timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     starts_local: '', ends_local: '', expected_attendees: '', estimated_spend: '', currency: 'EUR', description: '', custom: {},
   };
 }
@@ -133,6 +141,7 @@ export function validate(f: EventFormState, shown: CustomFieldDef[]) {
   const errors: Record<string, string> = {};
   if (!f.name.trim()) errors.name = 'Give the event a name';
   if (!f.event_type_id) errors.event_type_id = 'Choose an event type';
+  if (!f.country_code) errors.country_code = 'Choose a country';
   if (f.starts_local && f.ends_local && f.ends_local < f.starts_local) errors.ends_local = 'Ends before it starts';
   shown.forEach((d) => { if (d.is_required && isEmpty(f.custom[d.api_name])) errors[d.api_name] = `${d.label} is required`; });
   return errors;
@@ -156,3 +165,28 @@ export function addMinutesLocal(local: string, minutes: number) {
 }
 
 export const TIME_ZONES = Intl.supportedValuesOf('timeZone');
+
+// ---------- What this user may choose ----------
+
+type Opts = { types: EventTypeOpt[]; countries: CountryOpt[] };
+
+/**
+ * Countries the user may create events in (all for admins), and the home country default.
+ * Mirrors app.check_event_rules(); the database has the final say.
+ */
+export function creationScope(me: { profile: { is_admin: boolean }; event_countries: string[]; country_code: string | null }, o: Opts) {
+  const mine = (code: string) => me.profile.is_admin || me.event_countries.includes(code);
+  const types = o.types.filter((t) => t.event_type_country.some((c) => mine(c.country_code)));
+  const countriesFor = (typeId: string) => {
+    const t = o.types.find((x) => x.id === typeId);
+    return o.countries.filter((c) => mine(c.code) && (!t || t.event_type_country.some((x) => x.country_code === c.code)));
+  };
+  const allowed = o.countries.filter((c) => mine(c.code));
+  const home = me.country_code && mine(me.country_code) ? me.country_code : allowed.length === 1 ? allowed[0].code : '';
+  return { types, countriesFor, home };
+}
+
+/** Assigned ids when the type has a list, otherwise every active one (plus any already chosen). */
+export function allowedFor<T extends { id: string; is_active: boolean }>(all: T[], assigned: string[], chosen: string[]) {
+  return all.filter((x) => (assigned.length ? assigned.includes(x.id) : x.is_active) || chosen.includes(x.id));
+}

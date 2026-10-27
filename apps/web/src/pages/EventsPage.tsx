@@ -10,6 +10,7 @@ import { StatusPill, useEventStatuses } from '../components/StatusPill';
 import { DataTable, useTableSort, type Column } from '../ui/DataTable';
 import { ClearFilters, FilterSelect, SearchInput, Segmented, Toolbar } from '../ui/Toolbar';
 import { useEventForm } from './event/EventFormProvider';
+import { can, canCreateEvents } from '../lib/permissions';
 import type { EventStatus } from '../lib/types';
 
 interface EventRow {
@@ -132,7 +133,9 @@ export function EventsPage() {
           <h1 className="page-title">Events</h1>
           {rows && <div className="card-sub">{rows.length} {rows.length === 1 ? 'event' : 'events'}</div>}
         </div>
-        {me?.permissions.event?.create && <button className="btn btn-primary" onClick={openNewEvent}><Plus size={15} strokeWidth={2.6} />New event…</button>}
+        {can(me, 'event', 'create') && <button className="btn btn-primary" onClick={openNewEvent} disabled={!canCreateEvents(me)}
+          title={canCreateEvents(me) ? undefined : "You don't create events in any country yet. Ask an admin to add your countries."}>
+          <Plus size={15} strokeWidth={2.6} />New event…</button>}
       </div>
 
       <Toolbar label="Filter events">

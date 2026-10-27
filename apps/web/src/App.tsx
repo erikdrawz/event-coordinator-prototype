@@ -8,6 +8,10 @@ import { HomePage } from './pages/HomePage';
 import { EventsPage } from './pages/EventsPage';
 import { EventPage } from './pages/EventPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
+import { AdminLayout } from './pages/admin/AdminLayout';
+import { EventTypesAdmin } from './pages/admin/EventTypesAdmin';
+import { ProductsAdmin, TherapeuticAreasAdmin } from './pages/admin/MasterDataAdmin';
+import { UsersAdmin } from './pages/admin/UsersAdmin';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, me, loading } = useAuth();
@@ -36,6 +40,13 @@ export function App() {
         <Route path="events/:id" element={<EventPage />} />
         <Route path="requests" element={<PlaceholderPage title="Requests" phase="Phase 2" />} />
         <Route path="experts" element={<PlaceholderPage title="Experts" phase="Phase 3" />} />
+        <Route path="admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="event-types" replace />} />
+          <Route path="event-types" element={<EventTypesAdmin />} />
+          <Route path="products" element={<ProductsAdmin />} />
+          <Route path="therapeutic-areas" element={<TherapeuticAreasAdmin />} />
+          <Route path="users" element={<UsersAdmin />} />
+        </Route>
         <Route path="*" element={<PlaceholderPage title="Page not found" phase="no phase — check the address" />} />
       </Route>
     </Routes>

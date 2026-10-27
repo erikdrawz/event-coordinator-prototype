@@ -43,3 +43,32 @@
 .sel-empty { color: var(--color-text-muted); }
 .sel-check { flex: none; color: var(--color-accent); }
 .sel-none { padding: 10px; font-size: var(--text-base); color: var(--color-text-muted); }
+
+/* MultiSelect */
+.ms-trigger { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+/* Grows with its chips, so it overrides the fixed form control height */
+.input.ms-trigger, .form .input.ms-trigger { height: auto; min-height: 38px; padding-top: 4px; padding-bottom: 4px; }
+.ms-trigger:focus-visible, .ms-trigger[aria-expanded='true'] { border-color: var(--color-accent); outline: 2px solid var(--color-accent-soft); }
+.ms-disabled { cursor: default; background: var(--color-surface-muted); }
+.ms-placeholder { flex: 1; }
+.ms-chips { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.ms-chip {
+  display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border-radius: var(--radius-pill);
+  background: var(--color-accent-soft); color: var(--color-accent-hover); font-size: var(--text-sm); font-weight: 600;
+}
+.ms-chip-x { display: grid; place-items: center; width: 16px; height: 16px; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; padding: 0; }
+.ms-chip-x:hover { background: var(--color-surface); }
+.ms-more { align-self: center; font-size: var(--text-sm); color: var(--color-text-muted); }
+.ms-bulk {
+  display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; flex: none;
+  border-bottom: 1px solid var(--color-border); font-size: var(--text-sm); color: var(--color-text-muted);
+}
+.ms-bulk .link { font-size: var(--text-sm); margin-left: 12px; }
+.ms-option { justify-content: flex-start; }
+.ms-option[aria-selected='true'] { color: var(--color-text); font-weight: 400; }
+.ms-box {
+  flex: none; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 4px;
+  border: 1.5px solid var(--color-border-dashed); background: var(--color-surface); color: #fff;
+}
+.ms-box.on { background: var(--color-accent); border-color: var(--color-accent); }
+.ms-label { flex: 1; }

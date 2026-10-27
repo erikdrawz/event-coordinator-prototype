@@ -1,0 +1,53 @@
+/* Admin area: section nav on the left, the section on the right */
+.admin {
+  display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 28px; align-items: start;
+  width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 24px var(--page-gutter) 48px;
+}
+.admin-nav { position: sticky; top: calc(var(--nav-height) + 24px); display: flex; flex-direction: column; gap: 2px; }
+.admin-nav-title {
+  padding: 0 10px 8px; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--color-text-muted);
+}
+.admin-nav-sub {
+  padding: 18px 10px 6px; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--color-text-faint);
+}
+.admin-nav-link {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-md);
+  font-size: var(--text-md); font-weight: 600; color: var(--color-text-secondary); text-decoration: none;
+}
+.admin-nav-link:hover { background: var(--color-surface-sunken); color: var(--color-text); }
+.admin-nav-link.active { background: var(--color-surface); color: var(--color-accent); box-shadow: var(--shadow-sm); }
+.admin-nav-link.disabled { color: var(--color-text-faint); font-weight: 500; cursor: default; }
+.admin-nav-link.disabled:hover { background: transparent; }
+.admin-main { min-width: 0; }
+.admin-head p { margin-top: 2px; }
+.admin-note {
+  margin-bottom: 14px; padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--color-accent-softer); border: 1px solid var(--color-accent-soft); font-size: var(--text-base); color: var(--color-text-secondary);
+}
+
+/* Cells */
+.admin-codes { display: flex; flex-wrap: wrap; gap: 4px; }
+.admin-code {
+  padding: 1px 6px; border-radius: var(--radius-sm); background: var(--color-bg);
+  font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary);
+}
+.admin-all { font-size: var(--text-base); color: var(--color-text-muted); }
+.dt-primary.as-button { padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; font-weight: 700; font-size: var(--text-lg); }
+.dt-primary.as-button:hover { color: var(--color-accent); }
+
+/* Editor extras */
+.admin-section-note { font-size: var(--text-sm); color: var(--color-text-muted); }
+.login-box {
+  display: grid; gap: 10px; padding: 14px; border-radius: var(--radius-md);
+  background: var(--color-surface-muted); border: 1px solid var(--color-border);
+}
+.login-row { display: flex; align-items: center; gap: 8px; }
+.login-row .input { flex: 1; font-family: ui-monospace, Menlo, monospace; }
+
+@media (max-width: 900px) {
+  .admin { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .admin-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .admin-nav-title, .admin-nav-sub, .admin-nav-link.disabled { display: none; }
+}

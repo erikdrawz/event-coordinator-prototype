@@ -12,7 +12,11 @@ export interface Me {
   job_title: string | null;
   initials: string | null;
   avatar_color: string | null;
-  profile: { id: string; name: string; is_admin: boolean };
+  /** Home country; new events default to it. */
+  country_code: string | null;
+  /** Countries this user may create events in. */
+  event_countries: string[];
+  profile: { id: string; name: string; is_admin: boolean; can_access_admin: boolean };
   tenant: { id: string; name: string; brand_name: string; brand_color: string };
   permissions: Record<string, { read: boolean; create: boolean; edit: boolean; delete: boolean }>;
 }

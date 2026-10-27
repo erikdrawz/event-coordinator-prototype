@@ -36,13 +36,13 @@ export function Field({ label, required, hint, error, wide, children }: FieldPro
 }
 
 /** A checkbox with its label to the right, for yes/no fields. */
-export function CheckboxField({ label, checked, onChange, hint, wide }:
-  { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string | null; wide?: boolean }) {
+export function CheckboxField({ label, checked, onChange, hint, wide, disabled }:
+  { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string | null; wide?: boolean; disabled?: boolean }) {
   const id = useId();
   return (
     <div className={`field field-check${wide ? ' field-wide' : ''}`}>
       <label htmlFor={id} className="check">
-        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <input id={id} type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
         <span>{label}</span>
       </label>
       {hint && <div className="field-hint">{hint}</div>}
