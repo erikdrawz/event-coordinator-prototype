@@ -35,14 +35,14 @@ config(obj) as (values ('event_type'),('therapeutic_area'),('product'),('special
                        ('approval_process'),('approval_process_step'),('user_group'),('user_group_member'),
                        ('custom_field'),('custom_field_layout'),
                        ('event_type_country'),('app_user_country'),('session_kind'))
--- Event Coordinator: full CRUD on operational data, read-only on configuration
+-- Event Coordinator: full CRUD on operational data, read-only on configuration; events through their team
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all)
 select app.sid('tenant:alera'), app.sid('profile:coordinator'), o.obj,
        true,
        o.obj not in (select obj from config) and o.obj <> 'audit_log',
        o.obj not in (select obj from config) and o.obj <> 'audit_log',
        o.obj not in (select obj from config) and o.obj <> 'audit_log',
-       true
+       false            -- which events: the ones they're on the team of
   from objects o;
 
 -- Collaborator: read everything; contribute to the team board, tasks, content, attendees, requests

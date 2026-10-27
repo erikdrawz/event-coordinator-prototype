@@ -27,6 +27,7 @@ const sarah = await login('sarah.mitchell@alera.example');
 const agent = await login('compliance-agent@agents.alera.example');
 const maria = await login('maria.castillo@alera.example');   // Business Admin
 const alex = await login('alex.morgan@alera.example');       // System Admin
+const lisaT = await login('lisa.anderson@alera.example');    // another coordinator
 
 // Anonymous callers see nothing
 const anon = await api(null, 'event?select=id');
@@ -39,7 +40,8 @@ ok(me.data?.tenant?.brand_name === 'Alera Pharma', 'me() returns tenant branding
 
 // Reads
 const events = await api(paul, 'event?select=name,status,starts_at&order=starts_at');
-ok(Array.isArray(events.data) && events.data.length === 8, `Paul sees 8 events (got ${events.data?.length})`);
+ok(Array.isArray(events.data) && events.data.length === 6, `Paul sees the 6 events he's on the team of (got ${events.data?.length})`);
+ok((await api(maria, 'event?select=id')).data?.length === 8, 'Business Admin sees every event');
 const sma = await api(paul, `event?name=eq.SMA%20Board&select=id,status,event_expert(role,total_payable,hcp(display_name)),event_session(title)`);
 const s = sma.data?.[0];
 ok(s && s.event_session.length === 7, 'SMA Board has 7 agenda sessions');
@@ -80,7 +82,7 @@ const upd1 = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_eve
 ok(upd1.status === 200 && upd1.data.city === 'Lyon' && upd1.data.name === 'Smoke Test Board'
    && upd1.data.custom_fields.meeting_format__c === 'hybrid' && !('cme_credits__c' in upd1.data.custom_fields),
    'update_event changes only the keys sent and merges custom fields');
-const virt = await api(paul, 'event?custom_fields->>meeting_format__c=eq.virtual&select=name');
+const virt = await api(maria, 'event?custom_fields->>meeting_format__c=eq.virtual&select=name');
 ok(virt.data?.length === 1 && virt.data[0].name === 'Immunology Webinar Series', 'events can be filtered on a custom field through the API');
 const defs = await api(sarah, 'custom_field?object_name=eq.event&select=api_name,custom_field_layout(section)');
 ok(defs.data?.length === 6, `collaborator can read custom field definitions (got ${defs.data?.length})`);
@@ -235,11 +237,36 @@ const sarahEvent = await api(sarah, 'rpc/create_event', { method: 'POST', body: 
 ok(sarahEvent.status >= 400, 'collaborator cannot create events');
 const sarahEdit = await api(sarah, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { city: 'Nice' } } });
 ok(sarahEdit.status >= 400, 'collaborator cannot edit events');
+const sarahMe = await api(sarah, 'rpc/me', { method: 'POST', body: {} });
+const mariaMe = await api(maria, 'rpc/me', { method: 'POST', body: {} });
+ok((await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Not on the team' } })).status >= 400, 'people off the team cannot post');
+await api(paul, 'event_team_member', { method: 'POST', body: { event_id: ev.id, user_id: sarahMe.data.id, team_role: 'viewer' } });
 const post = await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Smoke test post' } });
-ok(post.status === 201 && post.data[0].author_id !== null, 'collaborator can post to the team board');
+ok(post.status === 201 && post.data[0].author_id !== null, 'a viewer on the team can post to the board');
+
+// The Team decides access: off the team you don't see the event; viewers see it; organizers edit it
+const lisaMe = await api(lisaT, 'rpc/me', { method: 'POST', body: {} });
+const lisaSees = async () => (await api(lisaT, `event?id=eq.${ev.id}&select=id`)).data?.length === 1;
+const lisaEdits = async (city) => (await api(lisaT, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { city } } })).status === 200;
+ok(!(await lisaSees()), "a coordinator off the team cannot see another coordinator's event");
+const lisaRow = await api(paul, 'event_team_member', { method: 'POST', body: { event_id: ev.id, user_id: lisaMe.data.id, team_role: 'viewer', role_label: 'Logistics' } });
+ok(lisaRow.status === 201 && await lisaSees() && !(await lisaEdits('Nice')), 'a viewer sees the event but cannot edit it');
+ok((await api(lisaT, 'event_team_member', { method: 'POST', body: { event_id: ev.id, user_id: mariaMe.data.id, team_role: 'organizer' } })).status >= 400,
+   'a viewer cannot manage the team');
+await api(paul, `event_team_member?id=eq.${lisaRow.data?.[0]?.id}`, { method: 'PATCH', body: { team_role: 'organizer' } });
+ok(await lisaEdits('Lyon'), 'an organizer can edit the event');
+const access = await api(lisaT, 'rpc/my_event_access', { method: 'POST', body: { p_event_id: ev.id } });
+ok(access.data?.access === 'edit' && access.data?.team_role === 'organizer', 'my_event_access reports the caller\'s access');
+const ownerRow = await api(paul, `event_team_member?event_id=eq.${ev.id}&user_id=eq.${me.data.id}&select=id,team_role`);
+ok(ownerRow.data?.[0]?.team_role === 'owner' && (await api(lisaT, `event_team_member?id=eq.${ownerRow.data[0].id}`, { method: 'DELETE' })).status >= 400,
+   'the owner is on the team and cannot be removed');
+ok((await api(paul, `event_team_member?id=eq.${lisaRow.data?.[0]?.id}`, { method: 'PATCH', body: { team_role: 'owner' } })).status >= 400,
+   'nobody else can be given the Owner role');
+await api(paul, `event_team_member?id=eq.${lisaRow.data?.[0]?.id}`, { method: 'DELETE' });
+ok(!(await lisaSees()), 'removing someone from the team removes their access');
 
 // Agent acting on behalf of Paul: allowed edit is audited with both identities
-const holm = await api(agent, `event_expert?event_id=eq.${s.id}&role=eq.chair&select=id`);
+const holm = await api(agent, `event_expert?event_id=eq.${s.id}&role=eq.chair&select=id`, { headers: { 'x-on-behalf-of': me.data.id } });
 const upd = await api(agent, `event_expert?id=eq.${holm.data[0].id}`, { method: 'PATCH', body: { check_status: 'passed', check_notes: 'Smoke test check' }, headers: { 'x-on-behalf-of': me.data.id } });
 ok(upd.status === 200 && upd.data.length === 1, 'agent can record an expert check');
 const hist = await api(paul, `event_history?event_id=eq.${s.id}&table_name=eq.event_expert&order=at.desc&limit=1&select=actor_name,actor_type,on_behalf_of_name`);

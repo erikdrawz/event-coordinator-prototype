@@ -50,18 +50,18 @@ insert into public.event_product (event_id, product_id, tenant_id) values
   (app.sid('event:derm-roundtable'),app.sid('product:dermalux'), app.sid('tenant:alera')),
   (app.sid('event:haem-board'),     app.sid('product:oncavir'),  app.sid('tenant:alera'));
 
--- Team (owners are added automatically by trigger) ----------------------------
+-- Team (owners are added automatically by trigger). Roles: organizer edits, approver/viewer view and post --
 insert into public.event_team_member (tenant_id, event_id, user_id, team_role, role_label)
 select app.sid('tenant:alera'), app.sid('event:' || e), app.sid('user:' || u), r, l
   from (values
-    ('sma-board','sarah','medical','Medical lead'), ('sma-board','lisa','logistics','Logistics'),
-    ('sma-board','michael','medical','Medical reviewer'),
-    ('neuro-meet','paul','co_host','Co-host'), ('neuro-meet','sarah','medical','Medical lead'),
-    ('bioforum','lisa','logistics','Logistics'), ('bioforum','emma','member','Brand lead'), ('bioforum','sarah','medical','Medical lead'),
-    ('sma-symposium','sarah','medical','Medical lead'),
-    ('derm-roundtable','lisa','logistics','Logistics'),
-    ('cardio-workshop','emma','member','Brand lead'),
-    ('haem-board','michael','medical','Medical lead')
+    ('sma-board','sarah','approver','Medical lead'), ('sma-board','lisa','organizer','Logistics'),
+    ('sma-board','michael','approver','Medical reviewer'),
+    ('neuro-meet','paul','organizer','Co-host'), ('neuro-meet','sarah','approver','Medical lead'),
+    ('bioforum','lisa','organizer','Logistics'), ('bioforum','emma','viewer','Brand lead'), ('bioforum','sarah','approver','Medical lead'),
+    ('sma-symposium','sarah','approver','Medical lead'),
+    ('derm-roundtable','lisa','organizer','Logistics'),
+    ('cardio-workshop','emma','viewer','Brand lead'),
+    ('haem-board','michael','approver','Medical lead')
   ) as t(e, u, r, l)
 on conflict (event_id, user_id) do nothing;
 
