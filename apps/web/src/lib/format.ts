@@ -55,3 +55,11 @@ export function dueLabel(dueDate: string, now = new Date()): { text: string; ove
 export function ymdInZone(iso: string | Date, timeZone?: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 }
+
+/** "Sat 31 Oct 2026, 18:30 CET" in the event's own time zone. */
+export function eventDateTime(iso: string, timeZone: string): string {
+  const d = new Date(iso);
+  const date = new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' }).format(d);
+  return `${date.replace('Sept', 'Sep')}, ${time}`;
+}

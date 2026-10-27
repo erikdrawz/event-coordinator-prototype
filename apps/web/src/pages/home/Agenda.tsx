@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { eventDateParts } from '../../lib/format';
 import { DateTile } from '../../components/DateTile';
 import { StatusPill } from '../../components/StatusPill';
+import { Segmented } from '../../ui/Toolbar';
 import { useAgenda, type AgendaEvent, type Scope, type When } from './queries';
 
 const ROLE_NOTE: Record<string, string> = { owner: 'you own', co_host: 'co-host' };
@@ -38,14 +39,10 @@ export function Agenda({ meId, scope, onScope, when, onWhen, canCreate }: Props)
           <div className="card-sub">{SUB[scope][when]}</div>
         </div>
         <div className="home-agenda-toggles">
-          <div className="segmented" role="group" aria-label="Whose events">
-            <button aria-pressed={scope === 'mine'} onClick={() => onScope('mine')}>My events</button>
-            <button aria-pressed={scope === 'all'} onClick={() => onScope('all')}>All</button>
-          </div>
-          <div className="segmented" role="group" aria-label="Time range">
-            <button aria-pressed={when === 'upcoming'} onClick={() => onWhen('upcoming')}>Upcoming</button>
-            <button aria-pressed={when === 'past'} onClick={() => onWhen('past')}>Past</button>
-          </div>
+          <Segmented label="Whose events" value={scope} onChange={onScope}
+            options={[{ value: 'mine', label: 'My events' }, { value: 'all', label: 'All' }]} />
+          <Segmented label="Time range" value={when} onChange={onWhen}
+            options={[{ value: 'upcoming', label: 'Upcoming' }, { value: 'past', label: 'Past' }]} />
         </div>
       </div>
 
