@@ -10,7 +10,7 @@ import { Modal } from '../../ui/Modal';
 import { CheckboxField, Field, FormSection } from '../../ui/Form';
 import { MultiSelect } from '../../ui/MultiSelect';
 import { AdminPage } from './AdminLayout';
-import { ADMIN_KEY, must, syncLinks, useAreas, useCountries, useEventTypes, useProducts, type EventTypeRow } from './adminData';
+import { ADMIN_KEY, must, syncLinks, useCountries, useEventTypes, type EventTypeRow } from './adminData';
 
 function Codes({ values, all, allLabel }: { values: string[]; all?: boolean; allLabel: string }) {
   if (!values.length) return <span className="admin-all">{all ? allLabel : 'None'}</span>;
@@ -21,36 +21,27 @@ function Codes({ values, all, allLabel }: { values: string[]; all?: boolean; all
 export function EventTypesAdmin() {
   const { me } = useAuth();
   const types = useEventTypes();
-  const products = useProducts();
-  const areas = useAreas();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<EventTypeRow | 'new' | null>(null);
 
-  const productName = useMemo(() => new Map(products.data?.map((p) => [p.id, p.name])), [products.data]);
-  const areaName = useMemo(() => new Map(areas.data?.map((a) => [a.id, a.name])), [areas.data]);
-
   const columns = useMemo<Column<EventTypeRow>[]>(() => [
-    { id: 'name', header: 'Event type', width: '24%', sortValue: (t) => t.name,
+    { id: 'name', header: 'Event type', width: '36%', sortValue: (t) => t.name,
       cell: (t) => <><button className="dt-primary as-button" onClick={() => setEditing(t)}>{t.name}</button>
         {t.description && <div className="dt-sub">{t.description}</div>}</> },
-    { id: 'countries', header: 'Countries', width: '26%', sortValue: (t) => t.event_type_country.length,
+    { id: 'countries', header: 'Countries', width: '44%', sortValue: (t) => t.event_type_country.length,
       cell: (t) => <Codes values={t.event_type_country.map((c) => c.country_code).sort()} allLabel="" /> },
-    { id: 'products', header: 'Products', width: '18%', sortValue: (t) => t.event_type_product.length || 999,
-      cell: (t) => <span className="dt-sub">{t.event_type_product.length ? t.event_type_product.map((p) => productName.get(p.product_id)).join(', ') : 'All products'}</span> },
-    { id: 'areas', header: 'Therapeutic areas', width: '18%', sortValue: (t) => t.event_type_therapeutic_area.length || 999,
-      cell: (t) => <span className="dt-sub">{t.event_type_therapeutic_area.length ? t.event_type_therapeutic_area.map((a) => areaName.get(a.therapeutic_area_id)).join(', ') : 'All areas'}</span> },
-    { id: 'active', header: 'Status', width: '14%', sortValue: (t) => (t.is_active ? 0 : 1),
+    { id: 'active', header: 'Status', width: '20%', sortValue: (t) => (t.is_active ? 0 : 1),
       cell: (t) => <span className={`pill ${t.is_active ? 'pill-green' : 'pill-grey'}`}>{t.is_active ? 'Active' : 'Inactive'}</span> },
-  ], [productName, areaName]);
+  ], []);
 
   const filtered = useMemo(() => types.data?.filter((t) => !q || t.name.toLowerCase().includes(q.toLowerCase())), [types.data, q]);
   const { rows, sort, setSort } = useTableSort(filtered, columns, { columnId: 'name', dir: 'asc' });
   const canEditType = can(me, 'event_type', 'edit');
 
   return (
-    <AdminPage title="Event types" sub="What kinds of events people can create, where, and for which products and areas."
+    <AdminPage title="Event types" sub="What kinds of events people can create, and in which countries."
       action={can(me, 'event_type', 'create') && <button className="btn btn-primary" onClick={() => setEditing('new')}><Plus size={15} strokeWidth={2.6} />New event type</button>}
-      readOnlyNote={!canEditType && 'Event types and their countries are managed by System Admins. You can change which products and therapeutic areas each type allows.'}>
+      readOnlyNote={!canEditType && 'Event types and their countries are managed by System Admins.'}>
       <Toolbar label="Filter event types"><SearchInput value={q} onChange={setQ} placeholder="Search event types" /></Toolbar>
       <DataTable label="Event types" columns={columns} rows={rows} rowKey={(t) => t.id} sort={sort} onSortChange={setSort}
         loading={types.isLoading} error={types.error} empty="No event types yet." />
@@ -63,26 +54,16 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
   const { me } = useAuth();
   const qc = useQueryClient();
   const countries = useCountries();
-  const products = useProducts();
-  const areas = useAreas();
-  const before = {
-    countries: type?.event_type_country.map((c) => c.country_code) ?? [],
-    products: type?.event_type_product.map((p) => p.product_id) ?? [],
-    areas: type?.event_type_therapeutic_area.map((a) => a.therapeutic_area_id) ?? [],
-  };
+  const beforeCountries = type?.event_type_country.map((c) => c.country_code) ?? [];
   const [name, setName] = useState(type?.name ?? '');
   const [description, setDescription] = useState(type?.description ?? '');
   const [duration, setDuration] = useState(type?.default_duration_minutes?.toString() ?? '');
   const [active, setActive] = useState(type?.is_active ?? true);
-  const [ctry, setCtry] = useState(before.countries);
-  const [prods, setProds] = useState(before.products);
-  const [ars, setArs] = useState(before.areas);
+  const [ctry, setCtry] = useState(beforeCountries);
   const [nameError, setNameError] = useState<string | null>(null);
 
   const canType = can(me, 'event_type', type ? 'edit' : 'create');
   const canCountries = can(me, 'event_type_country', 'create');
-  const canProducts = can(me, 'event_type_product', 'create');
-  const canAreas = can(me, 'event_type_therapeutic_area', 'create');
 
   const save = useMutation({
     mutationFn: async () => {
@@ -94,9 +75,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
         else id = (await must(supabase.from('event_type').insert(row).select('id').single()))!.id;
       }
       if (!id) return;
-      if (canCountries) await syncLinks('event_type_country', 'event_type_id', id, 'country_code', before.countries, ctry);
-      if (canProducts) await syncLinks('event_type_product', 'event_type_id', id, 'product_id', before.products, prods);
-      if (canAreas) await syncLinks('event_type_therapeutic_area', 'event_type_id', id, 'therapeutic_area_id', before.areas, ars);
+      if (canCountries) await syncLinks('event_type_country', 'event_type_id', id, 'country_code', beforeCountries, ctry);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: [ADMIN_KEY] }); qc.invalidateQueries({ queryKey: ['event-form-options'] }); onClose(); },
   });
@@ -109,10 +88,10 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
 
   return (
     <Modal open size="lg" title={type ? type.name : 'New event type'} onClose={onClose}
-      footer={<>
+      footer={canType || canCountries ? <>
         <button type="button" className="btn" onClick={onClose}>Cancel</button>
         <button type="submit" form="event-type-form" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
-      </>}>
+      </> : <button type="button" className="btn" onClick={onClose}>Close</button>}>
       <form id="event-type-form" className="form" onSubmit={submit} noValidate>
         {save.error && <div className="form-error" role="alert" style={{ marginBottom: 16 }}>{save.error.message}</div>}
         <FormSection title="Event type">
@@ -134,16 +113,6 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
           <Field label="Countries" wide hint="People can create this type only in these countries, and only where they manage events.">
             {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Countries" value={ctry} onChange={setCtry} disabled={!canCountries}
               placeholder="No countries yet" options={(countries.data ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))} />}
-          </Field>
-        </FormSection>
-        <FormSection title="What it can be about">
-          <Field label="Products" wide hint="Leave empty to allow every active product.">
-            {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Products" value={prods} onChange={setProds} disabled={!canProducts}
-              placeholder="All products" options={(products.data ?? []).filter((p) => p.is_active || prods.includes(p.id)).map((p) => ({ value: p.id, label: p.name }))} />}
-          </Field>
-          <Field label="Therapeutic areas" wide hint="Leave empty to allow every active area.">
-            {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Therapeutic areas" value={ars} onChange={setArs} disabled={!canAreas}
-              placeholder="All areas" options={(areas.data ?? []).filter((a) => a.is_active || ars.includes(a.id)).map((a) => ({ value: a.id, label: a.name }))} />}
           </Field>
         </FormSection>
       </form>

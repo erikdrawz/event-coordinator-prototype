@@ -10,7 +10,7 @@ import { Modal } from '../../ui/Modal';
 import { CheckboxField, Field, FormSection } from '../../ui/Form';
 import { Select } from '../../ui/Select';
 import { AdminPage } from './AdminLayout';
-import { ADMIN_KEY, must, useAreas, useEventTypes, useProducts, type Product, type TherapeuticArea } from './adminData';
+import { ADMIN_KEY, must, useAreas, useProducts, type Product, type TherapeuticArea } from './adminData';
 
 type Show = 'active' | 'all';
 const activePill = (on: boolean) => <span className={`pill ${on ? 'pill-green' : 'pill-grey'}`}>{on ? 'Active' : 'Inactive'}</span>;
@@ -23,23 +23,19 @@ export function ProductsAdmin() {
   const { me } = useAuth();
   const products = useProducts();
   const areas = useAreas();
-  const types = useEventTypes();
   const [q, setQ] = useState('');
   const [show, setShow] = useState<Show>('active');
   const [editing, setEditing] = useState<Product | 'new' | null>(null);
 
   const areaName = useMemo(() => new Map(areas.data?.map((a) => [a.id, a.name])), [areas.data]);
-  const typesFor = (id: string) => types.data?.filter((t) => t.event_type_product.some((p) => p.product_id === id)).map((t) => t.name) ?? [];
 
   const columns = useMemo<Column<Product>[]>(() => [
-    { id: 'name', header: 'Product', width: '30%', sortValue: (p) => p.name,
+    { id: 'name', header: 'Product', width: '46%', sortValue: (p) => p.name,
       cell: (p) => <button className="dt-primary as-button" onClick={() => setEditing(p)}>{p.name}</button> },
-    { id: 'area', header: 'Therapeutic area', width: '24%', sortValue: (p) => areaName.get(p.therapeutic_area_id ?? ''),
+    { id: 'area', header: 'Therapeutic area', width: '40%', sortValue: (p) => areaName.get(p.therapeutic_area_id ?? ''),
       cell: (p) => areaName.get(p.therapeutic_area_id ?? '') ?? <span className="text-muted">—</span> },
-    { id: 'types', header: 'Limited to event types', width: '32%',
-      cell: (p) => { const t = typesFor(p.id); return <span className="dt-sub">{t.length ? t.join(', ') : 'Types without a product list'}</span>; } },
     { id: 'active', header: 'Status', width: '14%', sortValue: (p) => (p.is_active ? 0 : 1), cell: (p) => activePill(p.is_active) },
-  ], [areaName, types.data]); // typesFor reads types.data
+  ], [areaName]);
 
   const filtered = useMemo(() => products.data?.filter((p) => (show === 'all' || p.is_active)
     && (!q || p.name.toLowerCase().includes(q.toLowerCase()))), [products.data, q, show]);

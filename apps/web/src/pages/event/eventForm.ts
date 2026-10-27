@@ -6,8 +6,6 @@ import { supabase } from '../../lib/supabase';
 export interface EventTypeOpt {
   id: string; name: string; default_duration_minutes: number | null;
   event_type_country: { country_code: string }[];
-  event_type_product: { product_id: string }[];
-  event_type_therapeutic_area: { therapeutic_area_id: string }[];
 }
 export interface CountryOpt { code: string; name: string; default_timezone: string | null }
 export interface CustomFieldDef {
@@ -32,7 +30,7 @@ export function useEventFormOptions() {
     queryFn: async () => {
       const [types, countries, areas, products, users, fields] = await Promise.all([
         rows<EventTypeOpt>(supabase.from('event_type')
-          .select('id,name,default_duration_minutes,event_type_country(country_code),event_type_product(product_id),event_type_therapeutic_area(therapeutic_area_id)')
+          .select('id,name,default_duration_minutes,event_type_country(country_code)')
           .eq('is_active', true).order('name')),
         rows<CountryOpt>(supabase.from('country').select('code,name,default_timezone').order('name')),
         rows<{ id: string; name: string; is_active: boolean }>(supabase.from('therapeutic_area').select('id,name,is_active').order('name')),
@@ -186,7 +184,7 @@ export function creationScope(me: { profile: { is_admin: boolean }; event_countr
   return { types, countriesFor, home };
 }
 
-/** Assigned ids when the type has a list, otherwise every active one (plus any already chosen). */
-export function allowedFor<T extends { id: string; is_active: boolean }>(all: T[], assigned: string[], chosen: string[]) {
-  return all.filter((x) => (assigned.length ? assigned.includes(x.id) : x.is_active) || chosen.includes(x.id));
+/** Active values, plus any already chosen so an edit still shows them. */
+export function activeOrChosen<T extends { id: string; is_active: boolean }>(all: T[], chosen: string[]) {
+  return all.filter((x) => x.is_active || chosen.includes(x.id));
 }

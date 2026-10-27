@@ -9,7 +9,7 @@ import { Select } from '../../ui/Select';
 import { DateTimeInput } from '../../ui/DateInput';
 import { CustomFieldInput } from './CustomFieldInput';
 import {
-  addMinutesLocal, allowedFor, creationScope, emptyForm, EVENT_RECORD_SELECT, fieldsForType, formFromRecord, sectionTitle, TIME_ZONES,
+  activeOrChosen, addMinutesLocal, creationScope, emptyForm, EVENT_RECORD_SELECT, fieldsForType, formFromRecord, sectionTitle, TIME_ZONES,
   toPayload, useEventFormOptions, validate, type CustomFieldDef, type EventFormState, type EventRecord,
 } from './eventForm';
 
@@ -77,22 +77,12 @@ function EventForm({ eventId, record, options, onClose, title }:
     });
   };
   const type = options.types.find((t) => t.id === f.event_type_id);
-  const typeAreas = type?.event_type_therapeutic_area.map((a) => a.therapeutic_area_id) ?? [];
-  const typeProducts = type?.event_type_product.map((p) => p.product_id) ?? [];
 
-  // A new type keeps only the country, area and products it allows
+  // A new event keeps its country only if the chosen type is available there
   const pickType = (typeId: string) => {
     setF((prev) => {
-      const t = options.types.find((x) => x.id === typeId);
-      const areas = t?.event_type_therapeutic_area.map((a) => a.therapeutic_area_id) ?? [];
-      const prods = t?.event_type_product.map((p) => p.product_id) ?? [];
       const countryOk = scope.countriesFor(typeId).some((c) => c.code === prev.country_code);
-      return {
-        ...prev, event_type_id: typeId,
-        country_code: countryOk || eventId ? prev.country_code : '',
-        therapeutic_area_id: !areas.length || areas.includes(prev.therapeutic_area_id) ? prev.therapeutic_area_id : '',
-        product_ids: prods.length ? prev.product_ids.filter((p) => prods.includes(p)) : prev.product_ids,
-      };
+      return { ...prev, event_type_id: typeId, country_code: countryOk || eventId ? prev.country_code : '' };
     });
     setErrors(({ event_type_id: _, ...rest }) => rest);
   };
@@ -144,8 +134,8 @@ function EventForm({ eventId, record, options, onClose, title }:
   const countryOptions = scope.countriesFor(f.event_type_id);
   const currentCountry = options.countries.find((c) => c.code === f.country_code);
   if (currentCountry && !countryOptions.includes(currentCountry)) countryOptions.unshift(currentCountry);  // an existing event elsewhere
-  const areaOptions = allowedFor(options.areas, typeAreas, [f.therapeutic_area_id]);
-  const areaProducts = allowedFor(options.products, typeProducts, f.product_ids)
+  const areaOptions = activeOrChosen(options.areas, [f.therapeutic_area_id]);
+  const areaProducts = activeOrChosen(options.products, f.product_ids)
     .filter((p) => !f.therapeutic_area_id || p.therapeutic_area_id === f.therapeutic_area_id || f.product_ids.includes(p.id));
 
   return (
@@ -184,7 +174,7 @@ function EventForm({ eventId, record, options, onClose, title }:
                 options={areaOptions.map((a) => ({ value: a.id, label: a.name }))} />
             )}
           </Field>
-          <Field label="Products" wide hint={areaProducts.length ? null : 'No products available for this event type and area.'}>
+          <Field label="Products" wide hint={areaProducts.length ? null : 'No active products in this therapeutic area.'}>
             {() => <ChipPicker label="Products" value={f.product_ids} onChange={(v) => set('product_ids', v)}
               options={areaProducts.map((p) => ({ value: p.id, label: p.name }))} />}
           </Field>

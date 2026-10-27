@@ -92,14 +92,13 @@ ok(me.data?.country_code === 'DK' && me.data?.event_countries?.includes('FR') &&
 ok((await capture({ ...base, country_code: 'ES' })).status >= 400, 'creating an event outside my countries is rejected');
 const investigator = await api(paul, 'event_type?name=eq.Investigator%20meeting&select=id');
 ok((await capture({ ...base, event_type_id: investigator.data[0].id })).status >= 400, 'an event type not enabled in the country is rejected');
-const brevair = await api(paul, 'product?name=eq.Brevair&select=id');
-ok((await capture({ ...base, product_ids: [brevair.data[0].id] })).status >= 400, 'a product not assigned to the event type is rejected');
 const moved = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { country_code: 'ES' } } });
 ok(moved.status >= 400, "moving an event into a country I don't manage is rejected");
 
 // Admin config: Business Admin maintains master data and users, not event types or System Admins
-const mProd = await api(maria, 'product', { method: 'POST', body: { name: 'Smoke Product' } });
+const mProd = await api(maria, 'product', { method: 'POST', body: { name: 'Smoke Product', is_active: false } });
 ok(mProd.status === 201, 'business admin can add a product');
+ok((await capture({ ...base, product_ids: [mProd.data[0].id] })).status >= 400, 'a switched-off product cannot be added to an event');
 const mType = await api(maria, 'event_type', { method: 'POST', body: { name: 'Smoke Type' } });
 ok(mType.status >= 400, 'business admin cannot add event types');
 const lisa = await api(maria, 'app_user?email=eq.lisa.anderson@alera.example&select=id,job_title');

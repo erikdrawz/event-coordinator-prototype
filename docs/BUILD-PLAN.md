@@ -19,8 +19,8 @@ Status: 26 Oct 2026. Supersedes v0.1 (Next.js/Vercel/Supabase). See [ARCHITECTUR
 | Event capture | **New event** opens a modal with base + custom fields; Save goes through `create_event()` (one call, one transaction) and lands on the Event page; **Edit event** reopens the same modal via `update_event()` |
 | Adding speakers and attendees | One "Add people" dialog with three sources: EC's own HCP table, **mock CRM search** (pulled forward from Phase 3 because it matters for demos), and file import |
 | Who may create events where | An event type is enabled per country (`event_type_country`); a user manages events in a set of countries (`app_user_country`). Creating an event, or moving it to another country or type, needs both. Enforced in the database; admins and seed scripts are exempt. Reading events is unchanged |
-| Event type assignments | Products and therapeutic areas can be assigned to event types. An event type with none assigned allows all active ones |
-| Admin access | `profile.can_access_admin` opens the Admin area (System Admin, Business Admin). What can be changed there is permission rows + RLS: Business Admin maintains products, therapeutic areas, their assignments and users (never System Admin accounts); event types, their countries and CRM connections stay with System Admin |
+| Products and therapeutic areas | Independent master lists, switched off rather than deleted. Not tied to event types for now (revisit later) |
+| Admin access | `profile.can_access_admin` opens the Admin area (System Admin, Business Admin). What can be changed there is permission rows + RLS: Business Admin maintains products, therapeutic areas and users (never System Admin accounts); event types, their countries and CRM connections stay with System Admin |
 | User logins | Created from Admin with a temporary password through the **auth adapter** (`create_user_login`, `set_user_password`): the only database code that writes to the identity provider |
 | Repo | `github.com/erikdrawz/event-coordinator-prototype` (private, personal) |
 
@@ -53,7 +53,7 @@ Each phase ends in something demoable.
 - Event page: header + stepper, Overview (agenda, speakers/honorarium grid, content), Team (posts, tasks), Attendees, Documents, Event details
 - Capture of related data: sessions, speakers (experts), attendees, content
 - "Add people" dialog: EC HCP table first, then **mock CRM search** (`crm_mock` schema + search/import functions), then file import
-- Admin basics (pulled forward from Phase 6): event types with countries, products and therapeutic areas; product and therapeutic area lists; users with profile, home country, event countries and logins
+- Admin basics (pulled forward from Phase 6): event types with their countries; product and therapeutic area lists; users with profile, home country, event countries and logins
 - **Demo:** create an event, build its agenda and speaker grid, post to the team board.
 
 ### Phase 2: Requests & approvals

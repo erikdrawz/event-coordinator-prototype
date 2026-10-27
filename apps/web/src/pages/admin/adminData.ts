@@ -13,8 +13,6 @@ export interface Product { id: string; name: string; is_active: boolean; therape
 export interface EventTypeRow {
   id: string; name: string; description: string | null; default_duration_minutes: number | null; is_active: boolean;
   event_type_country: { country_code: string }[];
-  event_type_product: { product_id: string }[];
-  event_type_therapeutic_area: { therapeutic_area_id: string }[];
 }
 export interface Profile { id: string; name: string; is_admin: boolean }
 export interface UserRow {
@@ -51,7 +49,7 @@ export function useEventTypes() {
   return useQuery({
     queryKey: [ADMIN_KEY, 'event-types'],
     queryFn: () => rows<EventTypeRow>(supabase.from('event_type')
-      .select('id,name,description,default_duration_minutes,is_active,event_type_country(country_code),event_type_product(product_id),event_type_therapeutic_area(therapeutic_area_id)')
+      .select('id,name,description,default_duration_minutes,is_active,event_type_country(country_code)')
       .order('name')),
   });
 }

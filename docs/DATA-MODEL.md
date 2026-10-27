@@ -35,7 +35,6 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 | `specialty` | ✓ | HCP specialties |
 | `crm_connection` | ✓ | name, system (veeva_crm, vault_crm, salesforce_lsc), region, status, last_sync_at. ERD "CRM Connection"; the source for mirrored records |
 | `event_type_country` | ✓ (Phase 1) | event_type_id, country_code | Countries an event type is available in |
-| `event_type_product`, `event_type_therapeutic_area` | ✓ (Phase 1) | event_type_id, product_id / therapeutic_area_id | Allowed products / areas per type; none = all active |
 | `custom_field` | ✓ (Phase 1) | object_name, api_name (`x__c`), label, field_type (text, long_text, number, currency, date, checkbox, picklist, multi_picklist, lookup_user), options jsonb, is_required, help_text, is_active | Admin-defined field definitions, Salesforce/Vault style |
 | `custom_field_layout` | ✓ (Phase 1) | custom_field_id, event_type_id (null = all types), section, sort | Which event types show the field, in which UI section and order |
 | `<table>.custom_fields` | ✓ (Phase 1, `event` first) | jsonb `{api_name: value}` | Values, validated by a trigger against `custom_field`; filterable through the API (`custom_fields->>region__c=eq.North`) |

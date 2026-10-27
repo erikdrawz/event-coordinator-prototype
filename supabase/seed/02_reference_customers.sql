@@ -100,13 +100,3 @@ union all
 select app.sid('etype:conference'), 'US', app.sid('tenant:alera')
 union all
 select app.sid('etype:investigator'), c.code, app.sid('tenant:alera') from (values ('GB'), ('DE'), ('US')) as c(code);
-
--- Advisory boards are product-led; Brevair (respiratory) isn't advised on yet
-insert into public.event_type_product (event_type_id, product_id, tenant_id)
-select app.sid('etype:advisory'), app.sid('product:' || p), app.sid('tenant:alera')
-  from (values ('telia'), ('raspinol'), ('oncavir'), ('dermalux')) as t(p);
-
--- Investigator meetings only for the two areas with running trials
-insert into public.event_type_therapeutic_area (event_type_id, therapeutic_area_id, tenant_id)
-select app.sid('etype:investigator'), app.sid('ta:' || a), app.sid('tenant:alera')
-  from (values ('onc'), ('rare')) as t(a);
