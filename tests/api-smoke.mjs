@@ -188,6 +188,33 @@ const evaHcp = await api(paul, 'hcp?last_name=eq.Sørensen&select=id');
 const evaSess = await saveSession(paul, { event_id: ev.id, title: 'Smoke panel', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30', speakers: [{ hcp_id: evaHcp.data[0].id }] });
 await api(paul, `event_session?id=eq.${evaSess.data.id}`, { method: 'DELETE' });
 ok((await api(paul, `event_expert?event_id=eq.${ev.id}&hcp_id=eq.${evaHcp.data[0].id}&select=id`)).data?.length === 0, 'deleting a session removes speakers who had no other session');
+
+// The agenda saved as a whole: one transaction, speakers settled on the final agenda, stale saves refused
+const saveAgenda = (who, p) => api(who, 'rpc/save_agenda', { method: 'POST', body: { p } });
+const agendaVersion = async () => (await api(paul, 'rpc/agenda_version', { method: 'POST', body: { p_event_id: ev.id } })).data;
+const v0 = await agendaVersion();
+const slotA = { id: sess.data.id, title: 'Smoke session (renamed)', starts_local: '2026-12-01T09:00', ends_local: '2026-12-01T09:30' };
+const slotB = { title: 'Smoke panel', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30' };
+const ag1 = await saveAgenda(paul, { event_id: ev.id, version: v0, sessions: [{ ...slotA, speakers: [{ hcp_id: evaHcp.data[0].id }] }, { ...slotB, speakers: [] }] });
+const evaOf = () => api(paul, `event_expert?event_id=eq.${ev.id}&hcp_id=eq.${evaHcp.data[0].id}&select=id,prep_hours,service_hours`);
+let eva = (await evaOf()).data?.[0];
+const sessionsNow = async () => (await api(paul, `event_session?event_id=eq.${ev.id}&select=id,title&order=starts_at`)).data ?? [];
+let now = await sessionsNow();
+ok(ag1.status === 200 && now.length === 2 && now[0].id === sess.data.id && eva, 'save_agenda updates and adds sessions in one call, keeping session ids');
+await api(paul, `event_expert?id=eq.${eva.id}`, { method: 'PATCH', body: { prep_hours: 2 } });
+const ag2 = await saveAgenda(paul, { event_id: ev.id, version: ag1.data?.version, sessions: [
+  { ...slotA, speakers: [] }, { ...slotB, id: now[1].id, speakers: [{ event_expert_id: eva.id }] }] });
+eva = (await evaOf()).data?.[0];
+ok(ag2.status === 200 && eva && Number(eva.prep_hours) === 2 && Number(eva.service_hours) === 0.5, 'moving a speaker between sessions keeps their record and entered hours');
+const stale = await saveAgenda(paul, { event_id: ev.id, version: v0, sessions: [] });
+ok(stale.status === 409 && (await sessionsNow()).length === 2, 'a save started from an older agenda is refused (409)');
+const otherSession = await api(paul, `event_session?event_id=eq.${s.id}&select=id&limit=1`);
+ok((await saveAgenda(paul, { event_id: ev.id, sessions: [{ ...slotA }, { id: otherSession.data[0].id, title: 'Hijack' }] })).status >= 400,
+   "another event's session can't be saved into this agenda");
+ok((await saveAgenda(sarah, { event_id: ev.id, sessions: [] })).status >= 400 && (await sessionsNow()).length === 2, 'collaborator cannot save the agenda');
+const ag3 = await saveAgenda(paul, { event_id: ev.id, version: ag2.data?.version, sessions: [{ ...slotA, speakers: [] }] });
+ok(ag3.status === 200 && (await sessionsNow()).length === 1 && (await evaOf()).data?.length === 0,
+   'sessions left out of the agenda are deleted, and speakers with no session left leave');
 ok((await saveSession(sarah, { event_id: ev.id, title: 'Not allowed', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30' })).status >= 400,
    'collaborator cannot add sessions');
 
