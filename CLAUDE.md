@@ -43,7 +43,7 @@ tests/api-smoke.mjs    end-to-end API + security checks (public API only)
 ## Commands
 
 ```bash
-supabase start                      # local stack (Docker): applies migrations + seed
+supabase start                      # local stack (Docker via OrbStack): applies migrations + seed
 supabase db reset                   # rebuild local DB from migrations + seed
 npm install
 cp apps/web/.env.example apps/web/.env.local   # local URL + anon key from `supabase start`
@@ -65,6 +65,8 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
   - Call `select app.secure_table('<table>');` to get RLS, stamping and audit.
   - Add `permission` rows for each profile in the seed (`00_tenant_security.sql`). Without them, nobody but admins can see the table.
 - Status/type values go in lookup tables (like `event_status`), not enums, so clients can read labels and tones.
+- Event capture goes through `create_event(p)` / `update_event(id, p)` (one call, products and custom fields included; times may be given as `starts_local` in the event's zone).
+- Custom fields: definitions in `custom_field`, placement per event type and section in `custom_field_layout`, values in `<table>.custom_fields` jsonb validated by `app.validate_custom_fields()`. Reporting reads `report.<table>` views, rebuilt by `app.refresh_report_view()`. Never `alter table` for a customer field.
 - Event status changes go through `change_event_status()`. Allowed moves are data in `event_status_transition`.
 - Lifecycle: `draft → review → contract → execution → closed`, plus `cancelled` as an exit. Home pills use `event_status.home_label` (Planning / In approval / Approved).
 - When you add a security rule or workflow, add a check for it in `tests/api-smoke.mjs`.
@@ -91,16 +93,15 @@ Demo password for all seeded logins: `EC-demo-2026!`. Demo lead: `paul.taylor@al
 ## Where we are
 
 - **Phase 0, done:** schema, security, seed, CI, login, app shell with notifications, interim Home / events list / Event page header.
-- **Phase 1, next:**
-  - Full Home 4a: mini calendar, agenda with My/All + Upcoming/Past, "Needs my action" (approvals + my tasks), unassigned requests, recently worked on, empty states (4b).
-  - Events list with sorting and filters.
+- **Phase 1, in progress.** Done: Home 4a, events list (`DataTable`), New/Edit event modal with custom fields. Next:
   - Event page tabs, in `event-page.png` order:
     - Overview: agenda grid by day, speakers/honorarium grid with total, content grid
     - Team: message board with replies/reactions, tasks
     - Attendees
     - Documents
     - Event details
-  - Event capture (create/edit form) and status changes via `rpc`.
+  - Status changes from the Event page (Actions) via `change_event_status()`.
+  - Capture of sessions, speakers, attendees and content; an "Add people" dialog with EC's HCP table, mock CRM search and file import.
 - Later phases: see `docs/BUILD-PLAN.md`.
 - Mocked integrations (CRM search, reconciliation, write-back, contracting) need a real interface with a fake implementation. Never fake data in the UI.
 

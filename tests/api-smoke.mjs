@@ -50,17 +50,46 @@ ok(bad.status >= 400, 'illegal transition contract → closed is rejected');
 const direct = await api(paul, `event?id=eq.${s.id}`, { method: 'PATCH', body: { status: 'draft' } });
 ok(direct.status >= 400, 'direct status PATCH that skips the rules is rejected');
 
-// Event capture as coordinator: owner + team are set automatically
+// Event capture as coordinator, through create_event(): owner + team are set automatically
 const types = await api(paul, 'event_type?name=eq.Advisory%20board&select=id');
-const created = await api(paul, 'event', { method: 'POST', body: { name: 'Smoke Test Board', event_type_id: types.data[0].id, timezone: 'Europe/Paris', country_code: 'FR', city: 'Paris' } });
-const ev = created.data?.[0];
-ok(created.status === 201 && ev?.owner_id === me.data.id && ev?.status === 'draft', 'coordinator creates an event; owner defaults to creator');
+const telia = await api(paul, 'product?name=eq.Telia&select=id');
+const capture = (body) => api(paul, 'rpc/create_event', { method: 'POST', body: { p: body } });
+const base = { name: 'Smoke Test Board', event_type_id: types.data[0].id, country_code: 'FR', city: 'Paris',
+               starts_local: '2026-12-01T09:00', custom_fields: { meeting_format__c: 'hybrid', cme_credits__c: 2 } };
+const created = await capture({ ...base, product_ids: [telia.data[0].id] });
+const ev = created.data;
+ok(created.status === 200 && ev?.owner_id === me.data.id && ev?.status === 'draft', 'coordinator creates an event; owner defaults to creator');
+ok(ev?.timezone === 'Europe/Paris' && ev?.starts_at?.startsWith('2026-12-01T08:00'), 'zone defaults from country; local start time is converted');
 const team = await api(paul, `event_team_member?event_id=eq.${ev.id}&select=team_role`);
 ok(team.data?.[0]?.team_role === 'owner', 'creator joins the team as owner');
+const prods = await api(paul, `event_product?event_id=eq.${ev.id}&select=product_id`);
+ok(prods.data?.length === 1, 'products are saved with the event');
+
+// Custom fields: validated in the database, whichever client writes them
+ok((await capture({ ...base, custom_fields: {} })).status >= 400, 'missing required custom field is rejected');
+ok((await capture({ ...base, custom_fields: { meeting_format__c: 'online' } })).status >= 400, 'value outside a picklist is rejected');
+ok((await capture({ ...base, custom_fields: { meeting_format__c: 'virtual', secret__c: 1 } })).status >= 400, 'unknown custom field is rejected');
+ok((await capture({ ...base, status: 'closed' })).status >= 400, 'create_event refuses read-only keys such as status');
+const plain = await api(paul, 'event', { method: 'POST', body: { name: 'Plain insert', event_type_id: types.data[0].id } });
+ok(plain.status >= 400, 'a plain insert still has to satisfy required custom fields');
+
+// Partial update: untouched values stay, custom_fields merge, null removes a value
+const upd1 = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { city: 'Lyon', custom_fields: { cme_credits__c: null } } } });
+ok(upd1.status === 200 && upd1.data.city === 'Lyon' && upd1.data.name === 'Smoke Test Board'
+   && upd1.data.custom_fields.meeting_format__c === 'hybrid' && !('cme_credits__c' in upd1.data.custom_fields),
+   'update_event changes only the keys sent and merges custom fields');
+const virt = await api(paul, 'event?custom_fields->>meeting_format__c=eq.virtual&select=name');
+ok(virt.data?.length === 1 && virt.data[0].name === 'Immunology Webinar Series', 'events can be filtered on a custom field through the API');
+const defs = await api(sarah, 'custom_field?object_name=eq.event&select=api_name,custom_field_layout(section)');
+ok(defs.data?.length === 5, `collaborator can read custom field definitions (got ${defs.data?.length})`);
+const newDef = await api(paul, 'custom_field', { method: 'POST', body: { object_name: 'event', api_name: 'sneaky__c', label: 'Sneaky', field_type: 'text' } });
+ok(newDef.status >= 400, 'only admins can define custom fields');
 
 // Collaborator: can post, cannot create events
-const sarahEvent = await api(sarah, 'event', { method: 'POST', body: { name: 'Not allowed', event_type_id: types.data[0].id } });
+const sarahEvent = await api(sarah, 'rpc/create_event', { method: 'POST', body: { p: base } });
 ok(sarahEvent.status >= 400, 'collaborator cannot create events');
+const sarahEdit = await api(sarah, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { city: 'Nice' } } });
+ok(sarahEdit.status >= 400, 'collaborator cannot edit events');
 const post = await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Smoke test post' } });
 ok(post.status === 201 && post.data[0].author_id !== null, 'collaborator can post to the team board');
 

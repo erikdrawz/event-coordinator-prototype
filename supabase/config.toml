@@ -28,5 +28,7 @@ jwt_expiry = 3600
 enable_signup = false
 
 [auth.email]
-enable_signup = false
+# Must stay true: false here disables the email provider, logins included.
+# Sign-ups are already blocked by [auth] enable_signup = false.
+enable_signup = true
 enable_confirmations = false
