@@ -89,5 +89,6 @@ select app.sid('crm:' || crm), ext, sal, fn, ln, sp, c, city, pc,
     ('sfdc-us',   '003US00ML0004','Dr',  'Michael', 'Lindsay',    'Pulmonology',       'US','Baltimore',  '21287',   'jhmi.example',       'Tier 1','001US0000JHH01', null),
     ('sfdc-us',   '003US00LM0005','Dr',  'Laura',   'Martinez',   'Paediatrics',       'US','Philadelphia','19104',  'chop.example',       'Tier 2','001US0000CHP01', null),
     ('sfdc-us',   '003US00RH0006','Prof','Robert',  'Hayes',      'Clinical Genetics', 'US','Rochester',  '55905',   'mayo.example',       'Tier 1','001US0000MAY01', null),
-    ('sfdc-us',   '003US00KO0007','Dr',  'Kevin',   'O''Brien',   'Cardiology',        'US','Cleveland',  '44195',   'ccf.example',        'Tier 2','001US0000CCF01', null)
+    ('sfdc-us',   '003US00KO0007','Dr',  'Kevin',   'O''Brien',   'Cardiology',        'US','Cleveland',  '44195',   'ccf.example',        'Tier 2','001US0000CCF01', null),
+    ('sfdc-us',   '003US00CA0008','Dr',  'Clinton', 'Ackerman',   'Oncology',          'US','Boston',     '02114',   'mgh.example',        'Tier 1','001US0000MGH01', null)
   ) as t(crm, ext, sal, fn, ln, sp, c, city, pc, dom, tier, hco, ok);
