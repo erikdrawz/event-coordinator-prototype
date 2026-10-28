@@ -11,8 +11,8 @@ export interface FmvRate {
 
 /** An expert is an HCP in EC's own table. */
 export interface ExpertRow {
-  id: string; display_name: string; first_name: string; last_name: string;
-  country_code: string | null; city: string | null; email: string | null; tier: string | null; status: string;
+  id: string; display_name: string; salutation: string | null; first_name: string; last_name: string;
+  specialty_id: string | null; primary_hco_id: string | null; country_code: string | null; city: string | null; email: string | null; tier: string | null; status: string;
   eligibility: Eligibility; eligibility_note: string | null;
   source: string; crm_external_id: string | null; onekey_id: string | null;
   specialty: { name: string } | null;
@@ -24,7 +24,7 @@ export interface ExpertRow {
   event_expert: { count: number }[];
 }
 
-const EXPERT_SELECT = 'id,display_name,first_name,last_name,country_code,city,email,tier,status,eligibility,eligibility_note,source,crm_external_id,onekey_id,' +
+const EXPERT_SELECT = 'id,display_name,salutation,first_name,last_name,specialty_id,primary_hco_id,country_code,city,email,tier,status,eligibility,eligibility_note,source,crm_external_id,onekey_id,' +
   'specialty(name),country(name),primary_hco:hco(name,city,address),crm_connection(name),' +
   'fmv_rate(id,effective_date,expiration_date,rate,min_rate,max_rate,currency),event_expert(count)';
 
@@ -66,6 +66,22 @@ export function useExpert(id: string | undefined) {
       const { data, error } = await supabase.from('hcp').select(EXPERT_SELECT).eq('id', id!).maybeSingle();
       if (error) throw error;
       return data ? normalise(data as unknown as ExpertRow) : null;
+    },
+  });
+}
+
+/** Choices for the Edit expert form: specialties and organisations (HCOs). */
+export function useExpertFormOptions() {
+  return useQuery({
+    queryKey: ['expert-form-options'], staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const [sp, hco] = await Promise.all([
+        supabase.from('specialty').select('id,name').order('name'),
+        supabase.from('hco').select('id,name,city').order('name'),
+      ]);
+      if (sp.error) throw sp.error;
+      if (hco.error) throw hco.error;
+      return { specialties: sp.data as { id: string; name: string }[], hcos: hco.data as { id: string; name: string; city: string | null }[] };
     },
   });
 }

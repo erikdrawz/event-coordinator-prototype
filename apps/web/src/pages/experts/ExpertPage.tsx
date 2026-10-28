@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Building2, FileSignature, MapPin, Stethoscope } from 'lucide-react';
+import { useAuth } from '../../lib/auth';
+import { can } from '../../lib/permissions';
 import { avatarColorFor } from '../../lib/avatar';
 import { daysUntil, ymdInZone } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
@@ -8,7 +10,8 @@ import { StatusPill } from '../../components/StatusPill';
 import { formatDate } from '../../ui/DateInput';
 import { money, roleLabel } from '../event/speakers/speakersData';
 import { EligibilityPill } from './EligibilityPill';
-import { fmvOn, fmvState, initialsOf, useEngagements, useExpert, type Engagement, type ExpertRow } from './expertsData';
+import { ExpertFormModal } from './ExpertFormModal';
+import { fmvState, initialsOf, useEngagements, useExpert, type Engagement, type ExpertRow } from './expertsData';
 import '../event.css';
 import './experts.css';
 
@@ -33,15 +36,13 @@ export function ExpertPage() {
   const { id } = useParams();
   const { data: x, isLoading } = useExpert(id);
   const engagements = useEngagements(id);
+  const { me } = useAuth();
+  const [editing, setEditing] = useState(false);
 
   if (isLoading) return <main className="page"><div className="empty-state">Loading…</div></main>;
   if (!x) return <main className="page"><div className="card empty-state"><div className="empty-state-title">Expert not found</div>They may have been removed, or you don't have access.</div></main>;
 
   const list = engagements.data ?? [];
-  const year = String(new Date().getFullYear());
-  const thisYear = list.filter((e) => e.event?.starts_at && ymdInZone(e.event.starts_at, e.event.timezone).startsWith(year)).length;
-  const upcoming = list.filter((e) => e.event?.starts_at && daysUntil(e.event.starts_at) >= 0).length;
-  const fmv = fmvOn(x.fmv_rate);
   const place = [x.city ?? x.primary_hco?.city, x.country?.name].filter(Boolean).join(', ');
 
   return (
@@ -62,11 +63,9 @@ export function ExpertPage() {
               {place && <span><MapPin size={15} />{place}</span>}
             </div>
           </div>
-          <dl className="expert-stats">
-            <div><dt>Engagements {year}</dt><dd>{engagements.isLoading ? '…' : thisYear}</dd></div>
-            <div><dt>Upcoming</dt><dd>{engagements.isLoading ? '…' : upcoming}</dd></div>
-            <div><dt>FMV rate</dt><dd>{fmv ? `${money(fmv.rate, fmv.currency)} / h` : '—'}</dd></div>
-          </dl>
+          {can(me, 'hcp', 'edit') && (
+            <div className="event-actions"><button type="button" className="btn" onClick={() => setEditing(true)}>Edit expert</button></div>
+          )}
         </div>
         {x.eligibility !== 'eligible' && x.eligibility_note && (
           <p className={`expert-note ${x.eligibility === 'ineligible' ? 'is-red' : 'is-yellow'}`}>{x.eligibility_note}</p>
@@ -84,6 +83,7 @@ export function ExpertPage() {
         </div>
         <DetailsCard expert={x} />
       </div>
+      {editing && <ExpertFormModal expert={x} onClose={() => setEditing(false)} />}
     </main>
   );
 }

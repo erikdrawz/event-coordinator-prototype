@@ -1,13 +1,6 @@
 /* Expert page: engagements, FMV and contracts (two thirds), details (one third) */
 .expert-head { padding-bottom: 20px; }
 .expert-head .event-head-row { align-items: center; }
-.expert-stats { display: flex; gap: 10px; margin: 0; }
-.expert-stats div {
-  min-width: 104px; padding: 8px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-}
-.expert-stats dt { font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap; }
-.expert-stats dd { margin: 2px 0 0; font-size: var(--text-xl); font-weight: 800; white-space: nowrap; }
 .expert-note { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--radius-md); font-size: var(--text-base); }
 .expert-note.is-yellow { background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); }
 .expert-note.is-red { background: var(--tone-red-bg); color: var(--tone-red-fg); }
@@ -27,6 +20,4 @@
 @media (max-width: 960px) {
   .expert-body { grid-template-columns: minmax(0, 1fr); }
   .expert-head .event-head-row { flex-wrap: wrap; }
-  .expert-stats { width: 100%; flex-wrap: wrap; }
-  .expert-stats div { flex: 1; }
 }

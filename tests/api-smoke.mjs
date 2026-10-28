@@ -183,7 +183,7 @@ await setRate(250);
 const policies = await api(paul, 'rpc/event_rate_policies', { method: 'POST', body: { p_event_id: ev.id } });
 ok(policies.data?.[lindHcp.data[0].id]?.max === 300, 'event_rate_policies gives each expert on the event their own range');
 // Experts: eligibility follows the expert onto an event; FMV periods don't overlap
-const holmHcp = await api(paul, 'hcp?last_name=eq.Holm&select=id,eligibility');
+const holmHcp = await api(paul, 'hcp?last_name=eq.Holm&select=id,eligibility,eligibility_note');
 const holmOnEv = await api(paul, 'event_expert', { method: 'POST', body: { event_id: ev.id, hcp_id: holmHcp.data[0].id, role: 'advisor' } });
 ok(holmHcp.data[0].eligibility === 'ineligible' && holmOnEv.data?.[0]?.eligibility === 'ineligible' && Number(holmOnEv.data[0].hourly_rate) === 250,
    "an expert joins an event with their own eligibility and FMV rate");
@@ -194,6 +194,13 @@ ok((await api(paul, 'fmv_rate', { method: 'POST', body: { hcp_id: lindHcp.data[0
    'an FMV rate must lie within its own range');
 ok((await api(sarah, 'expert_eligibility?select=code')).data?.length === 3 && (await api(sarah, 'hcp?eligibility=eq.eligible&select=id')).data?.length === 12,
    'everyone can list eligible experts (12)');
+const holmEdit = await api(paul, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: 'pending', eligibility_note: 'Smoke test' } });
+ok(holmEdit.data?.[0]?.eligibility === 'pending', 'an Event Coordinator can edit an expert');
+const sarahHcpEdit = await api(sarah, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: 'eligible' } });
+ok(Array.isArray(sarahHcpEdit.data) && sarahHcpEdit.data.length === 0, "a collaborator can't edit an expert");
+ok((await api(paul, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: 'unknown' } })).status >= 400,
+   'eligibility must be one of the known values');
+await api(paul, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: holmHcp.data[0].eligibility, eligibility_note: holmHcp.data[0].eligibility_note } });
 await saveSession(paul, { id: sess.data.id, speakers: [{ event_expert_id: lind.id }] });
 ok((await expertOf()).data?.length === 1, 're-saving a session keeps its speakers');
 await saveSession(paul, { id: sess.data.id, speakers: [] });

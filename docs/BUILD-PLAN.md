@@ -70,8 +70,9 @@ Request list and form, submit, the approval process per event type, approval his
 Expert directory and profile, FMV rates, tier requests, contracts (service agreement / work order) with templates, **mock CRM search**, **mock contracting**, "Run checks" on speakers.
 - ✓ Experts list (`/experts`): Eligible / All experts, search, country and specialty; eligibility, organisation, tier, current FMV rate, engagements
 - ✓ Expert page: eligibility (with the reason), engagements (events past and upcoming), FMV rates (effective, expiration, rate, min, max), details; Contracts is a placeholder
+- ✓ Edit expert (profiles that can edit `hcp`): name, title, email, specialty, tier, organisation, city, country, OneKey ID, eligibility and reason. Changes stay in EC; CRM write-back comes later
 - ✓ Rates on events come from the expert's FMV record valid on the event's date (default and negotiable range)
-- Next: add/edit FMV records and eligibility in the UI, contracts, tier requests
+- Next: add/edit FMV records in the UI, contracts, tier requests
 
 ### Phase 4: Attendees & reconciliation
 Invite/attend tracking, bulk actions, **mock reconciliation**, CRM write-back via the outbox.
