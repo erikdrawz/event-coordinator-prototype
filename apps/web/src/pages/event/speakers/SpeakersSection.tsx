@@ -115,7 +115,7 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                 const name = x.hcp?.display_name ?? 'Unknown HCP';
                 const tier = x.eligibility !== 'eligible' ? tieringRequests?.get(x.hcp_id) : undefined;
                 const menu = [
-                  ...(x.eligibility !== 'eligible' && tier ? [{ key: 'tiering', label: `Open tiering request ${tier.request_number}`, icon: <BadgeCheck size={14} />, onSelect: () => navigate(`/requests/${tier.id}`) }]
+                  ...(x.eligibility !== 'eligible' && tier ? [{ key: 'tiering', label: `View tiering request ${tier.request_number}`, icon: <BadgeCheck size={14} />, onSelect: () => navigate(`/requests/${tier.id}`) }]
                     : x.eligibility !== 'eligible' && canRequestTiering ? [{ key: 'tiering', label: 'Log tiering request', icon: <BadgeCheck size={14} />, onSelect: () => setTiering(x) }] : []),
                   ...(canContract && !main && x.eligibility === 'eligible' ? [{ key: 'contract', label: 'Add contract', icon: <FileSignature size={14} />, onSelect: () => setContracting({ x, addendum: false }) }] : []),
                   ...(canContract && main ? [{ key: 'addendum', label: 'Add addendum', icon: <FilePlus2 size={14} />, onSelect: () => setContracting({ x, addendum: true }) }] : []),
@@ -140,13 +140,13 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                     <td>
                       {main ? (
                         <span className="contract-cell">
-                          <Link to={`/contracts/${main.id}`} data-tip={main.contract_number}>Open contract</Link>
+                          <Link to={`/contracts/${main.id}`} data-tip={main.contract_number}>View contract</Link>
                           <ContractStatusPill status={main.status as 'draft'} small />
                           {addenda.length > 0 && <span className="dt-sub">+{addenda.length} addend{addenda.length === 1 ? 'um' : 'a'}</span>}
                         </span>
                       ) : tier ? (
                         <span className="contract-cell">
-                          <Link to={`/requests/${tier.id}`} data-tip={`Tiering request ${tier.request_number}`}>Open request</Link>
+                          <Link to={`/requests/${tier.id}`} data-tip={`Tiering request ${tier.request_number}`}>View request</Link>
                           <span className="tiering-status"><RequestStatusPill status={tier.status as 'draft'} /></span>
                         </span>
                       ) : canContract && x.eligibility === 'eligible'
