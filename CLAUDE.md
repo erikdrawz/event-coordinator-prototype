@@ -7,6 +7,7 @@ Owner: Erik (co-founder, ex-Veeva CRM/Events architect). Read these before makin
 - `docs/ARCHITECTURE.md`: principles and stack (the **why**)
 - `docs/BUILD-PLAN.md`: phases and decisions (the **what next**)
 - `docs/DATA-MODEL.md`: entities, CRM mapping, which tables exist
+- `docs/AI-APPROACH.md`: MCP server, agents and the business rules engine. Read before building any AI feature
 - `docs/design/`: **visual source of truth.** `home-4a.png`, `event-page.png`, `home-4b-empty.png`, plus the source `EC Home.dc.html` / `EC Event.dc.html`. The `.dc.html` files need `support.js`, which isn't in the repo, so use the PNGs and read the HTML for exact values and copy.
 - Older HTML mockups (01–12) live outside the repo in Erik's `ec-v2/design/ec-early-demo-mockup/`. Use them for **content and field lists** (events list, request form, experts, spend, admin), never for styling.
 
