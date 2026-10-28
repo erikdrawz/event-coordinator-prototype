@@ -5,7 +5,7 @@ import { ChevronDown, Clock, FileText, Pencil, Send, Trash2, UserRound, Users } 
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
-import { eventDateTime, timeAgo } from '../../lib/format';
+import { eventDateTime } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
 import { Menu, type MenuItem } from '../../ui/Menu';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
@@ -21,8 +21,8 @@ import './requests.css';
 const listOf = (items: string[]) => new Intl.ListFormat('en-GB', { type: 'conjunction' }).format(items);
 const empty = <span className="text-muted">—</span>;
 
-function Row({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
-  return <div className={`details-row${wide ? ' wide' : ''}`}><dt>{label}</dt><dd>{children}</dd></div>;
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="details-row"><dt>{label}</dt><dd>{children}</dd></div>;
 }
 const PersonValue = ({ p }: { p: Person | null }) => p
   ? <span className="dt-person"><Avatar size={22} initials={p.initials} color={p.avatar_color} isAgent={p.user_type === 'agent'} />{p.display_name}</span> : empty;
@@ -120,15 +120,15 @@ export function RequestPage() {
               {canEdit && isDraft && <button className="btn" onClick={() => setEditing(true)}><Pencil size={14} />Edit</button>}
             </div>
             <dl className="details-grid request-details">
-              <Row label="Name" wide>{r.title}</Row>
+              <Row label="Name">{r.title}</Row>
               <Row label="Event type">{r.event_type?.name ?? empty}</Row>
               <Row label="Start">{r.starts_at ? eventDateTime(r.starts_at, r.timezone) : empty}</Row>
               <Row label="End">{r.ends_at ? eventDateTime(r.ends_at, r.timezone) : empty}</Row>
-              <Row label="Requested by"><PersonValue p={r.requester} /></Row>
-              <Row label="Submitted">{r.submitted_at ? <span title={new Date(r.submitted_at).toLocaleString('en-GB')}>{timeAgo(r.submitted_at)}</span> : <span className="text-muted">Not yet</span>}</Row>
-              <Row label="Coordinator">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
               <Row label="Time zone">{r.timezone.replace(/_/g, ' ')}</Row>
-              <Row label="Business justification" wide>{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
+              <Row label="Business justification">{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
+              <Row label="Status"><RequestStatusPill status={r.status} /></Row>
+              <Row label="Requested by"><PersonValue p={r.requester} /></Row>
+              <Row label="Coordinator">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
             </dl>
             {isDraft && canEdit && missing.length > 0 && (
               <p className="request-note">Add the {listOf(missing)} before you submit this request for approval.</p>
