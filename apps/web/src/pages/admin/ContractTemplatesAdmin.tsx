@@ -120,68 +120,63 @@ export function ContractTemplatePage() {
   return (
     <>
       <nav className="crumbs"><Link to="/admin/contract-templates">Contract templates</Link><span>/</span><span>{t.name}</span></nav>
-      <AdminPage title={t.name} sub={`${typeLabel(t.contract_type)} template · ${versions.length} version${versions.length === 1 ? '' : 's'}`}
+      <AdminPage title={t.name} sub={`${versions.length} version${versions.length === 1 ? '' : 's'}`}
         action={<div className="event-actions">
           <button className="btn" onClick={() => setSettings(true)}><Settings2 size={15} />Settings</button>
           {can(me, 'contract_template_version', 'create') && <button className="btn btn-primary" onClick={() => setVersionEdit('new')}><Plus size={15} strokeWidth={2.6} />New version</button>}
         </div>}>
-        <div className="template-body">
-          <div className="template-main">
-            <section className="card ov-card" aria-labelledby="versions-title">
-              <div className="ov-head"><div className="ov-title-row"><h2 id="versions-title" className="ov-title">Versions</h2>
-                <span className="card-sub">A contract gets the version in effect on its event's date (an MSA: its start date)</span></div></div>
-              <div className="table-scroll">
-                <table className="agenda-table expert-table version-table">
-                  <thead><tr><th>Version</th><th>In effect</th><th>Status</th><th>What changed</th><th className="num">Contracts</th></tr></thead>
-                  <tbody>
-                    {versions.map((v) => {
-                      const st = states.get(v.id)!;
-                      return (
-                        <tr key={v.id} className={`${v.id === selected?.id ? 'is-selected' : ''}${st.state === 'retired' ? ' is-past' : ''}`} onClick={() => setSelectedId(v.id)}>
-                          <td className="dt-nowrap"><button type="button" className="agenda-title as-button" onClick={() => setSelectedId(v.id)}>v{v.version}</button>
-                            {v.is_locked && <span className="version-lock" tabIndex={0} aria-label="Used for sent contracts" data-tip="Used for contracts sent for signature, so it can't change"><Lock size={12} aria-hidden /></span>}</td>
-                          <td className="dt-nowrap">{formatDate(v.effective_from)}{st.until ? <> – {formatDate(st.until)}</> : <span className="dt-sub"> onwards</span>}</td>
-                          <td><span className={`pill pill-${STATE[st.state].tone}`}>{STATE[st.state].label}</span></td>
-                          <td>{v.notes ?? <span className="text-muted">—</span>}</td>
-                          <td className="num">{v.contracts_using || <span className="text-muted">0</span>}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {!current && <p className="admin-section-note version-note">No version is in effect yet, so contracts can't use this template until {versions.length ? formatDate(versions[versions.length - 1].effective_from) : 'a version is added'}.</p>}
-            </section>
+        <dl className="template-meta" aria-label="Where it's used">
+          <div><dt>Status</dt><dd><span className={`pill ${t.is_active ? 'pill-green' : 'pill-grey'}`}>{t.is_active ? 'Active' : 'Inactive'}</span></dd></div>
+          <div><dt>Contract type</dt><dd>{typeLabel(t.contract_type)}</dd></div>
+          <div className="template-meta-wide"><dt>Event types</dt><dd>{forEvents(t.contract_type)
+            ? (names.length ? names.join(', ') : <span className="text-muted">None yet</span>) : <span className="text-muted">Expert level, no event</span>}</dd></div>
+          <div><dt>Countries</dt><dd><Countries t={t} /></dd></div>
+        </dl>
+        <div className="template-main">
+          <section className="card ov-card" aria-labelledby="versions-title">
+            <div className="ov-head"><div className="ov-title-row"><h2 id="versions-title" className="ov-title">Versions</h2>
+              <span className="card-sub">A contract gets the version in effect on its event's date (an MSA: its start date)</span></div></div>
+            <div className="table-scroll">
+              <table className="agenda-table expert-table version-table">
+                <thead><tr><th>Version</th><th>In effect</th><th>Status</th><th>What changed</th><th className="num">Contracts</th></tr></thead>
+                <tbody>
+                  {versions.map((v) => {
+                    const st = states.get(v.id)!;
+                    return (
+                      <tr key={v.id} className={`${v.id === selected?.id ? 'is-selected' : ''}${st.state === 'retired' ? ' is-past' : ''}`} onClick={() => setSelectedId(v.id)}>
+                        <td className="dt-nowrap"><button type="button" className="agenda-title as-button" onClick={() => setSelectedId(v.id)}>v{v.version}</button>
+                          {v.is_locked && <span className="version-lock" tabIndex={0} aria-label="Used for sent contracts" data-tip="Used for contracts sent for signature, so it can't change"><Lock size={12} aria-hidden /></span>}</td>
+                        <td className="dt-nowrap">{formatDate(v.effective_from)}{st.until ? <> – {formatDate(st.until)}</> : <span className="dt-sub"> onwards</span>}</td>
+                        <td><span className={`pill pill-${STATE[st.state].tone}`}>{STATE[st.state].label}</span></td>
+                        <td>{v.notes ?? <span className="text-muted">—</span>}</td>
+                        <td className="num">{v.contracts_using || <span className="text-muted">0</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {!current && <p className="admin-section-note version-note">No version is in effect yet, so contracts can't use this template until {versions.length ? formatDate(versions[versions.length - 1].effective_from) : 'a version is added'}.</p>}
+          </section>
 
-            {selected && sel && (
-              <section className="card ov-card" aria-labelledby="version-title">
-                <div className="ov-head">
-                  <div className="ov-title-row">
-                    <h2 id="version-title" className="ov-title">Version {selected.version}</h2>
-                    <span className={`pill pill-${STATE[sel.state].tone}`}>{STATE[sel.state].label}</span>
-                    <span className="card-sub">{selected.file_name ?? ''}</span>
-                  </div>
-                  <div className="ov-actions">
-                    <button className="btn btn-sm" onClick={() => saveBlob(new Blob([selected.body], { type: 'text/markdown' }), selected.file_name ?? `${t.name} v${selected.version}.md`)}><Download size={14} />.md</button>
-                    {canEdit && !selected.is_locked && <button className="btn btn-sm" onClick={() => setVersionEdit(selected)}><Pencil size={14} />Edit</button>}
-                    {can(me, 'contract_template_version', 'delete') && selected.contracts_using === 0 && <button className="btn btn-sm btn-ghost" onClick={() => setDeleting(selected)}><Trash2 size={14} />Delete</button>}
-                  </div>
+          {selected && sel && (
+            <section className="card ov-card" aria-labelledby="version-title">
+              <div className="ov-head">
+                <div className="ov-title-row">
+                  <h2 id="version-title" className="ov-title">Version {selected.version}</h2>
+                  <span className={`pill pill-${STATE[sel.state].tone}`}>{STATE[sel.state].label}</span>
+                  <span className="card-sub">{selected.file_name ?? ''}</span>
                 </div>
-                {selected.is_locked && <p className="admin-section-note version-note">Used for contracts sent for signature, so it can't change. Add a new version for changes.</p>}
-                <div className="template-preview template-preview-page"><ContractDocument body={selected.body} fields={(fields.data ?? []).map((f) => f.field)} /></div>
-              </section>
-            )}
-          </div>
-
-          <aside className="card details-card expert-details">
-            <div className="details-head"><h2 className="card-title">Where it's used</h2></div>
-            <dl className="details-grid">
-              <div className="details-row"><dt>Status</dt><dd><span className={`pill ${t.is_active ? 'pill-green' : 'pill-grey'}`}>{t.is_active ? 'Active' : 'Inactive'}</span></dd></div>
-              <div className="details-row"><dt>Contract type</dt><dd>{typeLabel(t.contract_type)}</dd></div>
-              <div className="details-row"><dt>Event types</dt><dd>{forEvents(t.contract_type) ? (names.length ? names.join(', ') : <span className="text-muted">None yet</span>) : <span className="text-muted">Expert level, no event</span>}</dd></div>
-              <div className="details-row"><dt>Countries</dt><dd><Countries t={t} /></dd></div>
-            </dl>
-          </aside>
+                <div className="ov-actions">
+                  <button className="btn btn-sm" onClick={() => saveBlob(new Blob([selected.body], { type: 'text/markdown' }), selected.file_name ?? `${t.name} v${selected.version}.md`)}><Download size={14} />.md</button>
+                  {canEdit && !selected.is_locked && <button className="btn btn-sm" onClick={() => setVersionEdit(selected)}><Pencil size={14} />Edit</button>}
+                  {can(me, 'contract_template_version', 'delete') && selected.contracts_using === 0 && <button className="btn btn-sm btn-ghost" onClick={() => setDeleting(selected)}><Trash2 size={14} />Delete</button>}
+                </div>
+              </div>
+              {selected.is_locked && <p className="admin-section-note version-note">Used for contracts sent for signature, so it can't change. Add a new version for changes.</p>}
+              <div className="template-preview template-preview-page"><ContractDocument body={selected.body} fields={(fields.data ?? []).map((f) => f.field)} /></div>
+            </section>
+          )}
         </div>
       </AdminPage>
 
