@@ -46,7 +46,7 @@ const sma = await api(paul, `event?name=eq.SMA%20Board&select=id,status,event_ex
 const s = sma.data?.[0];
 ok(s && s.event_session.length === 7, 'SMA Board has 7 agenda sessions');
 const total = s?.event_expert.reduce((a, e) => a + Number(e.total_payable), 0);
-ok(total === 517, `SMA Board honoraria total €517 at the temporary €100/h rate (got ${total})`);
+ok(Math.round(total * 100) === 144760, `SMA Board honoraria total €1,447.60 at the experts' FMV rates (got ${total})`);
 
 // Lifecycle rules
 const bad = await api(paul, 'rpc/change_event_status', { method: 'POST', body: { p_event_id: s.id, p_status: 'closed' } });
@@ -161,23 +161,39 @@ const lindHcp = await api(paul, 'hcp?last_name=eq.Lind&select=id');
 await saveSession(paul, { id: sess.data.id, speakers: [{ hcp_id: lindHcp.data[0].id }] });
 const expertOf = () => api(paul, `event_expert?event_id=eq.${ev.id}&hcp_id=eq.${lindHcp.data[0].id}&select=id,role,hourly_rate,service_hours,prep_hours,total_payable`);
 let lind = (await expertOf()).data?.[0];
-ok(lind && lind.role === 'speaker' && Number(lind.hourly_rate) === 100 && Number(lind.service_hours) === 0.5,
-   'an HCP added to a session joins the speakers at the flat rate, with the session as service hours');
+ok(lind && lind.role === 'speaker' && Number(lind.hourly_rate) === 250 && Number(lind.service_hours) === 0.5,
+   "an HCP added to a session joins the speakers at their FMV rate, with the session as service hours");
 await saveSession(paul, { id: sess.data.id, ends_local: '2026-12-01T10:00' });
 lind = (await expertOf()).data?.[0];
 ok(Number(lind.service_hours) === 1, 'lengthening the session updates service hours');
 await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { service_hours: 99, prep_hours: 1.5 } });
 lind = (await expertOf()).data?.[0];
-ok(Number(lind.service_hours) === 1 && Number(lind.total_payable) === 250, 'service hours cannot be typed in; total = (prep + service + travel) × rate');
-// Negotiable rate: default 100, between 80 and 120
+ok(Number(lind.service_hours) === 1 && Number(lind.total_payable) === 625, 'service hours cannot be typed in; total = (prep + service + travel) × rate');
+// Negotiable rate: from the expert's FMV record valid on the event's date (€250, €200–€300 for Lind); €100 within €80–€120 without one
 const policy = await api(paul, 'rpc/expert_rate_policy', { method: 'POST', body: {} });
-ok(policy.data?.mode === 'negotiable' && policy.data.default === 100 && policy.data.min === 80 && policy.data.max === 120, 'the rate policy is negotiable, €100 within €80–€120');
+ok(policy.data?.source === 'default' && policy.data.default === 100 && policy.data.min === 80 && policy.data.max === 120, 'without an FMV record the rate policy is €100, negotiable €80–€120');
+const lindPolicy = await api(paul, 'rpc/expert_rate_policy', { method: 'POST', body: { p_hcp_id: lindHcp.data[0].id, p_event_id: ev.id } });
+ok(lindPolicy.data?.source === 'fmv' && lindPolicy.data.default === 250 && lindPolicy.data.min === 200 && lindPolicy.data.max === 300, "the rate policy comes from the expert's FMV record");
 const setRate = (rate) => api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { hourly_rate: rate } });
-ok((await setRate(121)).status >= 400 && (await setRate(79)).status >= 400, 'a rate outside €80–€120 is refused');
-await setRate(120);
+ok((await setRate(301)).status >= 400 && (await setRate(199)).status >= 400, 'a rate outside the FMV range is refused');
+await setRate(300);
 lind = (await expertOf()).data?.[0];
-ok(Number(lind.hourly_rate) === 120 && Number(lind.total_payable) === 300, 'a negotiated rate is used in the total');
-await setRate(100);
+ok(Number(lind.hourly_rate) === 300 && Number(lind.total_payable) === 750, 'a negotiated rate is used in the total');
+await setRate(250);
+const policies = await api(paul, 'rpc/event_rate_policies', { method: 'POST', body: { p_event_id: ev.id } });
+ok(policies.data?.[lindHcp.data[0].id]?.max === 300, 'event_rate_policies gives each expert on the event their own range');
+// Experts: eligibility follows the expert onto an event; FMV periods don't overlap
+const holmHcp = await api(paul, 'hcp?last_name=eq.Holm&select=id,eligibility');
+const holmOnEv = await api(paul, 'event_expert', { method: 'POST', body: { event_id: ev.id, hcp_id: holmHcp.data[0].id, role: 'advisor' } });
+ok(holmHcp.data[0].eligibility === 'ineligible' && holmOnEv.data?.[0]?.eligibility === 'ineligible' && Number(holmOnEv.data[0].hourly_rate) === 250,
+   "an expert joins an event with their own eligibility and FMV rate");
+await api(paul, `event_expert?id=eq.${holmOnEv.data?.[0]?.id}`, { method: 'DELETE' });
+const fmvOverlap = await api(paul, 'fmv_rate', { method: 'POST', body: { hcp_id: lindHcp.data[0].id, rate: 260, min_rate: 210, max_rate: 310, currency: 'EUR', effective_date: new Date().toISOString().slice(0, 10) } });
+ok(fmvOverlap.status >= 400, "an expert's FMV periods can't overlap");
+ok((await api(paul, 'fmv_rate', { method: 'POST', body: { hcp_id: lindHcp.data[0].id, rate: 100, min_rate: 120, max_rate: 140, currency: 'EUR', effective_date: '2040-01-01' } })).status >= 400,
+   'an FMV rate must lie within its own range');
+ok((await api(sarah, 'expert_eligibility?select=code')).data?.length === 3 && (await api(sarah, 'hcp?eligibility=eq.eligible&select=id')).data?.length === 12,
+   'everyone can list eligible experts (12)');
 await saveSession(paul, { id: sess.data.id, speakers: [{ event_expert_id: lind.id }] });
 ok((await expertOf()).data?.length === 1, 're-saving a session keeps its speakers');
 await saveSession(paul, { id: sess.data.id, speakers: [] });

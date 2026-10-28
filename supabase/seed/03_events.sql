@@ -189,12 +189,12 @@ insert into public.approval_action (tenant_id, approval_id, step_id, step_name, 
 -- ---------------------------------------------------------------------
 -- Experts (honorarium grid) and agenda
 -- ---------------------------------------------------------------------
--- Service hours aren't seeded: they come from the agenda below. Rates use the temporary
--- flat rate (app.expert_rate()) until FMV rates are wired in; the FMV link is kept for later.
+-- Service hours aren't seeded: they come from the agenda below. Rates default from each
+-- expert's FMV record (expert_rate_policy).
 insert into public.event_expert (id, tenant_id, event_id, hcp_id, role, eligibility, check_status, check_notes,
                                  fmv_rate_id, hourly_rate, currency, prep_hours, travel_hours, created_at)
 select app.sid('expert:' || e || ':' || h), app.sid('tenant:alera'), app.sid('event:' || e), app.sid('hcp:' || h),
-       role, elig, chk, notes, app.sid('fmv:' || h || ':' || svc), app.expert_rate(), 'EUR', prep, trav, now() - interval '20 days'
+       role, elig, chk, notes, null, null, null, prep, trav, now() - interval '20 days'   -- rate, currency and FMV record from the expert's FMV
   from (values
     ('sma-board','muir','chair','eligible','pending', null, 'chair', 280, 1.0, 0.5, 0.0),
     ('sma-board','griffiths','speaker','eligible','passed', 'Within annual cap (2 of 6 engagements). FMV rate matches Tier 1 national.', 'speaker', 280, 1.5, 1.2, 1.0),

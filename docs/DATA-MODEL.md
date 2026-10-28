@@ -46,9 +46,10 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 | Table | P0 | Key fields | Notes |
 |---|---|---|---|
-| `hcp` | ✓ | title, first/last name, specialty_id, primary_hco_id, country, city, email, tier, status, source (crm/data_vendor/manual), crm_connection_id, crm_external_id, onekey_id | Event-context data only, not a full HCP master |
+| `hcp` | ✓ | title, first/last name, specialty_id, primary_hco_id, country, city, email, tier, eligibility (→ `expert_eligibility`), eligibility_note, status, source (crm/data_vendor/manual), crm_connection_id, crm_external_id, onekey_id | Event-context data only, not a full HCP master |
 | `hco` | ✓ | name, hco_type, country, city, crm ids, onekey_id | Hospitals, universities, societies |
-| `fmv_rate` | ✓ | hcp_id, service_type, scope (national/international), hourly_rate, currency, valid_from/to, tier | ERD "FMV". Feeds the speaker rate |
+| `fmv_rate` | ✓ | hcp_id, effective_date, expiration_date, rate, min_rate, max_rate, currency | ERD "FMV". The record valid on an event's date sets the expert's default rate and negotiable range (`expert_rate_policy`); periods of one expert don't overlap |
+| `expert_eligibility` | ✓ | code (eligible, pending, ineligible), label, tone, sort | **New**: whether an expert may be engaged |
 | `tier_request` | | hcp_id, requested_tier, rationale, status, decided_by/at | ERD "Tier Request" (Phase 3) |
 
 ## 4. Requests & events

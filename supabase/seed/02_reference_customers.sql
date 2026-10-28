@@ -73,22 +73,40 @@ select app.sid('hcp:' || k), app.sid('tenant:alera'), sal, fn, ln, app.sid('spec
     ('eriksson',  'Prof', 'Lars',    'Eriksson',  'genetics', 'karolinska', 'SE','Stockholm',  'karolinska.example','Tier 1','vault-nord','VN-HCP-660009','WSEM00600001'),
     ('novak',     'Dr',   'Klara',   'Novak',     'neuro',    'charite',    'DE','Berlin',     'charite.example',  'Tier 2','veeva-eu',  'VE-HCP-550120','WDEM00500001'),
     ('brandt',    'Dr',   'Henrik',  'Brandt',    'derm',     'uke',        'DE','Hamburg',    'uke.example',      'Tier 2','veeva-eu',  'VE-HCP-550377','WDEM00500002'),
-    ('vogel',     'Prof', 'Julia',   'Vogel',     'derm',     'uke',        'DE','Hamburg',    'uke.example',      'Tier 1','veeva-eu',  'VE-HCP-550401','WDEM00500003')
+    ('vogel',     'Prof', 'Julia',   'Vogel',     'derm',     'uke',        'DE','Hamburg',    'uke.example',      'Tier 1','veeva-eu',  'VE-HCP-550401','WDEM00500003'),
+    ('haugland',  'Dr',   'Erik',    'Haugland',  'psych',    'oslo',       'NO','Oslo',       'ous.example',      'Tier 3','vault-nord','VN-HCP-990071','WNOM00900002'),
+    ('rantanen',  'Dr',   'Mikko',   'Rantanen',   'pulm',     'hus',        'FI','Helsinki',   'hus.example',      'Tier 2','vault-nord','VN-HCP-880057','WFIM00800003'),
+    ('weiss',     'Prof', 'Andreas', 'Weiss',     'onc',      'charite',    'DE','Berlin',     'charite.example',  'Tier 1','veeva-eu',  'VE-HCP-550512','WDEM00500004'),
+    ('larsen',    'Dr',   'Camilla', 'Larsen',    'cardio',   'rigs',       'DK','Copenhagen', 'rh.example',       'Tier 3','vault-nord','VN-HCP-771688','WDKM00700007'),
+    ('okafor',    'Dr',   'Grace',   'Okafor',    'onc',      'mgh',        'US','Boston',     'mgh.example',      'Tier 2','sfdc-us',   '003US00GO0002', null)
   ) as t(k, sal, fn, ln, sp, hco, c, city, dom, tier, crm, ext, ok);
 
--- FMV rates (EUR / hour) ------------------------------------------------------
-insert into public.fmv_rate (id, tenant_id, hcp_id, service_type, scope, tier, hourly_rate, currency, valid_from, valid_to)
-select app.sid('fmv:' || k || ':' || svc), app.sid('tenant:alera'), app.sid('hcp:' || k), svc, sc, tier, rate, 'EUR',
-       date_trunc('year', current_date)::date, (date_trunc('year', current_date) + interval '1 year - 1 day')::date
+-- Eligibility: who may be engaged (new experts start in review)
+update public.hcp h set eligibility = e.elig, eligibility_note = e.note
   from (values
-    ('muir','chair','national','Tier 1',280), ('muir','speaker','national','Tier 1',280),
-    ('griffiths','speaker','national','Tier 1',280), ('holm','advisory','national','Tier 2',250),
-    ('lind','advisory','national','Tier 2',250), ('sorensen','advisory','national','Tier 3',210),
-    ('vaaranen','speaker','international','Tier 1',320), ('huesh','speaker','international','Tier 1',350),
-    ('solberg','speaker','national','Tier 2',240), ('eriksson','chair','international','Tier 1',320),
-    ('novak','speaker','national','Tier 2',240), ('brandt','advisory','national','Tier 2',230),
-    ('vogel','chair','national','Tier 1',290)
-  ) as t(k, svc, sc, tier, rate);
+    ('muir','eligible',null), ('griffiths','eligible',null), ('sorensen','eligible',null), ('vaaranen','eligible',null),
+    ('solberg','eligible',null), ('eriksson','eligible',null), ('novak','eligible',null), ('brandt','eligible',null),
+    ('vogel','eligible',null), ('haugland','eligible',null), ('weiss','eligible',null), ('okafor','eligible',null),
+    ('holm','ineligible','Annual engagement cap reached for Denmark (6 of 6). Eligible again from 1 January.'),
+    ('larsen','ineligible','Debarment screening returned a possible name match. Compliance is confirming identity.'),
+    ('lind','pending','Conflict-of-interest declaration requested; not yet returned.'),
+    ('huesh','pending','Awaiting Open Payments (Sunshine Act) attestation for cross-border engagements.'),
+    ('rantanen','pending','New expert: qualification and FMV assessment in progress.')
+  ) as e(k, elig, note)
+ where h.id = app.sid('hcp:' || e.k);
+
+-- FMV rates (EUR / hour): the current record (valid two years), and the previous one for some
+insert into public.fmv_rate (id, tenant_id, hcp_id, rate, min_rate, max_rate, currency, effective_date, expiration_date)
+select app.sid('fmv:' || k || ':' || p), app.sid('tenant:alera'), app.sid('hcp:' || k), rate,
+       round(rate * 0.8 / 10) * 10, round(rate * 1.2 / 10) * 10, 'EUR',
+       current_date - 210 - 730 * p, current_date - 210 - 730 * p + 729
+  from (values
+    ('muir',0,280), ('griffiths',0,280), ('holm',0,250), ('lind',0,250), ('sorensen',0,210), ('vaaranen',0,320),
+    ('huesh',0,350), ('solberg',0,240), ('eriksson',0,320), ('novak',0,240), ('brandt',0,230), ('vogel',0,290),
+    ('haugland',0,200), ('weiss',0,330), ('larsen',0,190), ('okafor',0,260),
+    -- previous periods
+    ('muir',1,260), ('griffiths',1,250), ('eriksson',1,300), ('vogel',1,270), ('holm',1,230)
+  ) as t(k, p, rate);
 
 -- Event type configuration -----------------------------------------------------
 -- Countries each event type is available in
