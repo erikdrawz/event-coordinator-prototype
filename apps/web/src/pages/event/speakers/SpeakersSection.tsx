@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEventAccess } from '../eventAccess';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, FilePlus2, FileSignature, MoreVertical, Plus, Trash2, X } from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, FilePlus2, FileSignature, MoreVertical, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { can } from '../../../lib/permissions';
@@ -16,8 +16,10 @@ import { PersonPicker } from '../people/PersonPicker';
 import { NewContractModal } from '../../contracts/NewContractModal';
 import { ContractStatusPill } from '../../contracts/ContractStatusPill';
 import '../../contracts/contracts.css';
+import { RequestFormModal } from '../../requests/RequestFormModal';
+import { RequestStatusPill } from '../../requests/RequestStatusPill';
 import {
-  ROLES, currencySymbol, hcpSub, hours, mainContract, money, rateRange, roleLabel, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
+  ROLES, currencySymbol, hcpSub, hours, mainContract, money, rateRange, roleLabel, useEventTieringRequests, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
 } from './speakersData';
 
 const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility in review' } as const;
@@ -39,20 +41,24 @@ const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'T
  * the agenda automatically or are added directly. Service hours come from the agenda; prep and
  * travel are typed in the row; the rate defaults from the expert's FMV record.
  */
-export function SpeakersSection({ eventId }: { eventId: string }) {
+export function SpeakersSection({ eventId, eventName }: { eventId: string; eventName: string }) {
   const { me } = useAuth();
+  const navigate = useNavigate();
   const { canEdit: canEditEvent } = useEventAccess();
   const qc = useQueryClient();
   const experts = useExperts(eventId);
   const [adding, setAdding] = useState<number | null>(null);
   const [removing, setRemoving] = useState<Expert | null>(null);
   const [contracting, setContracting] = useState<{ x: Expert; addendum: boolean } | null>(null);
+  const [tiering, setTiering] = useState<Expert | null>(null);
+  const tieringRequests = useEventTieringRequests(eventId).data;
   const [cellError, setCellError] = useState<string | null>(null);
   const policies = useRatePolicies(eventId).data;
   const canAdd = can(me, 'event_expert', 'create') && canEditEvent;
   const canEdit = can(me, 'event_expert', 'edit') && canEditEvent;
   const canDelete = can(me, 'event_expert', 'delete') && canEditEvent;
   const canContract = can(me, 'contract', 'create') && canEditEvent;
+  const canRequestTiering = can(me, 'event_request', 'create');
   const list = experts.data ?? [];
   const grand = list.reduce((a, x) => a + x.total_payable, 0);
   const currency = list[0]?.currency ?? 'EUR';
@@ -107,7 +113,10 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
               {list.map((x) => {
                 const { main, addenda } = mainContract(x);
                 const name = x.hcp?.display_name ?? 'Unknown HCP';
+                const tier = x.eligibility !== 'eligible' ? tieringRequests?.get(x.hcp_id) : undefined;
                 const menu = [
+                  ...(x.eligibility !== 'eligible' && tier ? [{ key: 'tiering', label: `Open tiering request ${tier.request_number}`, icon: <BadgeCheck size={14} />, onSelect: () => navigate(`/requests/${tier.id}`) }]
+                    : x.eligibility !== 'eligible' && canRequestTiering ? [{ key: 'tiering', label: 'Log tiering request', icon: <BadgeCheck size={14} />, onSelect: () => setTiering(x) }] : []),
                   ...(canContract && !main && x.eligibility === 'eligible' ? [{ key: 'contract', label: 'Create contract', icon: <FileSignature size={14} />, onSelect: () => setContracting({ x, addendum: false }) }] : []),
                   ...(canContract && main ? [{ key: 'addendum', label: 'Add addendum', icon: <FilePlus2 size={14} />, onSelect: () => setContracting({ x, addendum: true }) }] : []),
                   ...(canDelete ? [{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }] : []),
@@ -135,9 +144,16 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                           <ContractStatusPill status={main.status as 'draft'} small />
                           {addenda.length > 0 && <span className="dt-sub">+{addenda.length} addend{addenda.length === 1 ? 'um' : 'a'}</span>}
                         </span>
+                      ) : tier ? (
+                        <span className="contract-cell">
+                          <Link to={`/requests/${tier.id}`} data-tip="Tiering request">{tier.request_number}</Link>
+                          <span className="tiering-status">Tiering · <RequestStatusPill status={tier.status as 'draft'} /></span>
+                        </span>
                       ) : canContract && x.eligibility === 'eligible'
                         ? <button type="button" className="link" onClick={() => setContracting({ x, addendum: false })}>Create</button>
-                        : <span className="text-muted" data-tip={x.eligibility === 'eligible' ? undefined : 'Only eligible experts can be contracted'}>—</span>}
+                        : x.eligibility !== 'eligible' && canRequestTiering
+                          ? <button type="button" className="link" data-tip="Only eligible experts can be contracted" onClick={() => setTiering(x)}>Request tiering</button>
+                          : <span className="text-muted" data-tip={x.eligibility === 'eligible' ? undefined : 'Only eligible experts can be contracted'}>—</span>}
                     </td>
                     <td className="num"><RateCell value={x.hourly_rate} currency={x.currency ?? 'EUR'} policy={policies?.[x.hcp_id]} label={`Hourly rate for ${name}`} disabled={!canEdit}
                       onInvalid={setCellError} onSave={(v) => update.mutate({ id: x.id, patch: { hourly_rate: v } })} /></td>
@@ -179,6 +195,10 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
           {removing.event_session_speaker.length ? ` and from ${removing.event_session_speaker.length} agenda session${removing.event_session_speaker.length === 1 ? '' : 's'}` : ''}.
           {removing.contract.some((c) => c.status === 'draft') && ' Their draft contracts are deleted with them.'}
         </ConfirmDialog>
+      )}
+      {tiering && (
+        <RequestFormModal onClose={() => setTiering(null)}
+          tiering={{ hcp: { id: tiering.hcp_id, name: tiering.hcp?.display_name ?? 'This expert' }, event: { id: eventId, name: eventName } }} />
       )}
       {contracting && (
         <NewContractModal onClose={() => setContracting(null)} target={{

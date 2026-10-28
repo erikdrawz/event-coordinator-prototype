@@ -402,12 +402,12 @@ ok((await setStatus(paul, 'draft')).status >= 400, 'a cancelled event cannot be 
 
 // Requests: drafts are private to their team; submitting locks them and shows them to home office
 const saveReq = (who, p) => api(who, 'rpc/save_request', { method: 'POST', body: { p } });
-ok((await api(paul, 'event_request?select=id')).data?.length === 14, 'coordinator sees submitted requests and their own drafts (14)');
-ok((await api(maria, 'event_request?select=id')).data?.length === 13, 'Business Admin sees every submitted request, no drafts (13)');
+ok((await api(paul, 'event_request?select=id')).data?.length === 16, 'coordinator sees submitted requests and their own drafts (16)');
+ok((await api(maria, 'event_request?select=id')).data?.length === 14, 'Business Admin sees every submitted request, no drafts (14)');
 ok((await api(sarah, 'event_request?select=id')).data?.length === 4, "a requester sees only their teams' requests (4)");
 const req = await saveReq(sarah, { title: 'Smoke request', event_type_id: types.data[0].id, event_date: '2027-03-04' });
 const reqId = req.data?.id;
-ok(req.status === 200 && req.data.status === 'draft' && req.data.requested_by === sarahMe.data.id && Number(req.data.request_number.split('-')[2]) > 74,
+ok(req.status === 200 && req.data.status === 'draft' && req.data.requested_by === sarahMe.data.id && Number(req.data.request_number.split('-')[2]) > 76,
    'saving a new request creates a draft owned by its creator, numbered after the seeded ones');
 const reqTeam = await api(sarah, `request_team_member?request_id=eq.${reqId}&select=user_id,team_role`);
 ok(reqTeam.data?.length === 1 && reqTeam.data[0].team_role === 'owner', 'the creator is on the team as owner');
@@ -437,7 +437,24 @@ ok((await api(sarah, `event_request?id=eq.${draft2.data?.id}`, { method: 'DELETE
 const reqAccess = await api(sarah, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: reqId } });
 ok(reqAccess.data?.access === 'edit' && reqAccess.data?.team_role === 'owner', 'my_request_access reports the requester as owner with edit access');
 
+// Tiering requests: an expert and a business justification; named after the expert
+ok((await saveReq(sarah, { request_type: 'tiering', rationale: 'Needed' })).status >= 400, 'a tiering request needs an expert');
+ok((await saveReq(sarah, { request_type: 'tiering', hcp_id: holmHcp.data[0].id, related_event_id: crypto.randomUUID() })).status >= 400,
+   "a tiering request can't name an event the requester can't see");
+const tier = await saveReq(sarah, { request_type: 'tiering', hcp_id: holmHcp.data[0].id, event_type_id: types.data[0].id, event_date: '2027-01-01' });
+ok(tier.status === 200 && tier.data?.request_type === 'tiering' && tier.data?.title === 'Tiering: Dr Mette Holm' && tier.data?.event_type_id === null && tier.data?.event_date === null,
+   'a tiering request is named after the expert and carries no event details');
+ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { status: 'review' } })).status >= 400,
+   'a tiering request needs a business justification to be submitted');
+ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { request_type: 'event' } })).status >= 400, "a request's type can't change");
+await saveReq(sarah, { id: tier.data?.id, rationale: 'Smoke: please review her cap' });
+ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { status: 'review' } })).data?.[0]?.status === 'review'
+   && (await api(paul, `event_request?id=eq.${tier.data?.id}&select=id`)).data?.length === 1, 'a submitted tiering request reaches home office');
+ok((await api(paul, `event_request?request_type=eq.tiering&coordinator_id=is.null&status=eq.review&select=id`)).data?.length === 2,
+   'tiering requests wait in the unassigned requests');
+
 // Cleanup
+await api(alex, `event_request?id=eq.${tier.data?.id}`, { method: 'DELETE' });
 await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.id})`, { method: 'DELETE' });
 await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });
 await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { job_title: lisa.data[0].job_title } });

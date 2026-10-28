@@ -119,18 +119,19 @@ export function useMyTasks(meId: string | undefined) {
 }
 
 export interface UnassignedRequest {
-  id: string; title: string; submitted_at: string | null;
+  id: string; title: string; submitted_at: string | null; request_type: 'event' | 'tiering';
   event_type: { name: string } | null;
+  related_event: { name: string } | null;
   requester: Person | null;
 }
 
-/** Submitted requests with no coordinator yet. */
+/** Submitted requests (events and tiering) with no coordinator yet. */
 export function useUnassignedRequests() {
   return useQuery({
     queryKey: ['home', 'unassigned'],
     queryFn: async () => {
       const { data, error, count } = await supabase.from('event_request')
-        .select(`id,title,submitted_at,event_type(name),requester:app_user!event_request_requested_by_fkey(${PERSON})`, { count: 'exact' })
+        .select(`id,title,submitted_at,request_type,event_type(name),related_event:event!event_request_related_event_id_fkey(name),requester:app_user!event_request_requested_by_fkey(${PERSON})`, { count: 'exact' })
         .is('coordinator_id', null)
         .eq('status', 'review')
         .order('submitted_at', { ascending: false })

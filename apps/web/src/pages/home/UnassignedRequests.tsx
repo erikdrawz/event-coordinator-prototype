@@ -29,7 +29,8 @@ export function UnassignedRequests() {
                 <span className="home-row-main">
                   <span className="home-request-title">{q.title}</span>
                   <span className="home-request-meta">
-                    {[q.requester?.display_name, q.event_type?.name, q.submitted_at && timeAgo(q.submitted_at)].filter(Boolean).join(' · ')}
+                    {[q.requester?.display_name, q.request_type === 'tiering' ? `Tiering${q.related_event ? ` for ${q.related_event.name}` : ''}` : q.event_type?.name,
+                      q.submitted_at && timeAgo(q.submitted_at)].filter(Boolean).join(' · ')}
                   </span>
                 </span>
               </Link>

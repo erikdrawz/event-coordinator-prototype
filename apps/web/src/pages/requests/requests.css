@@ -8,3 +8,5 @@
   background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); font-size: var(--text-base);
 }
 @media (max-width: 960px) { .request-body { grid-template-columns: minmax(0, 1fr); } }
+
+.request-expert { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }

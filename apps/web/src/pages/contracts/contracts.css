@@ -47,12 +47,17 @@
 .type-choice.disabled { cursor: not-allowed; background: var(--color-surface-muted); }
 .type-choice.disabled strong { color: var(--color-text-muted); }
 .type-choice-why { font-size: var(--text-sm); color: var(--tone-yellow-fg); }
+.type-choices-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 640px) { .type-choices-row { grid-template-columns: minmax(0, 1fr); } }
+.input.input-static { display: flex; align-items: center; background: var(--color-surface-muted); color: var(--color-text); }
 .contract-fee { padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface-muted); font-size: var(--text-base); }
 
 /* Contract references in lists */
 .contract-cell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
 .contract-cell a { font-weight: 600; text-decoration: none; white-space: nowrap; }
 .contract-cell a:hover { text-decoration: underline; }
+.tiering-status { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap; }
+.tiering-status .pill { padding: 1px 7px; font-size: var(--text-xs); }
 
 @media (max-width: 960px) {
   .contract-body { grid-template-columns: minmax(0, 1fr); }

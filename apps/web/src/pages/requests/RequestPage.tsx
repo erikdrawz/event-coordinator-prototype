@@ -1,20 +1,22 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, Clock, FileText, Pencil, Send, Trash2, UserRound, Users } from 'lucide-react';
+import { CalendarDays, ChevronDown, Clock, FileText, Pencil, Send, Stethoscope, Trash2, UserRound, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
 import { Avatar } from '../../components/Avatar';
 import { Menu, type MenuItem } from '../../ui/Menu';
 import { formatDate } from '../../ui/DateInput';
+import { ymdInZone } from '../../lib/format';
+import { EligibilityPill } from '../experts/EligibilityPill';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { Discussion } from '../event/team/Discussion';
 import { TeamPanel } from '../event/team/TeamPanel';
 import type { Person } from '../event/team/teamData';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
-import { missingForSubmit, useMyRequestAccess, useRequest, useRequestDurations } from './requestData';
+import { missingForSubmit, useMyRequestAccess, useRequest, useRequestDurations, useRequestKinds } from './requestData';
 import '../event.css';
 import './requests.css';
 
@@ -28,8 +30,9 @@ const PersonValue = ({ p }: { p: Person | null }) => p
   ? <span className="dt-person"><Avatar size={22} initials={p.initials} color={p.avatar_color} isAgent={p.user_type === 'agent'} />{p.display_name}</span> : empty;
 
 /**
- * A request: what's asked for (name, type, when, why), its status, and the team's discussion.
- * Drafts can be edited, submitted for approval or deleted; after that the details are fixed.
+ * A request: what's asked for (an event: name, type, when; a tiering review: the expert and the
+ * event they're needed for), why, its status, and the team's discussion. Drafts can be edited,
+ * submitted for approval or deleted; after that the details are fixed.
  */
 export function RequestPage() {
   const { id } = useParams();
@@ -39,6 +42,7 @@ export function RequestPage() {
   const { data: r, isLoading } = useRequest(id);
   const access = useMyRequestAccess(id);
   const durations = useRequestDurations();
+  const kinds = useRequestKinds();
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState<'submit' | 'delete' | null>(null);
 
@@ -76,6 +80,10 @@ export function RequestPage() {
   const board = { kind: 'request' as const, id: r.id };
   const durationLabel = durations.data?.find((x) => x.code === r.duration)?.label ?? null;
   const when = r.event_date ? [formatDate(r.event_date), durationLabel].filter(Boolean).join(' · ') : 'Date to be confirmed';
+  const isTiering = r.request_type === 'tiering';
+  const kindLabel = kinds.data?.find((k) => k.code === r.request_type)?.label;
+  const ev = r.related_event;
+  const evDate = ev?.starts_at ? formatDate(ymdInZone(ev.starts_at, ev.timezone)) : null;
   const noActions = !canEdit ? "You can view this request; the requester and organizers act on it"
     : isDraft ? 'No actions available' : 'Approving and rejecting come with approvals';
 
@@ -91,8 +99,14 @@ export function RequestPage() {
             </div>
             <div className="event-meta">
               <span><FileText size={15} />{r.request_number}</span>
-              <span><Users size={15} />{r.event_type?.name}</span>
-              <span><Clock size={15} />{when}</span>
+              {isTiering ? <>
+                <span><Stethoscope size={15} />{kindLabel}</span>
+                {r.hcp && <span><UserRound size={15} /><Link to={`/experts/${r.hcp.id}`} className="expert-link">{r.hcp.display_name}</Link></span>}
+                {ev && <span><CalendarDays size={15} /><Link to={`/events/${ev.id}`} className="expert-link">{ev.name}</Link></span>}
+              </> : <>
+                <span><Users size={15} />{r.event_type?.name}</span>
+                <span><Clock size={15} />{when}</span>
+              </>}
               <span><UserRound size={15} />Requested by {r.requester?.display_name ?? 'a former user'}</span>
             </div>
           </div>
@@ -116,10 +130,19 @@ export function RequestPage() {
               {canEdit && isDraft && <button className="btn" onClick={() => setEditing(true)}><Pencil size={14} />Edit</button>}
             </div>
             <dl className="details-grid request-details">
-              <Row label="Name">{r.title}</Row>
-              <Row label="Event type">{r.event_type?.name ?? empty}</Row>
-              <Row label="Date">{r.event_date ? formatDate(r.event_date) : empty}</Row>
-              <Row label="Duration">{durationLabel ?? empty}</Row>
+              <Row label="Type">{kindLabel ?? empty}</Row>
+              {isTiering ? <>
+                <Row label="Expert">{r.hcp ? <>
+                  <span className="request-expert"><Link to={`/experts/${r.hcp.id}`}>{r.hcp.display_name}</Link><EligibilityPill value={r.hcp.eligibility} />{r.hcp.tier && <span className="pill pill-grey">{r.hcp.tier}</span>}</span>
+                  {r.hcp.eligibility !== 'eligible' && r.hcp.eligibility_note && <div className="dt-sub">{r.hcp.eligibility_note}</div>}
+                </> : empty}</Row>
+                <Row label="Event">{ev ? <><Link to={`/events/${ev.id}`}>{ev.name}</Link>{evDate && <div className="dt-sub">{evDate}</div>}</> : empty}</Row>
+              </> : <>
+                <Row label="Name">{r.title}</Row>
+                <Row label="Event type">{r.event_type?.name ?? empty}</Row>
+                <Row label="Date">{r.event_date ? formatDate(r.event_date) : empty}</Row>
+                <Row label="Duration">{durationLabel ?? empty}</Row>
+              </>}
               <Row label="Business justification">{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
               <Row label="Requested by"><PersonValue p={r.requester} /></Row>
               <Row label="Coordinator">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>

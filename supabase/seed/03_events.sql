@@ -101,6 +101,18 @@ select app.sid('req:' || k), app.sid('tenant:alera'),
     ('derm-uk',        '0074', 'Psoriasis Advisory Board UK',       'advisory',  'draft',    'paul',   null,   'derm',  'GB','Manchester',110, 'half_day', 10,   7400, null,                                                                              1,   null)
   ) as t(k, num, title, ty, st, req, coord, ta, c, city, start_in, dur, att, spend, why, sub_h, ev);
 
+-- Tiering requests: experts who aren't eligible for an event they're needed for
+insert into public.event_request (id, tenant_id, request_number, request_type, title, status, requested_by, hcp_id, related_event_id,
+                                  rationale, submitted_at, created_at, created_by)
+select app.sid('req:' || k), app.sid('tenant:alera'), 'REQ-' || extract(year from current_date) || '-' || num, 'tiering',
+       'Tiering: ' || h.display_name, st, app.sid('user:' || req), h.id, app.sid('event:' || ev), why,
+       case when st <> 'draft' then now() - make_interval(hours => sub_h) end, now() - make_interval(hours => sub_h + 2), app.sid('user:' || req)
+  from (values
+    ('tier-holm',  '0075', 'holm',  'sma-board', 'review', 'paul', 'Dr Holm is the only Danish paediatric neurologist with SMA registry experience, and the board needs her view on the national data. Her annual cap was reached through two short speaker slots; please review whether an advisory role can be added this year.', 6),
+    ('tier-huesh', '0076', 'huesh', 'bioforum',  'draft',  'paul', null, 1)
+  ) as t(k, num, hcp, ev, st, req, why, sub_h)
+  join public.hcp h on h.id = app.sid('hcp:' || t.hcp);
+
 -- Request teams (requesters are added as owner by trigger): the coordinator approves; a few extras
 insert into public.request_team_member (tenant_id, request_id, user_id, team_role, role_label)
 select app.sid('tenant:alera'), r.id, r.coordinator_id, 'approver', 'Coordinator'

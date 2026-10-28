@@ -75,7 +75,8 @@ Expert directory and profile, FMV rates, tier requests, contracts (service agree
 - ✓ Contracting v1: MSA (expert level), Work Order (needs a signed MSA covering the event), Single-event Contract, Addendum. Created from the event's Experts grid (MSA from the expert page) with `create_contract`; text drafted from a template with the honorarium (prep, service, travel, total); contract page with print view, PDF, send for signature (PDF stored in the `contracts` bucket), mark as signed, cancel, delete draft
 - ✓ Admin → Contract templates: upload Markdown, preview with merge fields, event types and countries; event types list their templates
 - ✓ Template versions: each in effect from a date (scheduled, in effect, retired); a contract gets the version in effect on its event's date, so next year's templates can be prepared ahead; versions are fixed once used for a sent contract
-- Next: add/edit FMV records in the UI, tier requests, contracts from the expert page beyond MSA (decide), a real CLM/e-signature integration (status back from the tool), PDF made on the server (edge function) so agents get it without a browser, venue contracts in the same flow
+- ✓ Tiering requests: a second request type (expert + business justification, optionally the event); New request asks which kind; logged from the event's Experts grid for experts who aren't eligible; listed with a Type filter and in Home's unassigned requests. Approval comes with approvals
+- Next: add/edit FMV records in the UI, what an approved tiering request changes (tier, eligibility), contracts from the expert page beyond MSA (decide), a real CLM/e-signature integration (status back from the tool), PDF made on the server (edge function) so agents get it without a browser, venue contracts in the same flow
 
 ### Phase 4: Attendees & reconciliation
 Invite/attend tracking, bulk actions, **mock reconciliation**, CRM write-back via the outbox.
