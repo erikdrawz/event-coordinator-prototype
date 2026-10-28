@@ -117,7 +117,7 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                 const menu = [
                   ...(x.eligibility !== 'eligible' && tier ? [{ key: 'tiering', label: `Open tiering request ${tier.request_number}`, icon: <BadgeCheck size={14} />, onSelect: () => navigate(`/requests/${tier.id}`) }]
                     : x.eligibility !== 'eligible' && canRequestTiering ? [{ key: 'tiering', label: 'Log tiering request', icon: <BadgeCheck size={14} />, onSelect: () => setTiering(x) }] : []),
-                  ...(canContract && !main && x.eligibility === 'eligible' ? [{ key: 'contract', label: 'Create contract', icon: <FileSignature size={14} />, onSelect: () => setContracting({ x, addendum: false }) }] : []),
+                  ...(canContract && !main && x.eligibility === 'eligible' ? [{ key: 'contract', label: 'Add contract', icon: <FileSignature size={14} />, onSelect: () => setContracting({ x, addendum: false }) }] : []),
                   ...(canContract && main ? [{ key: 'addendum', label: 'Add addendum', icon: <FilePlus2 size={14} />, onSelect: () => setContracting({ x, addendum: true }) }] : []),
                   ...(canDelete ? [{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }] : []),
                 ];
@@ -140,17 +140,17 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                     <td>
                       {main ? (
                         <span className="contract-cell">
-                          <Link to={`/contracts/${main.id}`}>{main.contract_number}</Link>
+                          <Link to={`/contracts/${main.id}`} data-tip={main.contract_number}>Open contract</Link>
                           <ContractStatusPill status={main.status as 'draft'} small />
                           {addenda.length > 0 && <span className="dt-sub">+{addenda.length} addend{addenda.length === 1 ? 'um' : 'a'}</span>}
                         </span>
                       ) : tier ? (
                         <span className="contract-cell">
-                          <Link to={`/requests/${tier.id}`} data-tip="Tiering request">{tier.request_number}</Link>
-                          <span className="tiering-status">Tiering · <RequestStatusPill status={tier.status as 'draft'} /></span>
+                          <Link to={`/requests/${tier.id}`} data-tip={`Tiering request ${tier.request_number}`}>Open request</Link>
+                          <span className="tiering-status"><RequestStatusPill status={tier.status as 'draft'} /></span>
                         </span>
                       ) : canContract && x.eligibility === 'eligible'
-                        ? <button type="button" className="link" onClick={() => setContracting({ x, addendum: false })}>Create</button>
+                        ? <button type="button" className="link" onClick={() => setContracting({ x, addendum: false })}>Add contract</button>
                         : x.eligibility !== 'eligible' && canRequestTiering
                           ? <button type="button" className="link" data-tip="Only eligible experts can be contracted" onClick={() => setTiering(x)}>Request tiering</button>
                           : <span className="text-muted" data-tip={x.eligibility === 'eligible' ? undefined : 'Only eligible experts can be contracted'}>—</span>}
