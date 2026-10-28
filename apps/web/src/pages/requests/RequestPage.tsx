@@ -5,16 +5,16 @@ import { ChevronDown, Clock, FileText, Pencil, Send, Trash2, UserRound, Users } 
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
-import { eventDateTime } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
 import { Menu, type MenuItem } from '../../ui/Menu';
+import { formatDate } from '../../ui/DateInput';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { Discussion } from '../event/team/Discussion';
 import { TeamPanel } from '../event/team/TeamPanel';
 import type { Person } from '../event/team/teamData';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
-import { missingForSubmit, useMyRequestAccess, useRequest, type RequestRow } from './requestData';
+import { missingForSubmit, useMyRequestAccess, useRequest, useRequestDurations } from './requestData';
 import '../event.css';
 import './requests.css';
 
@@ -27,12 +27,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 const PersonValue = ({ p }: { p: Person | null }) => p
   ? <span className="dt-person"><Avatar size={22} initials={p.initials} color={p.avatar_color} isAgent={p.user_type === 'agent'} />{p.display_name}</span> : empty;
 
-function duration(r: RequestRow) {
-  if (!r.starts_at || !r.ends_at) return null;
-  const mins = Math.round((new Date(r.ends_at).getTime() - new Date(r.starts_at).getTime()) / 60000);
-  return mins >= 1440 ? `${Math.ceil(mins / 1440)} days` : `${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ''}`;
-}
-
 /**
  * A request: what's asked for (name, type, when, why), its status, and the team's discussion.
  * Drafts can be edited, submitted for approval or deleted; after that the details are fixed.
@@ -44,6 +38,7 @@ export function RequestPage() {
   const qc = useQueryClient();
   const { data: r, isLoading } = useRequest(id);
   const access = useMyRequestAccess(id);
+  const durations = useRequestDurations();
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState<'submit' | 'delete' | null>(null);
 
@@ -79,7 +74,8 @@ export function RequestPage() {
     ...(can(me, 'event_request', 'delete') ? [{ key: 'delete', label: 'Delete request', icon: <Trash2 size={14} />, danger: true, onSelect: () => setConfirm('delete') }] : []),
   ] : [];
   const board = { kind: 'request' as const, id: r.id };
-  const when = r.starts_at ? [eventDateTime(r.starts_at, r.timezone), duration(r)].filter(Boolean).join(' · ') : 'Date to be confirmed';
+  const durationLabel = durations.data?.find((x) => x.code === r.duration)?.label ?? null;
+  const when = r.event_date ? [formatDate(r.event_date), durationLabel].filter(Boolean).join(' · ') : 'Date to be confirmed';
   const noActions = !canEdit ? "You can view this request; the requester and organizers act on it"
     : isDraft ? 'No actions available' : 'Approving and rejecting come with approvals';
 
@@ -122,11 +118,9 @@ export function RequestPage() {
             <dl className="details-grid request-details">
               <Row label="Name">{r.title}</Row>
               <Row label="Event type">{r.event_type?.name ?? empty}</Row>
-              <Row label="Start">{r.starts_at ? eventDateTime(r.starts_at, r.timezone) : empty}</Row>
-              <Row label="End">{r.ends_at ? eventDateTime(r.ends_at, r.timezone) : empty}</Row>
-              <Row label="Time zone">{r.timezone.replace(/_/g, ' ')}</Row>
+              <Row label="Date">{r.event_date ? formatDate(r.event_date) : empty}</Row>
+              <Row label="Duration">{durationLabel ?? empty}</Row>
               <Row label="Business justification">{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
-              <Row label="Status"><RequestStatusPill status={r.status} /></Row>
               <Row label="Requested by"><PersonValue p={r.requester} /></Row>
               <Row label="Coordinator">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
             </dl>

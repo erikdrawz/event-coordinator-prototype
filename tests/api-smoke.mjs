@@ -316,11 +316,10 @@ const saveReq = (who, p) => api(who, 'rpc/save_request', { method: 'POST', body:
 ok((await api(paul, 'event_request?select=id')).data?.length === 14, 'coordinator sees submitted requests and their own drafts (14)');
 ok((await api(maria, 'event_request?select=id')).data?.length === 13, 'Business Admin sees every submitted request, no drafts (13)');
 ok((await api(sarah, 'event_request?select=id')).data?.length === 4, "a requester sees only their teams' requests (4)");
-const req = await saveReq(sarah, { title: 'Smoke request', event_type_id: types.data[0].id, timezone: 'Europe/Paris', starts_local: '2027-03-04T09:00' });
+const req = await saveReq(sarah, { title: 'Smoke request', event_type_id: types.data[0].id, event_date: '2027-03-04' });
 const reqId = req.data?.id;
 ok(req.status === 200 && req.data.status === 'draft' && req.data.requested_by === sarahMe.data.id && Number(req.data.request_number.split('-')[2]) > 74,
    'saving a new request creates a draft owned by its creator, numbered after the seeded ones');
-ok(req.data?.starts_at?.startsWith('2027-03-04T08:00'), 'request times are entered in its own time zone');
 const reqTeam = await api(sarah, `request_team_member?request_id=eq.${reqId}&select=user_id,team_role`);
 ok(reqTeam.data?.length === 1 && reqTeam.data[0].team_role === 'owner', 'the creator is on the team as owner');
 ok((await api(paul, `event_request?id=eq.${reqId}&select=id`)).data?.length === 0, "home office can't see someone else's draft");
@@ -328,8 +327,8 @@ ok((await api(sarah, 'event_request', { method: 'POST', body: { title: 'Spoof', 
    'a new request always starts as draft and belongs to whoever creates it');
 await api(sarah, 'event_request?title=eq.Spoof', { method: 'DELETE' });
 const submitReq = () => api(sarah, `event_request?id=eq.${reqId}`, { method: 'PATCH', body: { status: 'review' } });
-ok((await submitReq()).status >= 400, 'a request needs start, end and business justification to be submitted');
-ok((await saveReq(sarah, { id: reqId, ends_local: '2027-03-04T13:00', rationale: 'Smoke test justification' })).status === 200, 'requester can change their draft');
+ok((await submitReq()).status >= 400, 'a request needs a date, duration and business justification to be submitted');
+ok((await saveReq(sarah, { id: reqId, duration: 'half_day', rationale: 'Smoke test justification' })).status === 200, 'requester can change their draft');
 const submitted = await submitReq();
 ok(submitted.status === 200 && submitted.data?.[0]?.status === 'review' && submitted.data[0].submitted_at, 'requester can submit a complete draft for approval');
 ok((await api(paul, `event_request?id=eq.${reqId}&select=id`)).data?.length === 1, 'once submitted, home office sees the request');
@@ -341,6 +340,7 @@ ok(reqPost.status === 201 && (await api(sarah, `request_post?request_id=eq.${req
 ok((await api(lisaT, `request_post?request_id=eq.${reqId}&select=id`)).data?.length === 1 && (await api(sarah, `request_team_member?request_id=eq.${reqId}&user_id=eq.${sarahMe.data.id}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).status >= 400,
    "the requester can't be removed from the team");
 const draft2 = await saveReq(sarah, { title: 'Smoke draft', event_type_id: types.data[0].id });
+ok((await saveReq(sarah, { id: draft2.data?.id, duration: 'a_week' })).status >= 400, 'duration must be one of the listed ones');
 ok((await api(sarah, `request_team_member`, { method: 'POST', body: { request_id: draft2.data?.id, user_id: lisa.data[0].id, team_role: 'viewer' } })).status === 201
    && (await api(lisaT, `event_request?id=eq.${draft2.data?.id}&select=id`)).data?.length === 1, 'a requester shares a draft by adding people to its team');
 ok((await api(lisaT, `event_request?id=eq.${draft2.data?.id}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).data?.length === 0, "a viewer can't delete the draft");

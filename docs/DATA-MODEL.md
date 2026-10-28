@@ -31,6 +31,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 | `event_type` | ✓ | name, description, default_duration, is_active (Advisory board, Conference, Symposium, Seminar, Roundtable, Investigator meeting, Internal) |
 | `event_type_country` | | availability per country (Phase 6) |
 | `event_status` / `request_status` | ✓ | code, label, sort, home_label, tone, is_terminal |
+| `request_duration` | ✓ | code, label, sort | **New**: rough length of a requested event (1–3 hours, half day, full day, 2 days, more than 2 days) |
 | `therapeutic_area`, `product`, `event_product` | ✓ | product tags on events |
 | `specialty` | ✓ | HCP specialties |
 | `crm_connection` | ✓ | name, system (veeva_crm, vault_crm, salesforce_lsc), region, status, last_sync_at. ERD "CRM Connection"; the source for mirrored records |
@@ -54,7 +55,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 | Table | P0 | Key fields | Notes |
 |---|---|---|---|
-| `event_request` | ✓ | request_number, title (Name), event_type_id, status (draft, review, approved, rejected), requested_by, coordinator_id (null = unassigned), timezone, starts_at, ends_at, rationale (Business justification), submitted_at, country, city, expected_attendees, estimated_spend, currency, event_id | ERD "Request"; 1:1 with an event once approved. Saved through `save_request(p)`; only drafts change; submit = status draft → review |
+| `event_request` | ✓ | request_number, title (Name), event_type_id, status (draft, review, approved, rejected), requested_by, coordinator_id (null = unassigned), event_date, duration (→ `request_duration`), rationale (Business justification), submitted_at, country, city, expected_attendees, estimated_spend, currency, event_id | ERD "Request"; 1:1 with an event once approved. Saved through `save_request(p)`; only drafts change; submit = status draft → review |
 | `request_team_member` | ✓ | request_id, user_id, team_role (→ `team_role`), role_label | **New**: who can access a request; the requester is owner |
 | `event` | ✓ | event_number, name, event_type_id, status, request_id, owner_id, country, city, venue_name, venue_address, timezone, starts_at, ends_at, expected_attendees, estimated_spend, currency, description, crm ids | ERD "Event" |
 | `event_team_member` | ✓ | event_id, user_id, team_role (→ `team_role`: owner, organizer, approver, viewer), role_label (free, e.g. "Medical lead") | ERD "Event Team" → User. Decides who can access the event |

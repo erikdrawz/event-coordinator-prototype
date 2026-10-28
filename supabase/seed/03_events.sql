@@ -69,38 +69,37 @@ on conflict (event_id, user_id) do nothing;
 -- Requests
 -- ---------------------------------------------------------------------
 insert into public.event_request (id, tenant_id, request_number, title, event_type_id, status, requested_by, coordinator_id,
-                                  therapeutic_area_id, country_code, city, timezone, starts_at, ends_at, expected_attendees,
+                                  therapeutic_area_id, country_code, city, event_date, duration, expected_attendees,
                                   estimated_spend, currency, rationale, submitted_at, event_id, created_at, created_by)
 select app.sid('req:' || k), app.sid('tenant:alera'),
        'REQ-' || extract(year from current_date) || '-' || num, title, app.sid('etype:' || ty), st,
        app.sid('user:' || req), case when coord is not null then app.sid('user:' || coord) end,
-       app.sid('ta:' || ta), t.c, city, tz.z, app.seed_at(start_in, t0, tz.z), app.seed_at(start_in, t0, tz.z) + make_interval(hours => hrs),
+       app.sid('ta:' || ta), c, city, current_date + start_in, dur,
        att, spend, 'EUR', why,
        case when st <> 'draft' then now() - make_interval(hours => sub_h) end, case when ev is not null then app.sid('event:' || ev) end,
        now() - make_interval(hours => sub_h + 20), app.sid('user:' || req)
   from (values
     -- linked to existing events
-    ('sma-board',      '0051', 'SMA Board',                         'advisory',  'approved', 'sarah',  'paul', 'neuro', 'DK','Copenhagen',  5, '18:30', 2, 14,   6400, 'Advice on positioning of registry data ahead of the national guideline update.', 960, 'sma-board'),
-    ('neuro-meet',     '0058', 'Neurology Meet Oslo',               'seminar',   'approved', 'ingrid', 'lisa', 'neuro', 'NO','Oslo',       19, '09:00', 4, 40,  18500, 'Regional education need identified by Norway medical.',                       500, 'neuro-meet'),
-    ('bioforum',       '0044', 'BioForum satellite + booth',        'conference','approved', 'emma',   'paul', 'rare',  'FI','Helsinki',   36, '09:00',33,600, 145000, 'Key rare-disease congress for the Nordics; satellite symposium slot offered.',   1250,'bioforum'),
-    ('cardio-workshop','0060', 'Cardio Workshop Madrid',            'workshop',  'approved', 'carlos', 'lisa', 'cardio','ES','Madrid',     20, '10:00', 4, 30,   9800, 'Fellows asked for hands-on echo training.',                                     330, 'cardio-workshop'),
+    ('sma-board',      '0051', 'SMA Board',                         'advisory',  'approved', 'sarah',  'paul', 'neuro', 'DK','Copenhagen',  5, 'hours', 14,   6400, 'Advice on positioning of registry data ahead of the national guideline update.', 960, 'sma-board'),
+    ('neuro-meet',     '0058', 'Neurology Meet Oslo',               'seminar',   'approved', 'ingrid', 'lisa', 'neuro', 'NO','Oslo',       19, 'half_day', 40,  18500, 'Regional education need identified by Norway medical.',                       500, 'neuro-meet'),
+    ('bioforum',       '0044', 'BioForum satellite + booth',        'conference','approved', 'emma',   'paul', 'rare',  'FI','Helsinki',   36, 'two_days',600, 145000, 'Key rare-disease congress for the Nordics; satellite symposium slot offered.',   1250,'bioforum'),
+    ('cardio-workshop','0060', 'Cardio Workshop Madrid',            'workshop',  'approved', 'carlos', 'lisa', 'cardio','ES','Madrid',     20, 'half_day', 30,   9800, 'Fellows asked for hands-on echo training.',                                     330, 'cardio-workshop'),
     -- waiting for approval
-    ('onc-ab-q3',      '0071', 'Oncology Advisory Board Q3',        'advisory',  'review',   'michael','paul', 'onc',   'GB','London',     55, '09:30', 6, 10,   8200, 'Second-line sequencing questions from the global brand team. Ten UK and Irish haematologists, one day, central London.', 2,   null),
-    ('rare-vienna',    '0069', 'Rare Disease Symposium',            'symposium', 'review',   'emma',   'paul', 'rare',  'AT','Vienna',     70, '13:00', 4,150,  39000, 'Launch-readiness symposium for Raspinol in DACH.',                              26,  null),
-    ('q4-planning',    '0067', 'Q4 Planning Meeting',               'internal',  'review',   'lisa',   'paul', 'neuro', 'GB','London',     24, '10:00', 3, 18,   2100, 'Internal planning for the Q4 strategic events calendar.',                       74,  null),
+    ('onc-ab-q3',      '0071', 'Oncology Advisory Board Q3',        'advisory',  'review',   'michael','paul', 'onc',   'GB','London',     55, 'full_day', 10,   8200, 'Second-line sequencing questions from the global brand team. Ten UK and Irish haematologists, one day, central London.', 2,   null),
+    ('rare-vienna',    '0069', 'Rare Disease Symposium',            'symposium', 'review',   'emma',   'paul', 'rare',  'AT','Vienna',     70, 'half_day',150,  39000, 'Launch-readiness symposium for Raspinol in DACH.',                              26,  null),
+    ('q4-planning',    '0067', 'Q4 Planning Meeting',               'internal',  'review',   'lisa',   'paul', 'neuro', 'GB','London',     24, 'hours', 18,   2100, 'Internal planning for the Q4 strategic events calendar.',                       74,  null),
     -- unassigned: submitted, no coordinator yet
-    ('neuro-berlin',   '0068', 'Neurology Expert Meeting Berlin',   'advisory',  'review',   'klaus',  null,   'neuro', 'DE','Berlin',     48, '17:00', 3, 12,   7600, 'German KOLs asked for an exchange on real-world SMA outcomes.',                 72,  null),
-    ('resp-barcelona', '0066', 'Respiratory Conference Barcelona',  'conference','review',   'carlos', null,   'resp',  'ES','Barcelona',  64, '08:30',57,350,  96000, 'Booth and satellite at the national pulmonology congress.',                     120, null),
-    ('psych-oslo',     '0063', 'Psychiatry Seminar Oslo',           'seminar',   'review',   'ingrid', null,   'neuro', 'NO','Oslo',       41, '09:00', 6, 35,  11000, 'Education need from Norwegian psychiatrists.',                                  170, null),
-    ('derm-milan',     '0062', 'Dermatology Expert Panel Milan',    'roundtable','review',   'michael',null,   'derm',  'IT','Milan',      58, '17:30', 3, 10,   6900, 'Follow-up to the Hamburg roundtable with Italian experts.',                     215, null),
-    ('onc-dublin',     '0061', 'Oncology Nurse Education Dublin',   'seminar',   'review',   'emma',   null,   'onc',   'IE','Dublin',     77, '09:00', 7, 60,  14500, 'Nurse educators requested a regional session.',                                 290, null),
+    ('neuro-berlin',   '0068', 'Neurology Expert Meeting Berlin',   'advisory',  'review',   'klaus',  null,   'neuro', 'DE','Berlin',     48, 'hours', 12,   7600, 'German KOLs asked for an exchange on real-world SMA outcomes.',                 72,  null),
+    ('resp-barcelona', '0066', 'Respiratory Conference Barcelona',  'conference','review',   'carlos', null,   'resp',  'ES','Barcelona',  64, 'multi_day',350,  96000, 'Booth and satellite at the national pulmonology congress.',                     120, null),
+    ('psych-oslo',     '0063', 'Psychiatry Seminar Oslo',           'seminar',   'review',   'ingrid', null,   'neuro', 'NO','Oslo',       41, 'full_day', 35,  11000, 'Education need from Norwegian psychiatrists.',                                  170, null),
+    ('derm-milan',     '0062', 'Dermatology Expert Panel Milan',    'roundtable','review',   'michael',null,   'derm',  'IT','Milan',      58, 'hours', 10,   6900, 'Follow-up to the Hamburg roundtable with Italian experts.',                     215, null),
+    ('onc-dublin',     '0061', 'Oncology Nurse Education Dublin',   'seminar',   'review',   'emma',   null,   'onc',   'IE','Dublin',     77, 'full_day', 60,  14500, 'Nurse educators requested a regional session.',                                 290, null),
     -- declined
-    ('immuno-gala',    '0059', 'Immunology Awards Dinner',          'internal',  'rejected', 'carlos', 'paul', 'immuno','ES','Seville',    45, '19:30', 4, 80,  32000, 'Recognition dinner for regional immunology prescribers.',                       400, null),
+    ('immuno-gala',    '0059', 'Immunology Awards Dinner',          'internal',  'rejected', 'carlos', 'paul', 'immuno','ES','Seville',    45, 'half_day', 80,  32000, 'Recognition dinner for regional immunology prescribers.',                       400, null),
     -- drafts (private to their team until submitted)
-    ('sma-nurses',     '0073', 'SMA Nurse Masterclass',             'workshop',  'draft',    'sarah',  null,   'neuro', 'SE','Stockholm', 96, '09:30', 6, 24,   8800, 'SMA nurses in Sweden and Finland asked for a practical day on intrathecal administration and home-care follow-up.', 4, null),
-    ('derm-uk',        '0074', 'Psoriasis Advisory Board UK',       'advisory',  'draft',    'paul',   null,   'derm',  'GB','Manchester',110, '09:00', 5, 10,   7400, null,                                                                              1,   null)
-  ) as t(k, num, title, ty, st, req, coord, ta, c, city, start_in, t0, hrs, att, spend, why, sub_h, ev)
-  cross join lateral (select coalesce((select default_timezone from public.country where code = t.c), 'Europe/London') as z) tz;
+    ('sma-nurses',     '0073', 'SMA Nurse Masterclass',             'workshop',  'draft',    'sarah',  null,   'neuro', 'SE','Stockholm', 96, 'full_day', 24,   8800, 'SMA nurses in Sweden and Finland asked for a practical day on intrathecal administration and home-care follow-up.', 4, null),
+    ('derm-uk',        '0074', 'Psoriasis Advisory Board UK',       'advisory',  'draft',    'paul',   null,   'derm',  'GB','Manchester',110, 'half_day', 10,   7400, null,                                                                              1,   null)
+  ) as t(k, num, title, ty, st, req, coord, ta, c, city, start_in, dur, att, spend, why, sub_h, ev);
 
 -- Request teams (requesters are added as owner by trigger): the coordinator approves; a few extras
 insert into public.request_team_member (tenant_id, request_id, user_id, team_role, role_label)

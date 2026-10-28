@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Event Coordinator — Requests
 -- A request is a short form so managers and home office see incoming event volume:
--- name, event type, start and end, business justification, and a status
+-- name, event type, date and rough duration, business justification, and a status
 -- (draft → review → approved | rejected). Like an event, it has a Team that decides who
 -- can open it, and a discussion board for the team.
 --   * The creator owns it and is on its team from the start.
@@ -20,25 +20,38 @@ delete from public.request_status where code in ('submitted', 'under_review');
 update public.request_status set sort = case code when 'draft' then 10 when 'review' then 20 when 'approved' then 30 when 'rejected' then 40 end;
 
 -- ---------------------------------------------------------------------
--- Start and end are date and time, in the request's time zone (like events)
+-- When: a date and a rough duration. The exact times are planned on the event.
 -- ---------------------------------------------------------------------
+create table public.request_duration (
+  code   text primary key,
+  label  text not null,
+  sort   int  not null
+);
+insert into public.request_duration (code, label, sort) values
+  ('hours',     '1–3 hours',        10),
+  ('half_day',  'Half day',         20),
+  ('full_day',  'Full day',         30),
+  ('two_days',  '2 days',           40),
+  ('multi_day', 'More than 2 days', 50);
+alter table public.request_duration enable row level security;
+create policy request_duration_read on public.request_duration for select to authenticated using (true);
+revoke all on public.request_duration from anon;
+grant select on public.request_duration to authenticated;
+comment on table public.request_duration is 'How long a requested event runs, roughly.';
+
+alter table public.event_request rename column proposed_start to event_date;
 alter table public.event_request
-  add column timezone  text not null default 'Europe/London',
-  add column starts_at timestamptz,
-  add column ends_at   timestamptz;
-update public.event_request r set
-  timezone  = coalesce(c.default_timezone, 'Europe/London'),
-  starts_at = (r.proposed_start + time '09:00') at time zone coalesce(c.default_timezone, 'Europe/London'),
-  ends_at   = (coalesce(r.proposed_end, r.proposed_start) + time '17:00') at time zone coalesce(c.default_timezone, 'Europe/London')
-  from public.event_request r2 left join public.country c on c.code = r2.country_code
- where r2.id = r.id and r.proposed_start is not null;
-alter table public.event_request
-  drop column proposed_start,
-  drop column proposed_end,
-  add constraint event_request_dates_ok check (ends_at is null or starts_at is null or ends_at >= starts_at);
+  add column duration text references public.request_duration(code);
+update public.event_request set duration = case
+  when proposed_end is null or proposed_end = event_date then 'full_day'
+  when proposed_end = event_date + 1 then 'two_days'
+  else 'multi_day' end
+ where event_date is not null;
+alter table public.event_request drop column proposed_end;
 comment on column public.event_request.title is 'The request''s name (shown as Name).';
+comment on column public.event_request.event_date is 'The date the event is wanted on (the first day when it runs longer).';
+comment on column public.event_request.duration is 'Roughly how long it runs (request_duration).';
 comment on column public.event_request.rationale is 'Business justification.';
-comment on column public.event_request.timezone is 'IANA zone the start and end are entered and shown in.';
 create index event_request_status_idx on public.event_request (tenant_id, status);
 
 -- Team role descriptions now apply to events and requests
@@ -209,16 +222,16 @@ begin
   if new.requested_by is distinct from old.requested_by then
     raise exception 'The requester can''t be changed' using errcode = '23514';
   end if;
-  if old.status <> 'draft' and (new.title, new.event_type_id, new.timezone, new.starts_at, new.ends_at, new.rationale)
-       is distinct from (old.title, old.event_type_id, old.timezone, old.starts_at, old.ends_at, old.rationale) then
+  if old.status <> 'draft' and (new.title, new.event_type_id, new.event_date, new.duration, new.rationale)
+       is distinct from (old.title, old.event_type_id, old.event_date, old.duration, old.rationale) then
     raise exception 'Only draft requests can be changed' using errcode = '23514';
   end if;
   if new.status is distinct from old.status then
     if not (old.status = 'draft' and new.status = 'review') then
       raise exception 'Approving and rejecting requests comes with approvals' using errcode = '23514';
     end if;
-    if new.starts_at is null or new.ends_at is null or coalesce(btrim(new.rationale), '') = '' then
-      raise exception 'Add the start, end and business justification before submitting' using errcode = '23514';
+    if new.event_date is null or new.duration is null or coalesce(btrim(new.rationale), '') = '' then
+      raise exception 'Add the date, duration and business justification before submitting' using errcode = '23514';
     end if;
     new.submitted_at := now();
   end if;
@@ -266,46 +279,40 @@ create trigger check_request_team_member before insert or update or delete on pu
 -- (a request being deleted takes its team with it: the owner check above finds no request then)
 
 -- ---------------------------------------------------------------------
--- API: create or change a draft. Start and end come as local wall-clock time in p.timezone.
---   save_request({id?, title, event_type_id, timezone, starts_local, ends_local, rationale})
+-- API: create or change a draft.
+--   save_request({id?, title, event_type_id, event_date, duration, rationale})
 -- Submitting is update event_request set status = 'review' (the rules above check it).
 -- ---------------------------------------------------------------------
 create or replace function public.save_request(p jsonb) returns public.event_request
 language plpgsql set search_path = public, pg_temp as $$
-declare r public.event_request; tz text;
+declare r public.event_request;
 begin
   if p ? 'id' then
     select * into r from public.event_request where id = (p ->> 'id')::uuid;
     if not found then raise exception 'Request not found' using errcode = 'P0002'; end if;
   end if;
-  tz := coalesce(nullif(p ->> 'timezone', ''), r.timezone, 'Europe/London');
-  if not exists (select 1 from pg_timezone_names where name = tz) then
-    raise exception 'Unknown time zone %', tz using errcode = '22023';
-  end if;
   if p ? 'title' then r.title := nullif(btrim(p ->> 'title'), ''); end if;
   if p ? 'event_type_id' then r.event_type_id := nullif(p ->> 'event_type_id', '')::uuid; end if;
+  if p ? 'event_date' then r.event_date := nullif(p ->> 'event_date', '')::date; end if;
+  if p ? 'duration' then r.duration := nullif(p ->> 'duration', ''); end if;
   if p ? 'rationale' then r.rationale := nullif(btrim(p ->> 'rationale'), ''); end if;
-  r.timezone := tz;
-  if p ? 'starts_local' then r.starts_at := nullif(p ->> 'starts_local', '')::timestamp at time zone tz; end if;
-  if p ? 'ends_local' then r.ends_at := nullif(p ->> 'ends_local', '')::timestamp at time zone tz; end if;
   if r.title is null then raise exception 'Give the request a name' using errcode = '23502'; end if;
   if r.event_type_id is null then raise exception 'Choose an event type' using errcode = '23502'; end if;
-  if r.ends_at < r.starts_at then raise exception 'The request ends before it starts' using errcode = '23514'; end if;
 
   if r.id is null then
-    insert into public.event_request (title, event_type_id, timezone, starts_at, ends_at, rationale)
-    values (r.title, r.event_type_id, r.timezone, r.starts_at, r.ends_at, r.rationale)
+    insert into public.event_request (title, event_type_id, event_date, duration, rationale)
+    values (r.title, r.event_type_id, r.event_date, r.duration, r.rationale)
     returning * into r;
   else
-    update public.event_request set title = r.title, event_type_id = r.event_type_id, timezone = r.timezone,
-           starts_at = r.starts_at, ends_at = r.ends_at, rationale = r.rationale
+    update public.event_request set title = r.title, event_type_id = r.event_type_id, event_date = r.event_date,
+           duration = r.duration, rationale = r.rationale
      where id = r.id
     returning * into r;
     if not found then raise exception 'You can''t change this request' using errcode = '42501'; end if;
   end if;
   return r;
 end $$;
-comment on function public.save_request(jsonb) is 'Create or change a draft request; start and end are local times in the request''s time zone.';
+comment on function public.save_request(jsonb) is 'Create or change a draft request: name, event type, date, duration, business justification.';
 grant execute on function public.save_request(jsonb) to authenticated;
 
 -- Number sequences continue after the highest number in use (seeds and imports set numbers

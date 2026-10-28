@@ -64,7 +64,7 @@ export function useCalendarEvents(meId: string | undefined, scope: Scope, from: 
 export interface PendingApproval {
   id: string; submitted_at: string;
   submitter: Person | null;
-  request: { id: string; title: string; starts_at: string | null; timezone: string } | null;
+  request: { id: string; title: string; event_date: string | null } | null;
 }
 
 /** Approval steps waiting on the current user. */
@@ -84,7 +84,7 @@ export function useMyApprovals(meId: string | undefined) {
       // approval.record_id is polymorphic (request | event), so requests are fetched separately
       const ids = approvals.filter((a) => a.record_type === 'request').map((a) => a.record_id);
       const { data: reqs, error: rErr } = ids.length
-        ? await supabase.from('event_request').select('id,title,starts_at,timezone').in('id', ids)
+        ? await supabase.from('event_request').select('id,title,event_date').in('id', ids)
         : { data: [], error: null };
       if (rErr) throw rErr;
       return approvals

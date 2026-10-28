@@ -3,13 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
-import { eventDateTime } from '../../lib/format';
+import { formatDate } from '../../ui/DateInput';
 import { Avatar } from '../../components/Avatar';
 import { DataTable, useTableSort, type Column } from '../../ui/DataTable';
 import { ClearFilters, SearchInput, Segmented, Toolbar } from '../../ui/Toolbar';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
-import { useRequests, useRequestStatuses, type RequestListRow } from './requestData';
+import { useRequestDurations, useRequests, useRequestStatuses, type RequestListRow } from './requestData';
 import type { Person } from '../event/team/teamData';
 
 type Scope = 'all' | 'mine';
@@ -39,6 +39,7 @@ export function RequestsPage() {
 
   const { data, isLoading, error } = useRequests(me?.id);
   const { data: statuses } = useRequestStatuses();
+  const { data: durations } = useRequestDurations();
 
   // Counts follow the search and scope, not the status filter, so they always add up to "All"
   const scoped = useMemo(() => {
@@ -66,15 +67,20 @@ export function RequestsPage() {
       cell: (r) => <RequestStatusPill status={r.status} />,
     },
     {
-      id: 'starts_at', header: 'Start', width: '22%', sortValue: (r) => r.starts_at,
-      cell: (r) => r.starts_at ? <span className="dt-nowrap">{eventDateTime(r.starts_at, r.timezone)}</span> : <span className="text-muted">Not set</span>,
+      id: 'event_date', header: 'Date', width: '22%', sortValue: (r) => r.event_date,
+      cell: (r) => r.event_date ? (
+        <>
+          <span className="dt-nowrap">{formatDate(r.event_date)}</span>
+          <div className="dt-sub">{durations?.find((d) => d.code === r.duration)?.label}</div>
+        </>
+      ) : <span className="text-muted">Not set</span>,
     },
     { id: 'requester', header: 'Requested by', width: '17%', sortValue: (r) => r.requester?.display_name, cell: (r) => <PersonCell p={r.requester} none="—" /> },
     {
       id: 'coordinator', header: 'Coordinator', width: '16%', sortValue: (r) => r.coordinator?.display_name,
       cell: (r) => <PersonCell p={r.coordinator} none={r.status === 'draft' ? '—' : 'Unassigned'} />,
     },
-  ], [statuses]);
+  ], [statuses, durations]);
 
   // Unsorted, the list keeps the query's order: newest requests first
   const { rows, sort, setSort } = useTableSort(filtered, columns, null);

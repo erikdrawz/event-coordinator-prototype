@@ -62,7 +62,7 @@ Each phase ends in something demoable.
 ### Phase 2: Requests & approvals
 Request list and form, submit, the approval process per event type, approval history, an approved request creates its event, notifications.
 - ✓ Requests list (`/requests`): status counts for incoming volume, All / My requests, search; New request
-- ✓ Request page: name, event type, start and end (in the request's time zone), status (draft → review → approved | rejected), business justification; Actions: Submit for approval, Delete (drafts only); Team and Discussion as on events
+- ✓ Request page: name, event type, date and rough duration (1–3 hours … more than 2 days), business justification, status (draft → review → approved | rejected) in the header; Actions: Submit for approval, Delete (drafts only); Team and Discussion as on events
 - ✓ Access: the request's Team decides (creator = owner); drafts are private to the team, submitted requests are visible to home office (view_all on `event_request`)
 - Next: approving and rejecting (approval steps), assigning a coordinator, an approved request creates its event
 

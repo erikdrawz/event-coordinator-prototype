@@ -9,7 +9,7 @@ interface Mark { kind: DotKind; label: string }
 
 /**
  * Month view with a dot per thing on each day: events in the agenda's scope (in the event's time zone),
- * requests waiting on my approval (proposed start), and my open tasks (due date).
+ * requests waiting on my approval (their date), and my open tasks (due date).
  */
 export function MiniCalendar({ meId, scope }: { meId: string; scope: Scope }) {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -30,7 +30,7 @@ export function MiniCalendar({ meId, scope }: { meId: string; scope: Scope }) {
     const m = new Map<string, Mark[]>();
     const add = (key: string, mark: Mark) => m.set(key, [...(m.get(key) ?? []), mark]);
     events?.forEach((e) => add(ymdInZone(e.starts_at, e.timezone), { kind: 'event', label: e.name }));
-    approvals?.forEach((a) => a.request?.starts_at && add(ymdInZone(a.request.starts_at, a.request.timezone), { kind: 'request', label: `Request: ${a.request.title}` }));
+    approvals?.forEach((a) => a.request?.event_date && add(a.request.event_date, { kind: 'request', label: `Request: ${a.request.title}` }));
     tasks?.forEach((t) => t.due_date && add(t.due_date, { kind: 'milestone', label: `Task: ${t.title}` }));
     return m;
   }, [events, approvals, tasks]);
