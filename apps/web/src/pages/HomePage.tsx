@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { Agenda } from './home/Agenda';
@@ -8,6 +7,7 @@ import { NeedsMyAction } from './home/NeedsMyAction';
 import { UnassignedRequests } from './home/UnassignedRequests';
 import { RecentlyWorkedOn } from './home/RecentlyWorkedOn';
 import { useEventForm } from './event/EventFormProvider';
+import { RequestFormModal } from './requests/RequestFormModal';
 import { can, canCreateEvents } from '../lib/permissions';
 import type { Scope, When } from './home/queries';
 import './home.css';
@@ -17,6 +17,7 @@ export function HomePage() {
   const { me } = useAuth();
   const [scope, setScope] = useState<Scope>('mine');
   const [when, setWhen] = useState<When>('upcoming');
+  const [creatingRequest, setCreatingRequest] = useState(false);
   const { openNewEvent } = useEventForm();
   if (!me) return null;
 
@@ -33,7 +34,7 @@ export function HomePage() {
             {mayCreate && <button className="btn btn-primary btn-lg btn-block" onClick={openNewEvent} disabled={!canCreateEvent}
               title={canCreateEvent ? undefined : "You don't create events in any country yet. Ask an admin to add your countries."}>
               <Plus size={15} strokeWidth={2.6} />New event…</button>}
-            {canCreateRequest && <Link to="/requests" className="btn btn-lg btn-block">New request…</Link>}
+            {canCreateRequest && <button className="btn btn-lg btn-block" onClick={() => setCreatingRequest(true)}>New request…</button>}
           </div>
         )}
         <MiniCalendar meId={me.id} scope={scope} />
@@ -46,6 +47,7 @@ export function HomePage() {
         <NeedsMyAction meId={me.id} />
         <UnassignedRequests />
       </div>
+      {creatingRequest && <RequestFormModal onClose={() => setCreatingRequest(false)} />}
     </main>
   );
 }
