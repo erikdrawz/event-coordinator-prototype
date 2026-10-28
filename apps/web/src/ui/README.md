@@ -1,6 +1,6 @@
 # EC design system (`src/ui/`)
 
-The reusable building blocks of the Event Coordinator UI, in the Home 4a / Event page look. It grows as screens are built: when a pattern shows up on a second screen, it moves here.
+The reusable building blocks of the Event Center UI, in the Home 4a / Event page look. It grows as screens are built: when a pattern shows up on a second screen, it moves here.
 
 ## Rules
 

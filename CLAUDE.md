@@ -1,6 +1,8 @@
-# CLAUDE.md: Event Coordinator prototype
+# CLAUDE.md: Event Center prototype
 
-This is a demo-real prototype of **Event Coordinator (EC)**, Brightside Company's application for strategic, cross-border pharma events: advisory boards, congresses, investigator meetings. It runs on a real database with test data and is used for client demos. It's built so the schema, security model, API and seed data carry over into the real product.
+This is a demo-real prototype of **Event Center (EC)**, Brightside Company's application for strategic, cross-border pharma events: advisory boards, congresses, investigator meetings. It runs on a real database with test data and is used for client demos. It's built so the schema, security model, API and seed data carry over into the real product.
+
+Naming: the app is **Event Center** (it was called Event Coordinator until 28 Oct 2026; the repo, folder and Supabase project ids keep the old name). **Event Coordinator** is still the name of a user profile (Paul, Lisa), so only rename it where it means the app.
 
 Owner: Erik (co-founder, ex-Veeva CRM/Events architect). Read these before making non-trivial changes:
 

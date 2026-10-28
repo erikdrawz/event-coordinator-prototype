@@ -1,4 +1,4 @@
-# Event Coordinator: Data Model (v0.2)
+# Event Center: Data Model (v0.2)
 
 Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) with the screen-derived v0.1 and the review fixes. Tables marked **P0** exist in the first migration. The rest are designed but arrive with their phase.
 

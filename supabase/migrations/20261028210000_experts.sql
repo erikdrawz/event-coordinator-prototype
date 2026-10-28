@@ -1,5 +1,5 @@
 -- =====================================================================
--- Event Coordinator — Experts (the HCP table seen as experts)
+-- Event Center — Experts (the HCP table seen as experts)
 -- * Eligibility belongs to the expert (hcp.eligibility: eligible, in review, not eligible).
 --   An expert added to an event starts with that eligibility; the event can still differ
 --   (event_expert.eligibility, e.g. an annual cap reached for one engagement).

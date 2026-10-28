@@ -220,7 +220,7 @@ function HoursCell({ value, onSave, label, disabled }: { value: number; onSave: 
   );
 }
 
-const HCP_GROUPS = [{ group: 'hcp' as const, label: 'In Event Coordinator' }];
+const HCP_GROUPS = [{ group: 'hcp' as const, label: 'In Event Center' }];
 
 /** Add an expert directly: choose who, their role, and prep/travel; the rate defaults from their FMV. Enter saves and opens the next row; Esc cancels. */
 function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string; taken: string[]; onSaved: () => void; onCancel: () => void }) {
@@ -293,7 +293,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
       </tr>
       <tr className="agenda-inline-note">
         <td colSpan={9}>{error ? <span className="field-error" role="alert">{error}</span>
-          : <span className="field-hint">Search Event Coordinator, then the CRMs if they're not there · Enter adds and starts the next · Esc cancels</span>}</td>
+          : <span className="field-hint">Search Event Center, then the CRMs if they're not there · Enter adds and starts the next · Esc cancels</span>}</td>
       </tr>
     </>
   );

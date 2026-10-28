@@ -47,9 +47,9 @@ export function LoginPage() {
     <main className="login">
       <div className="login-column">
         <div className="login-brand">
-          <span className="brand-name" style={brand ? { color: brand.brand_color } : undefined}>{brand?.brand_name ?? 'Event Coordinator'}</span>
+          <span className="brand-name" style={brand ? { color: brand.brand_color } : undefined}>{brand?.brand_name ?? 'Event Center'}</span>
           <span className="brand-divider" />
-          <span className="brand-product">Event Coordinator</span>
+          <span className="brand-product">Event Center</span>
         </div>
 
         <form className="card login-card" onSubmit={submit}>

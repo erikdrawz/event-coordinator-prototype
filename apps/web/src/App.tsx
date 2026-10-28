@@ -23,7 +23,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (loading) return <div className="loading-screen">Loading…</div>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (!me) return <div className="loading-screen">Your login isn't linked to an Event Coordinator user yet.</div>;
+  if (!me) return <div className="loading-screen">Your login isn't linked to an Event Center user yet.</div>;
   return <>{children}</>;
 }
 

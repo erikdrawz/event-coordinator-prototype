@@ -12,7 +12,7 @@ type Show = 'eligible' | 'all';
 const DEFAULTS = { show: 'eligible', country: '', specialty: '', q: '' } as const;
 
 /**
- * Experts: the HCPs Event Coordinator works with. Eligible ones by default, since those are the
+ * Experts: the HCPs Event Center works with. Eligible ones by default, since those are the
  * ones you can engage; "All experts" adds those in review or not eligible. Filters live in the URL.
  */
 export function ExpertsPage() {
@@ -115,7 +115,7 @@ export function ExpertsPage() {
         sort={sort} onSortChange={setSort} loading={isLoading} error={error}
         empty={data?.length
           ? <>No experts match these filters. <button className="link" onClick={clear}>Clear filters</button></>
-          : 'No experts yet. Experts join when you add them to an event, from Event Coordinator or a CRM.'} />
+          : 'No experts yet. Experts join when you add them to an event, from Event Center or a CRM.'} />
     </main>
   );
 }

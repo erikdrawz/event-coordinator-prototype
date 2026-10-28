@@ -1,4 +1,4 @@
-# Event Coordinator: Prototype Architecture
+# Event Center: Prototype Architecture
 
 Status: v0.2 (26 Oct 2026). This is the companion to [BUILD-PLAN.md](BUILD-PLAN.md) and [DATA-MODEL.md](DATA-MODEL.md).
 

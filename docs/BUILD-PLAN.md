@@ -1,4 +1,4 @@
-# Event Coordinator: Prototype Build Plan (v0.2)
+# Event Center: Prototype Build Plan (v0.2)
 
 Status: 26 Oct 2026. Supersedes v0.1 (Next.js/Vercel/Supabase). See [ARCHITECTURE.md](ARCHITECTURE.md) for the principles behind these choices.
 

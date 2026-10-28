@@ -38,7 +38,7 @@ const fingerprint = (rows: DraftSession[]) => JSON.stringify(rows.map((r) =>
 const SPEAKER_GROUPS = [
   { group: 'speaker' as const, label: 'Experts on this event' },
   { group: 'team' as const, label: 'Event team (internal)' },
-  { group: 'hcp' as const, label: 'In Event Coordinator' },
+  { group: 'hcp' as const, label: 'In Event Center' },
 ];
 const names = (list: string[]) => list.length <= 2 ? list.join(' and ') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
 

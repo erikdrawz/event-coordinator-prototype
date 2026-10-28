@@ -17,9 +17,9 @@ export function AppShell() {
     <>
       <nav className="topnav" aria-label="Main">
         <Link to="/" className="brand">
-          <span className="brand-name">{me?.tenant.brand_name ?? 'Event Coordinator'}</span>
+          <span className="brand-name">{me?.tenant.brand_name ?? 'Event Center'}</span>
           <span className="brand-divider" />
-          <span className="brand-product">Event Coordinator</span>
+          <span className="brand-product">Event Center</span>
         </Link>
         <div className="navlinks">
           {NAV.map((n) => (

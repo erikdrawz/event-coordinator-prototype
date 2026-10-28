@@ -1,6 +1,6 @@
-# Event Coordinator — Prototype
+# Event Center — Prototype
 
-A demo-real prototype of **Event Coordinator (EC)**, Brightside's application for strategic, cross-border pharma events. Real database, real security rules, a public API, and a UI that is just one client of that API.
+A demo-real prototype of **Event Center (EC)**, Brightside's application for strategic, cross-border pharma events. Real database, real security rules, a public API, and a UI that is just one client of that API.
 
 - **Why it's built this way:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **What gets built, in which order:** [docs/BUILD-PLAN.md](docs/BUILD-PLAN.md)

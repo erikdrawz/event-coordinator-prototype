@@ -143,7 +143,7 @@ export function PersonPicker({ trigger, label, options, groups, canSearchCrm, on
               );
             })}
             {local.length === 0 && (
-              <div className="sel-none">{query ? <>No one in Event Coordinator matches “{query.trim()}”.</> : 'No one to add yet.'}</div>
+              <div className="sel-none">{query ? <>No one in Event Center matches “{query.trim()}”.</> : 'No one to add yet.'}</div>
             )}
             {rows.some((r) => r.kind === 'crm-search') && (() => { n++; const r = rows.find((x) => x.kind === 'crm-search')!; return (
               <div {...rowProps(n, r)} className={`${rowProps(n, r).className} person-crm-action`}>
