@@ -145,7 +145,7 @@ export function RequestPage() {
               </>}
               <Row label="Business justification">{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
               <Row label="Requested by"><PersonValue p={r.requester} /></Row>
-              <Row label="Coordinator">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
+              <Row label="Assignee">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
             </dl>
             {isDraft && canEdit && missing.length > 0 && (
               <p className="request-note">Add the {listOf(missing)} before you submit this request for approval.</p>

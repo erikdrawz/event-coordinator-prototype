@@ -56,7 +56,7 @@ export function RequestsPage() {
 
   const columns = useMemo<Column<RequestListRow>[]>(() => [
     {
-      id: 'title', header: 'Request', width: '28%', sortValue: (r) => r.title,
+      id: 'title', header: 'Request', width: '31%', sortValue: (r) => r.title,
       cell: (r) => (
         <>
           <Link to={`/requests/${r.id}`} className="dt-primary">{r.title}</Link>
@@ -65,7 +65,7 @@ export function RequestsPage() {
       ),
     },
     {
-      id: 'type', header: 'Type', width: '15%', sortValue: (r) => r.request_type,
+      id: 'type', header: 'Type', width: '18%', sortValue: (r) => r.request_type,
       cell: (r) => <>{kinds?.find((k) => k.code === r.request_type)?.label ?? r.request_type}
         <div className="dt-sub">{r.request_type === 'tiering' ? r.hcp?.specialty?.name ?? r.hcp?.tier : r.event_type?.name}</div></>,
     },
@@ -75,7 +75,7 @@ export function RequestsPage() {
       cell: (r) => <RequestStatusPill status={r.status} />,
     },
     {
-      id: 'event_date', header: 'Date', width: '16%',
+      id: 'event_date', header: 'Date', width: '20%',
       sortValue: (r) => r.event_date ?? (r.related_event?.starts_at ? ymdInZone(r.related_event.starts_at, r.related_event.timezone) : null),
       cell: (r) => {
         if (r.request_type === 'tiering') {
@@ -91,11 +91,7 @@ export function RequestsPage() {
         ) : <span className="text-muted">Not set</span>;
       },
     },
-    { id: 'requester', header: 'Requested by', width: '15%', sortValue: (r) => r.requester?.display_name, cell: (r) => <PersonCell p={r.requester} none="—" /> },
-    {
-      id: 'coordinator', header: 'Coordinator', width: '15%', sortValue: (r) => r.coordinator?.display_name,
-      cell: (r) => <PersonCell p={r.coordinator} none={r.status === 'draft' ? '—' : 'Unassigned'} />,
-    },
+    { id: 'requester', header: 'Requested by', width: '20%', sortValue: (r) => r.requester?.display_name, cell: (r) => <PersonCell p={r.requester} none="—" /> },
   ], [statuses, durations, kinds]);
 
   // Unsorted, the list keeps the query's order: newest requests first
