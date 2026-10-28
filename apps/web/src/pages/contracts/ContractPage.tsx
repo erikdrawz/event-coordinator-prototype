@@ -157,7 +157,8 @@ export function ContractPage() {
               {c.parent && <Row label={c.contract_type === 'addendum' ? 'Changes' : 'Under'}><Link to={`/contracts/${c.parent.id}`}>{c.parent.contract_number}</Link><div className="dt-sub">{typeLabel(c.parent.contract_type)}</div></Row>}
               {openAddenda.length > 0 && <Row label="Addenda">{openAddenda.map((a) => <div key={a.id}><Link to={`/contracts/${a.id}`}>{a.contract_number}</Link> <ContractStatusPill status={a.status} small /></div>)}</Row>}
               <Row label="Term">{c.start_date ? <>{formatDate(c.start_date)}{c.end_date && c.end_date !== c.start_date && <> – {formatDate(c.end_date)}</>}</> : empty}</Row>
-              <Row label="Template">{c.template?.name ?? empty}{c.rendered_at && <div className="dt-sub">Drafted {timeAgo(c.rendered_at)}</div>}</Row>
+              <Row label="Template">{c.template_version?.template ? <>{c.template_version.template.name} · v{c.template_version.version}
+                <div className="dt-sub">Version in effect since {formatDate(c.template_version.effective_from)}{c.rendered_at && <> · drafted {timeAgo(c.rendered_at)}</>}</div></> : empty}</Row>
             </dl>
           </section>
           {c.honorarium && (

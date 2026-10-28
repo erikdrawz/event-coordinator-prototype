@@ -18,7 +18,7 @@ import { EventTypesAdmin } from './pages/admin/EventTypesAdmin';
 import { ProductsAdmin, TherapeuticAreasAdmin } from './pages/admin/MasterDataAdmin';
 import { UsersAdmin } from './pages/admin/UsersAdmin';
 import { CustomFieldsAdmin } from './pages/admin/CustomFieldsAdmin';
-import { ContractTemplatesAdmin } from './pages/admin/ContractTemplatesAdmin';
+import { ContractTemplatePage, ContractTemplatesAdmin } from './pages/admin/ContractTemplatesAdmin';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, me, loading } = useAuth();
@@ -57,6 +57,7 @@ export function App() {
           <Route path="therapeutic-areas" element={<TherapeuticAreasAdmin />} />
           <Route path="custom-fields" element={<CustomFieldsAdmin />} />
           <Route path="contract-templates" element={<ContractTemplatesAdmin />} />
+          <Route path="contract-templates/:id" element={<ContractTemplatePage />} />
           <Route path="users" element={<UsersAdmin />} />
         </Route>
         <Route path="*" element={<PlaceholderPage title="Page not found" phase="no phase — check the address" />} />

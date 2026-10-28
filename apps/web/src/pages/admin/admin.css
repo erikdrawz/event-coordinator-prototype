@@ -72,3 +72,24 @@
 .merge-fields dt code { font-size: var(--text-sm); color: var(--color-text); }
 .merge-fields dd { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
 @media (max-width: 640px) { .merge-fields dl { grid-template-columns: minmax(0, 1fr); } }
+
+/* A template's page: versions and the selected version (two thirds), where it's used (one third) */
+.admin-main > .crumbs { margin-bottom: 6px; }
+.template-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 18px; align-items: start; }
+.template-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
+.version-table tbody tr { cursor: pointer; }
+.version-table tbody tr:hover td { background: var(--color-surface-muted); }
+.version-table tbody tr.is-selected td { background: var(--color-accent-softer); }
+.version-table tbody tr.is-selected td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
+.version-lock { display: inline-flex; margin-left: 6px; color: var(--color-text-muted); vertical-align: -1px; }
+.version-note { margin: 10px 0 0; }
+.version-next { margin-top: 3px; }
+.version-next .pill-sm { margin-left: 0; margin-right: 4px; }
+.template-preview.template-preview-page { max-height: none; margin-top: 12px; padding: 32px 40px; }
+@media (max-width: 960px) { .template-body { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .template-preview.template-preview-page { padding: 18px; } }
+.version-table .as-button { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--color-text); cursor: pointer; }
+.version-table th:nth-child(1) { width: 11%; }
+.version-table th:nth-child(2) { width: 30%; }
+.version-table th:nth-child(3) { width: 15%; }
+.version-table th:nth-child(5) { width: 11%; }

@@ -10,6 +10,9 @@
 --   (expert, event, the agreed honorarium) and keeps the text and the honorarium on the contract.
 -- * Templates are uploaded in Admin and made available per event type (event_type_contract_template),
 --   in every country the event type is available in unless the template names countries.
+-- * A template has versions, each in effect from a date (contract_template_version). A contract gets
+--   the version in effect on its event's date (an MSA: its start date), so next year's version can
+--   be prepared ahead. A version is fixed once a contract made from it has been sent.
 -- * Statuses: draft → sent (a PDF is stored, handed to the contracting tool) → executed (signed);
 --   draft or sent → cancelled. Only drafts change.
 -- * An event contract belongs to its event: it is visible and editable with the event (Team access).
@@ -71,8 +74,6 @@ create table public.contract_template (
   tenant_id      uuid not null references public.tenant(id),
   name           text not null,
   contract_type  text not null references public.contract_type(code),
-  body           text not null,
-  file_name      text,
   country_codes  char(2)[],
   is_active      boolean not null default true,
   created_at     timestamptz not null default now(),
@@ -81,8 +82,27 @@ create table public.contract_template (
   updated_by     uuid references public.app_user(id),
   unique (tenant_id, name)
 );
-comment on table public.contract_template is 'A contract template: Markdown with {{merge fields}} (see contract_merge_fields()).';
+comment on table public.contract_template is 'A contract template: what it''s for and where it''s used. The text lives in its versions.';
 comment on column public.contract_template.country_codes is 'Only in these countries; null = every country the event type is available in.';
+
+create table public.contract_template_version (
+  id                    uuid primary key default gen_random_uuid(),
+  tenant_id             uuid not null references public.tenant(id),
+  contract_template_id  uuid not null references public.contract_template(id) on delete cascade,
+  version               int  not null,
+  effective_from        date not null,
+  body                  text not null,
+  file_name             text,
+  notes                 text,
+  created_at            timestamptz not null default now(),
+  created_by            uuid references public.app_user(id),
+  updated_at            timestamptz not null default now(),
+  updated_by            uuid references public.app_user(id),
+  unique (contract_template_id, version),
+  unique (contract_template_id, effective_from)
+);
+comment on table public.contract_template_version is 'A version of a template''s text (Markdown with {{merge fields}}), in effect from a date until the next version.';
+comment on column public.contract_template_version.notes is 'What changed in this version.';
 
 create table public.event_type_contract_template (
   event_type_id         uuid not null references public.event_type(id) on delete cascade,
@@ -95,6 +115,7 @@ create table public.event_type_contract_template (
 comment on table public.event_type_contract_template is 'Which contract templates events of a type can use.';
 
 select app.secure_table('contract_template');
+select app.secure_table('contract_template_version');
 select app.secure_table('event_type_contract_template');
 
 -- The merge fields a template can use, with what they hold
@@ -107,6 +128,8 @@ language sql immutable as $$
     ('contract.start_date',        'Start date'),
     ('contract.end_date',          'End date'),
     ('today',                      'The date the contract is drafted'),
+    ('template.name',              'Template name'),
+    ('template.version',           'Template version, e.g. 3'),
     ('company.name',               'Your company'),
     ('expert.name',                'Expert''s full name with title'),
     ('expert.first_name',          'Expert''s first name'),
@@ -151,8 +174,31 @@ grant execute on function public.contract_merge_fields() to authenticated;
 
 create or replace function app.check_contract_template() returns trigger
 language plpgsql as $$
-declare unknown text; bad text;
+declare bad text;
 begin
+  if new.country_codes = '{}' then new.country_codes := null; end if;
+  select string_agg(c, ', ') into bad from unnest(new.country_codes) c where c not in (select code from public.country);
+  if bad is not null then
+    raise exception 'Unknown country code: %', bad using errcode = '23514';
+  end if;
+  if tg_op = 'UPDATE' and new.contract_type <> old.contract_type then
+    raise exception 'A template''s contract type can''t change. Add a new template instead.' using errcode = '23514';
+  end if;
+  return new;
+end $$;
+create trigger check_contract_template before insert or update on public.contract_template
+  for each row execute function app.check_contract_template();
+
+create or replace function app.check_contract_template_version() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare unknown text;
+begin
+  if tg_op = 'DELETE' then
+    if public.contracts_using(old) > 0 then
+      raise exception 'Contracts were drafted from version %, so it can''t be deleted. Add a new version instead.', old.version using errcode = '23514';
+    end if;
+    return old;
+  end if;
   if coalesce(trim(new.body), '') = '' then
     raise exception 'The template is empty' using errcode = '23514';
   end if;
@@ -163,15 +209,33 @@ begin
     raise exception 'The template uses merge fields that don''t exist: %. Check the spelling against the list of merge fields.', unknown
       using errcode = '23514';
   end if;
-  if new.country_codes = '{}' then new.country_codes := null; end if;
-  select string_agg(c, ', ') into bad from unnest(new.country_codes) c where c not in (select code from public.country);
-  if bad is not null then
-    raise exception 'Unknown country code: %', bad using errcode = '23514';
+  if tg_op = 'INSERT' then
+    new.version := coalesce((select max(version) from public.contract_template_version where contract_template_id = new.contract_template_id), 0) + 1;
+  else
+    if new.contract_template_id <> old.contract_template_id or new.version <> old.version then
+      raise exception 'A version belongs to its template and keeps its number' using errcode = '23514';
+    end if;
+    if public.is_locked(old) and (new.body, new.effective_from) is distinct from (old.body, old.effective_from) then
+      raise exception 'Version % was used for contracts sent for signature, so it can''t change. Add a new version instead.', old.version
+        using errcode = '23514';
+    end if;
+  end if;
+  if exists (select 1 from public.contract_template_version v where v.contract_template_id = new.contract_template_id
+              and v.effective_from = new.effective_from and v.id <> new.id) then
+    raise exception 'Another version of this template already starts on %', to_char(new.effective_from, 'FMDD FMMonth YYYY') using errcode = '23514';
   end if;
   return new;
 end $$;
-create trigger check_contract_template before insert or update on public.contract_template
-  for each row execute function app.check_contract_template();
+create trigger check_contract_template_version before insert or update or delete on public.contract_template_version
+  for each row execute function app.check_contract_template_version();
+
+-- The version of a template in effect on a date
+create or replace function app.template_version_on(p_template_id uuid, p_on date) returns uuid
+language sql stable security definer set search_path = public, pg_temp as $$
+  select v.id from public.contract_template_version v
+   where v.contract_template_id = p_template_id and v.effective_from <= p_on
+   order by v.effective_from desc limit 1
+$$;
 
 create or replace function app.check_event_type_contract_template() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -191,7 +255,7 @@ alter table public.contract
   add column title            text,
   add column event_id         uuid references public.event(id) on delete cascade,
   add column event_expert_id  uuid references public.event_expert(id) on delete cascade,
-  add column template_id      uuid references public.contract_template(id) on delete set null,
+  add column template_version_id uuid references public.contract_template_version(id),
   add column body             text,
   add column honorarium       jsonb,
   add column rendered_at      timestamptz,
@@ -205,6 +269,19 @@ comment on column public.contract.document_content_id is 'The PDF sent for signa
 create index contract_event_expert_idx on public.contract (event_expert_id);
 create index contract_event_idx on public.contract (event_id);
 create index contract_hcp_idx on public.contract (counterparty_hcp_id);
+
+-- Versions in use: how many contracts were drafted from it, and whether one has been sent (then it's fixed)
+create or replace function public.contracts_using(v public.contract_template_version) returns int
+language sql stable security definer set search_path = public, pg_temp as $$
+  select count(*)::int from public.contract c where c.template_version_id = v.id
+$$;
+create or replace function public.is_locked(v public.contract_template_version) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (select 1 from public.contract c where c.template_version_id = v.id and c.sent_at is not null)
+$$;
+comment on function public.contracts_using(public.contract_template_version) is 'Contracts drafted from this version (select it as a column: contracts_using).';
+comment on function public.is_locked(public.contract_template_version) is 'True once a contract made from this version has been sent; the version is then fixed (select it as a column: is_locked).';
+
 
 -- Contracts move from the junction onto the contract itself (one engagement per contract)
 update public.contract c set event_expert_id = j.event_expert_id, event_id = j.event_id
@@ -333,8 +410,8 @@ begin
     raise exception 'A contract''s type, number, expert, event and parent contract can''t change' using errcode = '23514';
   end if;
   if old.status <> 'draft'
-     and (new.title, new.body, new.honorarium, new.template_id, new.start_date, new.end_date, new.document_content_id)
-         is distinct from (old.title, old.body, old.honorarium, old.template_id, old.start_date, old.end_date, old.document_content_id) then
+     and (new.title, new.body, new.honorarium, new.template_version_id, new.start_date, new.end_date, new.document_content_id)
+         is distinct from (old.title, old.body, old.honorarium, old.template_version_id, old.start_date, old.end_date, old.document_content_id) then
     raise exception 'Only draft contracts can be changed. Add an Addendum instead.' using errcode = '23514';
   end if;
   if new.status is distinct from old.status then
@@ -385,12 +462,14 @@ $$;
 create or replace function app.render_contract(p_id uuid) returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
-  c public.contract; tpl text; f jsonb; h jsonb; cur text; amt numeric[];
+  c public.contract; tpl text; tv record; f jsonb; h jsonb; cur text; amt numeric[];
   ex record; ev record; ee public.event_expert; par public.contract; k text; v text;
   d1 date; d2 date;
 begin
   select * into c from public.contract where id = p_id;
-  select body into tpl from public.contract_template where id = c.template_id;
+  select v.body, v.version, t.name into tv from public.contract_template_version v join public.contract_template t on t.id = v.contract_template_id
+   where v.id = c.template_version_id;
+  tpl := tv.body;
   if tpl is null then return; end if;
 
   select h.display_name, h.first_name, h.last_name, h.email, h.tier, h.city, s.name as specialty, o.name as org,
@@ -420,7 +499,7 @@ begin
          'contract.number', c.contract_number, 'contract.title', c.title,
          'contract.type', (select label from public.contract_type where code = c.contract_type),
          'contract.start_date', app.date_text(c.start_date), 'contract.end_date', app.date_text(c.end_date),
-         'today', app.date_text(current_date),
+         'today', app.date_text(current_date), 'template.name', tv.name, 'template.version', tv.version::text,
          'company.name', (select name from public.tenant where id = c.tenant_id))
     || jsonb_build_object(
          'expert.name', ex.display_name, 'expert.first_name', ex.first_name, 'expert.last_name', ex.last_name,
@@ -465,12 +544,21 @@ comment on function app.render_contract(uuid) is 'Drafts the contract text from 
 -- ---------------------------------------------------------------------
 -- API
 -- ---------------------------------------------------------------------
--- Templates a contract can use: MSA templates anywhere (or in the expert's country); event
--- templates through the event's type, in the event's country
-create or replace function public.contract_templates_for(p_contract_type text, p_event_id uuid default null, p_hcp_id uuid default null)
-returns table (id uuid, name text)
+-- Templates a contract can use, each with its version in effect on the date (default: the event's
+-- date, else today): MSA templates anywhere (or in the expert's country); event templates through
+-- the event's type, in the event's country. A template with no version in effect yet isn't offered.
+create or replace function public.contract_templates_for(p_contract_type text, p_event_id uuid default null, p_hcp_id uuid default null, p_on date default null)
+returns table (id uuid, name text, version_id uuid, version int, effective_from date)
 language sql stable set search_path = public, pg_temp as $$
-  select t.id, t.name from public.contract_template t
+  with d as (
+    select coalesce(p_on, (select (e.starts_at at time zone e.timezone)::date from public.event e where e.id = p_event_id and e.starts_at is not null),
+                    current_date) as on_date
+  )
+  select t.id, t.name, v.id, v.version, v.effective_from
+    from public.contract_template t cross join d
+    join lateral (select * from public.contract_template_version v
+                   where v.contract_template_id = t.id and v.effective_from <= d.on_date
+                   order by v.effective_from desc limit 1) v on true
    where t.contract_type = p_contract_type and t.is_active
      and case when p_contract_type = 'msa'
               then t.country_codes is null or (select h.country_code from public.hcp h where h.id = p_hcp_id) = any(t.country_codes)
@@ -479,17 +567,18 @@ language sql stable set search_path = public, pg_temp as $$
                               and (t.country_codes is null or e.country_code = any(t.country_codes))) end
    order by t.name
 $$;
-comment on function public.contract_templates_for(text, uuid, uuid) is 'Active templates a contract of this type can use for the event (or, for an MSA, the expert).';
-grant execute on function public.contract_templates_for(text, uuid, uuid) to authenticated;
+comment on function public.contract_templates_for(text, uuid, uuid, date) is
+  'Active templates a contract of this type can use for the event (or, for an MSA, the expert), with the version in effect on p_on (default: the event''s date, else today).';
+grant execute on function public.contract_templates_for(text, uuid, uuid, date) to authenticated;
 
--- What can be created for an engagement (p_event_expert_id) or an expert (p_hcp_id, MSA):
--- {eligible, msa, main, templates: {type: [{id, name}]}}
-create or replace function public.contract_options(p_event_expert_id uuid default null, p_hcp_id uuid default null) returns jsonb
+-- What can be created for an engagement (p_event_expert_id) or an expert (p_hcp_id, MSA starting p_on):
+-- {eligible, msa, main, templates: {type: [{id, name, version_id, version, effective_from}]}}
+create or replace function public.contract_options(p_event_expert_id uuid default null, p_hcp_id uuid default null, p_on date default null) returns jsonb
 language plpgsql stable set search_path = public, pg_temp as $$
 declare x record; on_date date; tpl jsonb := '{}'; t text;
 begin
   if p_event_expert_id is null then
-    select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name)), '[]') into tpl from public.contract_templates_for('msa', null, p_hcp_id);
+    select coalesce(jsonb_agg(to_jsonb(f)), '[]') into tpl from public.contract_templates_for('msa', null, p_hcp_id, coalesce(p_on, current_date)) f;
     return jsonb_build_object('templates', jsonb_build_object('msa', tpl));
   end if;
   select ee.hcp_id, ee.event_id, ee.eligibility, e.starts_at, e.timezone into x
@@ -497,11 +586,11 @@ begin
   if not found then return null; end if;
   on_date := coalesce((x.starts_at at time zone x.timezone)::date, current_date);
   foreach t in array array['work_order', 'event_contract', 'addendum'] loop
-    tpl := tpl || jsonb_build_object(t, (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name)), '[]')
-                                           from public.contract_templates_for(t, x.event_id)));
+    tpl := tpl || jsonb_build_object(t, (select coalesce(jsonb_agg(to_jsonb(f)), '[]') from public.contract_templates_for(t, x.event_id) f));
   end loop;
   return jsonb_build_object(
     'eligible', x.eligibility = 'eligible',
+    'on_date', on_date,
     'msa', (select jsonb_build_object('id', c.id, 'contract_number', c.contract_number, 'start_date', c.start_date, 'end_date', c.end_date)
               from public.contract c where c.id = app.active_msa(x.hcp_id, on_date)),
     'main', (select jsonb_build_object('id', c.id, 'contract_number', c.contract_number, 'contract_type', c.contract_type, 'status', c.status)
@@ -509,14 +598,15 @@ begin
                 and c.status <> 'cancelled'),
     'templates', tpl);
 end $$;
-comment on function public.contract_options(uuid, uuid) is
-  'What contracts can be created for an engagement (or, with p_hcp_id, an MSA for the expert): eligibility, the active MSA, the open contract and the templates per type.';
-grant execute on function public.contract_options(uuid, uuid) to authenticated;
+comment on function public.contract_options(uuid, uuid, date) is
+  'What contracts can be created for an engagement (or, with p_hcp_id, an MSA for the expert starting p_on): eligibility, the active MSA, the open contract and the templates per type with their versions.';
+grant execute on function public.contract_options(uuid, uuid, date) to authenticated;
 
 -- Create a contract and draft its text.
 -- p: {contract_type, event_expert_id (event contracts) | hcp_id (MSA), template_id?, parent_contract_id?, start_date?, end_date?}
 -- A Work Order defaults to the active MSA, an Addendum to the engagement's open contract, the
 -- template to the first one available. Event contracts take the event's dates; an MSA runs two years.
+-- The template's version in effect on the contract's start date is used.
 create or replace function public.create_contract(p jsonb) returns public.contract
 language plpgsql set search_path = public, pg_temp as $$
 declare
@@ -526,7 +616,7 @@ declare
   par uuid := nullif(p ->> 'parent_contract_id', '')::uuid;
   tpl uuid := nullif(p ->> 'template_id', '')::uuid;
   ev_id uuid; s date := nullif(p ->> 'start_date', '')::date; en date := nullif(p ->> 'end_date', '')::date;
-  x record; lbl text; ttl text; r public.contract;
+  x record; lbl text; ttl text; r public.contract; ver uuid;
 begin
   select label into lbl from public.contract_type where code = typ and code <> 'venue';
   if lbl is null then raise exception 'Choose a contract type' using errcode = '22023'; end if;
@@ -554,18 +644,21 @@ begin
   end if;
 
   if tpl is null then
-    select t.id into tpl from public.contract_templates_for(typ, ev_id, hcp_id) t limit 1;
+    select t.id into tpl from public.contract_templates_for(typ, ev_id, hcp_id, s) t limit 1;
     if tpl is null then
       raise exception 'There''s no % template for this %. Ask an admin to add one%.', lbl,
         case when typ = 'msa' then 'expert' else 'event' end, case when typ = 'msa' then '' else ' to the event type' end
         using errcode = '23514';
     end if;
-  elsif not exists (select 1 from public.contract_templates_for(typ, ev_id, hcp_id) t where t.id = tpl) then
-    raise exception 'That template can''t be used here' using errcode = '23514';
+  end if;
+  select t.version_id into ver from public.contract_templates_for(typ, ev_id, hcp_id, s) t where t.id = tpl;
+  if ver is null then
+    raise exception 'That template can''t be used here, or has no version in effect on %', to_char(coalesce(s, current_date), 'FMDD FMMonth YYYY')
+      using errcode = '23514';
   end if;
 
-  insert into public.contract (contract_type, counterparty_hcp_id, event_expert_id, parent_contract_id, template_id, start_date, end_date, title)
-  values (typ, hcp_id, ee_id, par, tpl, s, en, ttl)
+  insert into public.contract (contract_type, counterparty_hcp_id, event_expert_id, parent_contract_id, template_version_id, start_date, end_date, title)
+  values (typ, hcp_id, ee_id, par, ver, s, en, ttl)
   returning * into r;
   perform app.render_contract(r.id);
   select * into r from public.contract where id = r.id;
@@ -575,17 +668,22 @@ comment on function public.create_contract(jsonb) is
   'Creates a draft contract and its text: {contract_type: msa|work_order|event_contract|addendum, event_expert_id | hcp_id, template_id?, parent_contract_id?, start_date?, end_date?}.';
 grant execute on function public.create_contract(jsonb) to authenticated;
 
--- Draft the text again: the honorarium, expert and event as they are now (drafts only)
+-- Draft the text again: the honorarium, expert and event as they are now, from the template's
+-- version in effect on the (event's) start date (drafts only)
 create or replace function public.regenerate_contract(p_id uuid) returns public.contract
 language plpgsql set search_path = public, pg_temp as $$
-declare r public.contract; x record;
+declare r public.contract; x record; s date; en date;
 begin
-  select c.*, e.starts_at, e.ends_at, e.timezone into x from public.contract c left join public.event e on e.id = c.event_id where c.id = p_id;
+  select c.*, e.starts_at, e.ends_at, e.timezone, v.contract_template_id into x
+    from public.contract c left join public.event e on e.id = c.event_id
+         left join public.contract_template_version v on v.id = c.template_version_id
+   where c.id = p_id;
   if not found then raise exception 'Contract not found' using errcode = '22023'; end if;
   if x.status <> 'draft' then raise exception 'Only a draft can be drafted again. Add an Addendum instead.' using errcode = '23514'; end if;
-  update public.contract set
-    start_date = case when event_id is not null then (x.starts_at at time zone x.timezone)::date else start_date end,
-    end_date = case when event_id is not null then coalesce((x.ends_at at time zone x.timezone)::date, (x.starts_at at time zone x.timezone)::date) else end_date end
+  s := case when x.event_id is not null then (x.starts_at at time zone x.timezone)::date else x.start_date end;
+  en := case when x.event_id is not null then coalesce((x.ends_at at time zone x.timezone)::date, s) else x.end_date end;
+  update public.contract set start_date = s, end_date = en,
+         template_version_id = coalesce(app.template_version_on(x.contract_template_id, coalesce(s, current_date)), template_version_id)
    where id = p_id returning * into r;
   if r.id is null then raise exception 'You can''t change this contract' using errcode = '42501'; end if;
   perform app.render_contract(p_id);
@@ -706,7 +804,7 @@ create policy contract_files_delete on storage.objects for delete to authenticat
 -- Templates are configuration like event types: whoever manages event types manages them
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
 select tenant_id, profile_id, o, can_read, can_create, can_edit, can_delete, view_all, modify_all
-  from public.permission, unnest(array['contract_template', 'event_type_contract_template']) o
+  from public.permission, unnest(array['contract_template', 'contract_template_version', 'event_type_contract_template']) o
  where object_name = 'event_type';
 
 select app.sync_number_sequences();

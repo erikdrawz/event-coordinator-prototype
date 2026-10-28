@@ -15,10 +15,30 @@ export interface EventTypeRow {
   event_type_country: { country_code: string }[];
   event_type_contract_template: { contract_template_id: string }[];
 }
+export interface TemplateVersion {
+  id: string; version: number; effective_from: string; file_name: string | null; notes: string | null; body: string; created_at: string;
+  /** Contracts drafted from it */
+  contracts_using: number;
+  /** A contract made from it was sent: it can't change any more */
+  is_locked: boolean;
+}
 export interface ContractTemplateRow {
-  id: string; name: string; contract_type: string; body: string; file_name: string | null;
-  country_codes: string[] | null; is_active: boolean; updated_at: string;
+  id: string; name: string; contract_type: string; country_codes: string[] | null; is_active: boolean; updated_at: string;
   event_type_contract_template: { event_type_id: string }[];
+  /** Newest first */
+  contract_template_version: TemplateVersion[];
+}
+
+export type VersionState = 'current' | 'scheduled' | 'retired';
+/** Which version is in effect today, which are scheduled, which are past; and each one's last day. Versions newest first. */
+export function versionStates(versions: TemplateVersion[], today = new Date().toLocaleDateString('en-CA')) {
+  const current = versions.find((v) => v.effective_from <= today);
+  return new Map(versions.map((v, i) => {
+    const next = versions[i - 1];
+    const until = next ? new Date(new Date(`${next.effective_from}T12:00:00`).getTime() - 86_400_000).toLocaleDateString('en-CA') : null;
+    const state: VersionState = v.effective_from > today ? 'scheduled' : v === current ? 'current' : 'retired';
+    return [v.id, { state, until }];
+  }));
 }
 export interface Profile { id: string; name: string; is_admin: boolean }
 export interface UserRow {
@@ -70,9 +90,11 @@ export function useEventTypes() {
 export function useContractTemplates() {
   return useQuery({
     queryKey: [ADMIN_KEY, 'contract-templates'],
-    queryFn: () => rows<ContractTemplateRow>(supabase.from('contract_template')
-      .select('id,name,contract_type,body,file_name,country_codes,is_active,updated_at,event_type_contract_template(event_type_id)')
-      .order('name')),
+    queryFn: async () => (await rows<ContractTemplateRow>(supabase.from('contract_template')
+      .select('id,name,contract_type,country_codes,is_active,updated_at,event_type_contract_template(event_type_id),' +
+              'contract_template_version(id,version,effective_from,file_name,notes,body,created_at,contracts_using,is_locked)')
+      .order('name')))
+      .map((t) => ({ ...t, contract_template_version: [...t.contract_template_version].sort((a, b) => b.effective_from.localeCompare(a.effective_from)) })),
   });
 }
 /** The {{merge fields}} templates can use. */

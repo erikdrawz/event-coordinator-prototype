@@ -26,7 +26,10 @@ export function NewContractModal({ target, onClose }: { target: Target; onClose:
   const navigate = useNavigate();
   const qc = useQueryClient();
   const typeLabel = useTypeLabel();
-  const options = useContractOptions(target.kind === 'msa' ? { hcpId: target.hcpId } : { eventExpertId: target.eventExpertId });
+  const today = isoDay(new Date());
+  const [start, setStart] = useState(today);
+  const [end, setEnd] = useState(plusTwoYears(today));
+  const options = useContractOptions(target.kind === 'msa' ? { hcpId: target.hcpId, on: start || today } : { eventExpertId: target.eventExpertId });
   const o = options.data;
   const choices: ContractType[] = target.kind === 'msa' ? ['msa'] : target.addendum ? ['addendum'] : ['work_order', 'event_contract'];
 
@@ -36,7 +39,7 @@ export function NewContractModal({ target, onClose }: { target: Target; onClose:
     if (target.kind === 'engagement' && !o.eligible) return `${target.name} isn't eligible for this event.`;
     if (t === 'work_order' && !o.msa) return `Needs a signed Master Service Agreement that covers the event. ${target.name} has none.`;
     if (t === 'addendum' && !o.main) return 'There is no contract to change yet.';
-    if (!(o.templates[t]?.length)) return target.kind === 'msa' ? 'No Master Service Agreement template yet. Ask an admin to add one.'
+    if (!(o.templates[t]?.length)) return target.kind === 'msa' ? 'No Master Service Agreement template is in effect on the start date. Ask an admin to add one.'
       : "No template for this event's type and country yet. Ask an admin to add one.";
     return null;
   };
@@ -44,10 +47,9 @@ export function NewContractModal({ target, onClose }: { target: Target; onClose:
   useEffect(() => { if (o && !type) setType(choices.find((t) => !blocked(t)) ?? choices[0]); }, [o]); // eslint-disable-line react-hooks/exhaustive-deps
   const templates: TemplateOption[] = (type && o?.templates[type]) || [];
   const [templateId, setTemplateId] = useState('');
-  useEffect(() => { setTemplateId(templates[0]?.id ?? ''); }, [type, o]); // eslint-disable-line react-hooks/exhaustive-deps
-  const today = isoDay(new Date());
-  const [start, setStart] = useState(today);
-  const [end, setEnd] = useState(plusTwoYears(today));
+  useEffect(() => { if (!templates.some((t) => t.id === templateId)) setTemplateId(templates[0]?.id ?? ''); }, [type, o]); // eslint-disable-line react-hooks/exhaustive-deps
+  const chosen = templates.find((t) => t.id === templateId);
+  const onLabel = target.kind === 'msa' ? 'the start date' : "the event's date";
 
   const create = useMutation({
     mutationFn: async () => {
@@ -100,8 +102,9 @@ export function NewContractModal({ target, onClose }: { target: Target; onClose:
             )}
             {choices.length === 1 && why && <p className="form-error field-wide" role="alert">{why}</p>}
             {templates.length > 0 && !why && (
-              <Field label="Template" wide hint={templates.length > 1 ? undefined : 'The only template available here'}>
-                {(id, d) => <Select id={id} aria-describedby={d} value={templateId} onChange={setTemplateId} options={templates.map((t) => ({ value: t.id, label: t.name }))} disabled={templates.length === 1} />}
+              <Field label="Template" wide hint={chosen ? `Version ${chosen.version}, in effect since ${formatDate(chosen.effective_from)}: the version in effect on ${onLabel}` : undefined}>
+                {(id, d) => <Select id={id} aria-describedby={d} value={templateId} onChange={setTemplateId}
+                  options={templates.map((t) => ({ value: t.id, label: `${t.name} · v${t.version}` }))} disabled={templates.length === 1} />}
               </Field>
             )}
             {target.kind === 'msa' && !why && <>

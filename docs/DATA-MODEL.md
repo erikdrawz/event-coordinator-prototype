@@ -72,10 +72,11 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 | `event_expert` | ✓ | event_id, hcp_id, role (chair, speaker, advisor, moderator, panelist), eligibility (eligible/ineligible/pending), check_status (passed/pending/failed), fmv_rate_id, hourly_rate, currency, prep_hours, service_hours, travel_hours, total_payable (computed), crm ids | ERD "Event Expert": the honorarium grid row |
 | `event_attendee` | ✓ | event_id, attendee_kind (hcp/user/other), hcp_id, user_id, display_name, organisation, role_label, rsvp (invited/accepted/declined/tentative), attended, crm_status (pending/reconciled/not_found), crm ids | ERD "Event Attendee". Attendees can be HCPs, employees or walk-ins |
 | `event_contracting_org` | ✓ | event_id, hco_id, purpose (venue, payee, sponsor, vendor) | ERD "Contracting Org" |
-| `contract` | ✓ | contract_number, contract_type → contract_type, status → contract_status, title, counterparty_hcp_id or counterparty_hco_id, event_id, event_expert_id (the engagement), parent_contract_id (Work Order → MSA, Addendum → its contract), start/end date, template_id, body (Markdown), honorarium (jsonb), rendered_at, document_content_id → content (the PDF), clm_reference, sent_at, signed_at | An expert's contract links to the engagement directly (the `event_expert_contract` junction was dropped); MSAs have no event |
+| `contract` | ✓ | contract_number, contract_type → contract_type, status → contract_status, title, counterparty_hcp_id or counterparty_hco_id, event_id, event_expert_id (the engagement), parent_contract_id (Work Order → MSA, Addendum → its contract), start/end date, template_version_id, body (Markdown), honorarium (jsonb), rendered_at, document_content_id → content (the PDF), clm_reference, sent_at, signed_at | An expert's contract links to the engagement directly (the `event_expert_contract` junction was dropped); MSAs have no event |
 | `contract_type` | ✓ | code, label, prefix, description | Lookup: msa, work_order, event_contract, addendum, venue |
 | `contract_status` | ✓ | code, label, tone | Lookup: draft, sent, executed (Signed), cancelled |
-| `contract_template` | ✓ | name, contract_type, body (Markdown with `{{merge fields}}`), file_name, country_codes (null = all), is_active | Uploaded in Admin |
+| `contract_template` | ✓ | name, contract_type, country_codes (null = all), is_active | Uploaded in Admin |
+| `contract_template_version` | ✓ | contract_template_id, version (1, 2, …), effective_from, body (Markdown with `{{merge fields}}`), file_name, notes (what changed); computed: contracts_using, is_locked | The version in effect on the event's date is used |
 | `event_type_contract_template` | ✓ | event_type_id, contract_template_id | Which templates an event type's contracts use |
 | `event_attendee_contract` | ✓ | event_attendee_id, contract_id | ERD junction |
 | `org_contract` | ✓ | event_contracting_org_id, contract_id | ERD junction |
@@ -114,7 +115,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 - `event_session` N—M `event_expert` via `event_session_speaker`
 - `hcp` 1—N `event_expert`, `event_attendee`, `fmv_rate`, `tier_request`; N—1 `hco` (primary affiliation)
 - `hco` 1—N `event_contracting_org`
-- `contract` N—1 counterparty (`hcp` | `hco`); N—1 `event_expert` (expert contracts) and `event`; self-reference (Work Order → MSA, Addendum → Work Order / Single-event Contract); N—M to attendees and organisations via junctions; N—1 `contract_template`; N—1 `content` (template, document)
+- `contract` N—1 counterparty (`hcp` | `hco`); N—1 `event_expert` (expert contracts) and `event`; self-reference (Work Order → MSA, Addendum → Work Order / Single-event Contract); N—M to attendees and organisations via junctions; N—1 `contract_template_version`; N—1 `content` (template, document)
 - `content` 1—N `event_content`
 - `app_user` N—1 `profile`; N—M `user_group`; agents N—1 owner `app_user`
 

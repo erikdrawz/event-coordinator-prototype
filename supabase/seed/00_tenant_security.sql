@@ -108,5 +108,5 @@ update public.permission set can_create = true, can_edit = true, can_delete = tr
 -- Contract templates are configuration like event types: the same rights
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
 select tenant_id, profile_id, o, can_read, can_create, can_edit, can_delete, view_all, modify_all
-  from public.permission, unnest(array['contract_template', 'event_type_contract_template']) o
+  from public.permission, unnest(array['contract_template', 'contract_template_version', 'event_type_contract_template']) o
  where object_name = 'event_type';

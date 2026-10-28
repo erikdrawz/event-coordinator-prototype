@@ -30,7 +30,7 @@ export interface ContractRow extends ContractListRow {
   event_expert: { id: string; hourly_rate: number | null; prep_hours: number; service_hours: number; travel_hours: number; total_payable: number; currency: string | null } | null;
   parent: { id: string; contract_number: string; contract_type: ContractType } | null;
   addenda: { id: string; contract_number: string; status: ContractStatus }[];
-  template: { name: string } | null;
+  template_version: { version: number; effective_from: string; template: { id: string; name: string } | null } | null;
   document: { storage_path: string | null; file_name: string | null } | null;
 }
 
@@ -41,7 +41,7 @@ const CONTRACT_SELECT = 'id,contract_number,contract_type,status,title,start_dat
   'event:event_id(id,name,event_number),hcp:counterparty_hcp_id(id,display_name),hco:counterparty_hco_id(id,name),' +
   'event_expert:event_expert_id(id,hourly_rate,prep_hours,service_hours,travel_hours,total_payable,currency),' +
   'parent:parent_contract_id(id,contract_number,contract_type),addenda:contract!parent_contract_id(id,contract_number,status),' +
-  'template:template_id(name),document:document_content_id(storage_path,file_name)';
+  'template_version:template_version_id(version,effective_from,template:contract_template_id(id,name)),document:document_content_id(storage_path,file_name)';
 
 export const contractKey = (id: string) => ['contract', id];
 
@@ -98,22 +98,26 @@ export function useExpertContracts(hcpId: string | undefined) {
   });
 }
 
-export interface TemplateOption { id: string; name: string }
+/** A template with its version in effect on the contract's date. */
+export interface TemplateOption { id: string; name: string; version_id: string; version: number; effective_from: string }
 export interface ContractOptions {
   eligible?: boolean;
+  /** The date versions are chosen for (the event's date) */
+  on_date?: string;
   msa?: { id: string; contract_number: string; start_date: string | null; end_date: string | null } | null;
   main?: { id: string; contract_number: string; contract_type: ContractType; status: ContractStatus } | null;
   templates: Partial<Record<ContractType, TemplateOption[]>>;
 }
 
-/** What can be created for an engagement, or (hcpId) an MSA for the expert. The database decides. */
-export function useContractOptions(target: { eventExpertId: string } | { hcpId: string }) {
-  const key = 'eventExpertId' in target ? target.eventExpertId : target.hcpId;
+/** What can be created for an engagement, or (hcpId) an MSA for the expert starting `on`. The database decides. */
+export function useContractOptions(target: { eventExpertId: string } | { hcpId: string; on?: string }) {
+  const key = 'eventExpertId' in target ? [target.eventExpertId] : [target.hcpId, target.on];
   return useQuery({
-    queryKey: ['contract-options', key],
+    queryKey: ['contract-options', ...key],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('contract_options',
-        'eventExpertId' in target ? { p_event_expert_id: target.eventExpertId } : { p_hcp_id: target.hcpId });
+        'eventExpertId' in target ? { p_event_expert_id: target.eventExpertId } : { p_hcp_id: target.hcpId, ...(target.on ? { p_on: target.on } : {}) });
       if (error) throw error;
       return data as ContractOptions;
     },

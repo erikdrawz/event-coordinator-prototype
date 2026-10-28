@@ -314,7 +314,9 @@ select app.sid('ec:' || e || ':' || c), app.sid('tenant:alera'), app.sid('event:
 -- ---------------------------------------------------------------------
 -- Contracting: templates (Markdown with merge fields), MSAs, Work Orders
 -- ---------------------------------------------------------------------
-insert into public.contract_template (id, tenant_id, name, contract_type, file_name, country_codes, body, created_by, created_at)
+create temp table seed_tpl (id uuid, tenant_id uuid, name text, contract_type text, file_name text, country_codes char(2)[],
+                            body text, created_by uuid, created_at timestamptz);
+insert into seed_tpl (id, tenant_id, name, contract_type, file_name, country_codes, body, created_by, created_at)
 values
 (app.sid('tpl:msa'), app.sid('tenant:alera'), 'Master Service Agreement', 'msa', 'master-service-agreement.md', null, $md$# Master Service Agreement
 
@@ -482,6 +484,31 @@ The new total fee is **{{honorarium.total}}**. All other terms of {{parent.numbe
 | Date: | Date: |
 $md$, app.sid('user:alex'), now() - interval '120 days');
 
+insert into public.contract_template (id, tenant_id, name, contract_type, country_codes, created_by, created_at)
+select id, tenant_id, name, contract_type, country_codes, created_by, created_at from seed_tpl;
+
+-- Versions (numbered in order of insert). The texts above are this year's. The Work Order has
+-- last year's version behind it (payment in 45 days) and, like the Single-event Contract, next
+-- year's already scheduled (consent to name the expert in event materials).
+insert into public.contract_template_version (tenant_id, contract_template_id, effective_from, file_name, notes, body, created_by, created_at)
+select tenant_id, id, (date_trunc('year', current_date) - interval '1 year')::date, file_name, 'First version',
+       replace(body, 'within 30 days after the event', 'within 45 days after the event'), created_by, now() - interval '400 days'
+  from seed_tpl where id = app.sid('tpl:wo');
+insert into public.contract_template_version (tenant_id, contract_template_id, effective_from, file_name, notes, body, created_by, created_at)
+select tenant_id, id, date_trunc('year', current_date)::date, file_name,
+       case when id = app.sid('tpl:wo') then 'Payment within 30 days instead of 45' else 'First version' end, body, created_by, created_at
+  from seed_tpl order by name;
+insert into public.contract_template_version (tenant_id, contract_template_id, effective_from, file_name, notes, body, created_by, created_at)
+select tenant_id, id, (date_trunc('year', current_date) + interval '1 year')::date, replace(file_name, '.md', '-next-year.md'),
+       'Next year: consent to name the Expert in event materials',
+       replace(body, '## Signatures', $md$## Use of the Expert's name
+
+The Company may name the Expert, their role and the event in the programme and in materials about the event. The Expert may withdraw this consent in writing at any time.
+
+## Signatures$md$), app.sid('user:alex'), now() - interval '5 days'
+  from seed_tpl where id in (app.sid('tpl:wo'), app.sid('tpl:sec'));
+drop table seed_tpl;
+
 -- Event templates for every external event type; the German contract only where those events run in Germany
 insert into public.event_type_contract_template (event_type_id, contract_template_id, tenant_id)
 select app.sid('etype:' || t.k), app.sid('tpl:' || x.tpl), app.sid('tenant:alera')
@@ -493,13 +520,13 @@ select app.sid('etype:' || k), app.sid('tpl:sec-de'), app.sid('tenant:alera')
 
 -- Signed MSAs for most regular experts (Vaaranen's is still a draft); Lind has none
 insert into public.contract (id, tenant_id, contract_number, contract_type, status, title, counterparty_hcp_id, counterparty_hco_id,
-                             event_id, start_date, end_date, template_id, clm_reference, sent_at, signed_at)
+                             event_id, start_date, end_date, template_version_id, clm_reference, sent_at, signed_at)
 select app.sid('contract:' || k), app.sid('tenant:alera'),
        prefix || '-' || extract(year from current_date) || '-' || num, ty, st, title,
        case when hcp is not null then app.sid('hcp:' || hcp) end, case when hco is not null then app.sid('hco:' || hco) end,
        case when ev is not null then app.sid('event:' || ev) end,
        date_trunc('year', current_date)::date, (date_trunc('year', current_date) + interval '2 years - 1 day')::date,
-       case when tpl is not null then app.sid('tpl:' || tpl) end, clm,
+       case when tpl is not null then app.template_version_on(app.sid('tpl:' || tpl), date_trunc('year', current_date)::date) end, clm,
        case when st in ('sent', 'executed') then date_trunc('year', current_date) - interval '20 days' end,
        case when st = 'executed' then date_trunc('year', current_date) - interval '14 days' end
   from (values
@@ -514,13 +541,13 @@ update public.contract set document_content_id = app.sid('content:sma-venue') wh
 
 -- Draft Work Orders for the SMA Board chair and speaker, under their MSAs
 insert into public.contract (id, tenant_id, contract_number, contract_type, status, title, event_expert_id, parent_contract_id,
-                             start_date, end_date, template_id)
+                             start_date, end_date, template_version_id)
 select app.sid('contract:wo-' || k), app.sid('tenant:alera'), 'WO-' || extract(year from current_date) || '-' || num,
        'work_order', 'draft', 'Work Order — SMA Board', app.sid('expert:sma-board:' || k), app.sid('contract:msa-' || k),
-       current_date + 5, current_date + 5, app.sid('tpl:wo')
+       current_date + 5, current_date + 5, app.template_version_on(app.sid('tpl:wo'), current_date + 5)
   from (values ('muir', '0451'), ('griffiths', '0448')) t(k, num);
 
-select app.render_contract(id) from public.contract where template_id is not null;
+select app.render_contract(id) from public.contract where template_version_id is not null;
 select app.sync_number_sequences();
 
 insert into public.event_contracting_org (id, tenant_id, event_id, hco_id, purpose) values

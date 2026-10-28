@@ -229,6 +229,9 @@ const sec = await createContract(paul, { contract_type: 'event_contract', event_
 const lindPay = (await api(paul, `event_expert?id=eq.${lind.id}&select=total_payable`)).data?.[0];
 ok(sec.status === 200 && /^SEC-\d{4}-\d{4}$/.test(sec.data?.contract_number) && sec.data?.status === 'draft' && sec.data?.event_id === ev.id,
    'a Single-event Contract is created as a draft with its own number');
+const secTpl = opts?.templates?.event_contract?.[0];
+ok(sec.data?.template_version_id === secTpl?.version_id && secTpl?.effective_from <= '2026-12-01',
+   "the contract uses the template version in effect on the event's date");
 ok(Number(sec.data?.honorarium?.total) === Number(lindPay.total_payable) && sec.data?.body?.includes('Smoke Test Board') && sec.data?.body?.includes('| Preparation |'),
    'the contract text carries the event and the agreed honorarium (prep, service, travel)');
 ok((await createContract(paul, { contract_type: 'event_contract', event_expert_id: lind.id })).status >= 400, 'one open contract per expert on an event');
@@ -248,6 +251,9 @@ ok((await api(paul, `contract?id=eq.${sec.data?.id}`, { method: 'PATCH', body: {
 ok((await api(sarah, `contract?id=eq.${sec.data?.id}&select=id`)).data?.length === 0, "an event's contracts are only visible to those who see the event");
 ok((await api(paul, 'rpc/mark_contract_signed', { method: 'POST', body: { p_id: sec.data?.id } })).data?.status === 'executed', 'a sent contract is marked as signed');
 ok((await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'DELETE' })).status >= 400, "an expert with a signed contract can't be removed from the event");
+ok((await api(alex, `contract_template_version?id=eq.${secTpl?.version_id}`, { method: 'PATCH', body: { body: '# Changed {{expert.name}}' } })).status >= 400
+   && (await api(alex, `contract_template_version?id=eq.${secTpl?.version_id}`, { method: 'DELETE' })).status >= 400,
+   "a template version used for a sent contract can't be changed or deleted");
 // MSAs belong to the expert; a direct insert is always a draft; templates are checked
 const lindMsa = await createContract(paul, { contract_type: 'msa', hcp_id: lindHcp.data[0].id });
 ok(lindMsa.status === 200 && lindMsa.data?.event_id === null && lindMsa.data?.end_date > lindMsa.data?.start_date, 'an MSA is created on the expert, for two years');
@@ -255,10 +261,24 @@ const msaSpoof = await api(paul, 'contract', { method: 'POST', body: { contract_
 ok(msaSpoof.data?.[0]?.status === 'draft', 'a contract created through the API starts as a draft');
 await api(paul, `contract?id=in.(${lindMsa.data?.id},${msaSpoof.data?.[0]?.id})`, { method: 'DELETE' });
 const tplType = (await api(paul, 'event_type?name=eq.Advisory%20board&select=id')).data?.[0]?.id;
-ok((await api(alex, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'work_order', body: 'Dear {{expert.nmae}}' } })).status >= 400,
-   'a template with an unknown merge field is refused');
-ok((await api(paul, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'work_order', body: 'Dear {{expert.name}}' } })).status >= 400,
+ok((await api(paul, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'msa' } })).status >= 400,
    "a coordinator can't add contract templates");
+// Template versions: numbered, checked, in effect from their date
+const smokeTpl = (await api(alex, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'msa' } })).data?.[0];
+const nextYear = `${new Date().getFullYear() + 1}-01-01`;
+const addVersion = (body, effective_from) => api(alex, 'contract_template_version', { method: 'POST', body: { contract_template_id: smokeTpl?.id, body, effective_from } });
+ok((await addVersion('Dear {{expert.nmae}}', nextYear)).status >= 400, 'a template version with an unknown merge field is refused');
+const tv1 = (await addVersion('# Smoke MSA for {{expert.name}}', nextYear)).data?.[0];
+ok(tv1?.version === 1, 'versions are numbered');
+const msaTpls = async (on) => (await api(paul, 'rpc/contract_templates_for', { method: 'POST', body: { p_contract_type: 'msa', p_hcp_id: lindHcp.data[0].id, ...(on ? { p_on: on } : {}) } })).data ?? [];
+ok(!(await msaTpls()).some((t) => t.id === smokeTpl?.id) && (await msaTpls(nextYear)).some((t) => t.id === smokeTpl?.id && t.version === 1),
+   "a template whose first version starts next year isn't offered before then");
+const tv2 = (await addVersion('# Smoke MSA v2 for {{expert.name}}', `${new Date().getFullYear() + 1}-07-01`)).data?.[0];
+ok(tv2?.version === 2 && (await msaTpls(`${new Date().getFullYear() + 1}-08-01`)).find((t) => t.id === smokeTpl?.id)?.version === 2,
+   'the version in effect on the date is served');
+ok((await api(alex, `contract_template_version?id=eq.${tv1?.id}`, { method: 'PATCH', body: { notes: 'Edited before use' } })).data?.[0]?.notes === 'Edited before use',
+   'an unused version can still be edited');
+await api(alex, `contract_template?id=eq.${smokeTpl?.id}`, { method: 'DELETE' });
 ok((await api(alex, 'event_type_contract_template', { method: 'POST', body: { event_type_id: tplType, contract_template_id: (await api(alex, 'contract_template?contract_type=eq.msa&select=id')).data?.[0]?.id } })).status >= 400,
    "MSA templates don't belong to event types");
 await saveSession(paul, { id: sess.data.id, speakers: [] });
