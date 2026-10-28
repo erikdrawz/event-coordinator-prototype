@@ -36,7 +36,7 @@ interface Props {
 const fingerprint = (rows: DraftSession[]) => JSON.stringify(rows.map((r) =>
   [r.id, r.date, r.from, r.to, r.title.trim(), r.kind, r.location.trim(), r.speakers.map((s) => [s.key, s.minutes])]));
 const SPEAKER_GROUPS = [
-  { group: 'speaker' as const, label: 'Speakers on this event' },
+  { group: 'speaker' as const, label: 'Experts on this event' },
   { group: 'team' as const, label: 'Event team (internal)' },
   { group: 'hcp' as const, label: 'In Event Coordinator' },
 ];
@@ -73,7 +73,7 @@ export function AgendaEditor({ event, initial, version, addFirst, day, onDay, ca
   const current = day && days.includes(day) ? day : days[0] ?? null;
   const todays = rows.filter((r) => r.date === current);
 
-  // What saving does to the Speakers list, from the saved speakers and the draft
+  // What saving does to the event's Experts, from the saved speakers and the draft
   const effects = useMemo(() => {
     const kept = new Set(rows.flatMap((r) => r.speakers.map((s) => s.event_expert_id)).filter(Boolean));
     const joining = [...new Map(rows.flatMap((r) => r.speakers).filter((s) => s.hcp_id).map((s) => [s.hcp_id, s.name])).values()];
@@ -188,9 +188,9 @@ export function AgendaEditor({ event, initial, version, addFirst, day, onDay, ca
           ) : (
             <>
               <strong>{dirty ? 'Unsaved changes' : 'No changes yet'}</strong>
-              {effects.joining.length > 0 && <span>{names(effects.joining)} will be added to Speakers.</span>}
-              {effects.leaving.length > 0 && <span>{names(effects.leaving)} will be removed from Speakers (no sessions left).</span>}
-              {!effects.joining.length && !effects.leaving.length && <span className="text-muted">Speakers update when you save.</span>}
+              {effects.joining.length > 0 && <span>{names(effects.joining)} will be added to Experts.</span>}
+              {effects.leaving.length > 0 && <span>{names(effects.leaving)} will be removed from Experts (no sessions left).</span>}
+              {!effects.joining.length && !effects.leaving.length && <span className="text-muted">Experts update when you save.</span>}
             </>
           )}
         </div>

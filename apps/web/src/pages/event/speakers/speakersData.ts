@@ -64,20 +64,39 @@ export const money = (n: number, currency = 'EUR') =>
 /** 1.5 → "1.5", 1.17 → "1.17", 2 → "2.0" */
 export const hours = (n: number) => n.toFixed(Math.round(n * 100) % 10 ? 2 : 1);
 
-export interface RatePolicy { mode: 'negotiable' | 'fixed'; default: number; min: number; max: number; currency: string }
+export interface RatePolicy {
+  mode: 'negotiable' | 'fixed'; default: number; min: number; max: number; currency: string;
+  /** fmv: from the expert's FMV record valid on the event's date; default: no FMV record, the tenant default applies */
+  source: 'fmv' | 'default';
+}
 
-/** How speaker rates may be set (expert_rate_policy): today EUR 100, negotiable 80–120; later per HCP from FMV. */
-export function useRatePolicy() {
+/** How one expert's rate may be set on this event (expert_rate_policy): from their FMV record, or the default without one. */
+export function useRatePolicy(hcpId: string | undefined, eventId: string) {
   return useQuery({
-    queryKey: ['expert-rate-policy'], staleTime: 5 * 60_000,
+    queryKey: ['expert-rate-policy', hcpId, eventId], enabled: Boolean(hcpId), staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('expert_rate_policy');
+      const { data, error } = await supabase.rpc('expert_rate_policy', { p_hcp_id: hcpId, p_event_id: eventId });
       if (error) throw error;
       return data as RatePolicy;
     },
   });
 }
-export const rateRange = (p: RatePolicy) => (p.mode === 'fixed' ? `Fixed at ${money(p.default, p.currency)}` : `Negotiable: ${money(p.min, p.currency)}–${money(p.max, p.currency)}`);
+
+/** Every expert's rate policy on this event, keyed by hcp_id (event_rate_policies). */
+export function useRatePolicies(eventId: string) {
+  return useQuery({
+    queryKey: [...expertsKey(eventId), 'rate-policies'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('event_rate_policies', { p_event_id: eventId });
+      if (error) throw error;
+      return data as Record<string, RatePolicy>;
+    },
+  });
+}
+export const rateRange = (p: RatePolicy) => {
+  const range = p.mode === 'fixed' ? `Fixed at ${money(p.default, p.currency)}` : `${money(p.min, p.currency)}–${money(p.max, p.currency)}`;
+  return p.source === 'fmv' ? `FMV ${money(p.default, p.currency)}, negotiable ${range}` : `No FMV rate: default ${money(p.default, p.currency)}, ${range}`;
+};
 export const currencySymbol = (c = 'EUR') => new Intl.NumberFormat('en-GB', { style: 'currency', currency: c }).formatToParts(0).find((x) => x.type === 'currency')?.value ?? c;
 
 /** Mirrors app.expert_keeps_without_sessions(): a sent or executed contract keeps a speaker without sessions. */

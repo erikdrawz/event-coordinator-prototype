@@ -85,7 +85,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
 
       {sessions.isLoading ? <div className="ov-empty text-muted">Loading…</div> : total === 0 ? (
         <div className="ov-empty">
-          <span><strong>No sessions yet.</strong> Build the timeline session by session; speakers you add join the Speakers list when you save.</span>
+          <span><strong>No sessions yet.</strong> Build the timeline session by session; speakers you add join the event's Experts when you save.</span>
           {canEdit && canAdd && <button type="button" className="btn btn-primary btn-sm" onClick={() => startEditing(true)} disabled={opening}><Plus size={14} strokeWidth={2.6} />Add sessions</button>}
         </div>
       ) : todays.length === 0 ? (

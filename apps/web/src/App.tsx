@@ -10,6 +10,8 @@ import { EventPage } from './pages/EventPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { RequestsPage } from './pages/requests/RequestsPage';
 import { RequestPage } from './pages/requests/RequestPage';
+import { ExpertsPage } from './pages/experts/ExpertsPage';
+import { ExpertPage } from './pages/experts/ExpertPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { EventTypesAdmin } from './pages/admin/EventTypesAdmin';
 import { ProductsAdmin, TherapeuticAreasAdmin } from './pages/admin/MasterDataAdmin';
@@ -43,7 +45,8 @@ export function App() {
         <Route path="events/:id" element={<EventPage />} />
         <Route path="requests" element={<RequestsPage />} />
         <Route path="requests/:id" element={<RequestPage />} />
-        <Route path="experts" element={<PlaceholderPage title="Experts" phase="Phase 3" />} />
+        <Route path="experts" element={<ExpertsPage />} />
+        <Route path="experts/:id" element={<ExpertPage />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="event-types" replace />} />
           <Route path="event-types" element={<EventTypesAdmin />} />

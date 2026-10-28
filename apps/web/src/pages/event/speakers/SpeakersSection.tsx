@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useEventAccess } from '../eventAccess';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, FileText, MoreVertical, Plus, Trash2, X } from 'lucide-react';
@@ -13,7 +14,7 @@ import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { eventKey, initials, type SpeakerOption } from '../agenda/agendaData';
 import { PersonPicker } from '../people/PersonPicker';
 import {
-  ROLES, currencySymbol, hcpSub, hours, money, rateRange, roleLabel, useExperts, useHcps, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
+  ROLES, currencySymbol, hcpSub, hours, money, rateRange, roleLabel, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
 } from './speakersData';
 
 const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility in review' } as const;
@@ -28,11 +29,12 @@ function EligibilityMark({ value }: { value: Expert['eligibility'] }) {
   );
 }
 const initialsOf = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'That HCP is already a speaker on this event.' : m);
+const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'That expert is already on this event.' : m);
 
 /**
- * The honorarium grid. Speakers arrive here from the agenda automatically or are added directly.
- * Service hours come from the agenda; prep and travel are typed in the row.
+ * The event's experts (speakers, chairs, advisors, …) and their honoraria. Experts arrive here from
+ * the agenda automatically or are added directly. Service hours come from the agenda; prep and
+ * travel are typed in the row; the rate defaults from the expert's FMV record.
  */
 export function SpeakersSection({ eventId }: { eventId: string }) {
   const { me } = useAuth();
@@ -42,7 +44,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
   const [adding, setAdding] = useState<number | null>(null);
   const [removing, setRemoving] = useState<Expert | null>(null);
   const [cellError, setCellError] = useState<string | null>(null);
-  const policy = useRatePolicy().data;
+  const policies = useRatePolicies(eventId).data;
   const canAdd = can(me, 'event_expert', 'create') && canEditEvent;
   const canEdit = can(me, 'event_expert', 'edit') && canEditEvent;
   const canDelete = can(me, 'event_expert', 'delete') && canEditEvent;
@@ -66,16 +68,16 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: eventKey(eventId) }); setRemoving(null); },
   });
 
-  const sub = list.length === 0 ? 'No speakers yet'
-    : `${list.length} HCP${list.length === 1 ? '' : 's'}`;
+  const sub = list.length === 0 ? 'No experts yet'
+    : `${list.length} expert${list.length === 1 ? '' : 's'}`;
 
   return (
     <section className="card ov-card" aria-labelledby="speakers-title">
       <div className="ov-head">
-        <div className="ov-title-row"><h2 id="speakers-title" className="ov-title">Speakers</h2><span className="card-sub">{sub}</span></div>
+        <div className="ov-title-row"><h2 id="speakers-title" className="ov-title">Experts</h2><span className="card-sub">{sub}</span></div>
         <div className="ov-actions">
           {canAdd && <button className="btn btn-outline btn-sm" onClick={() => setAdding((n) => (n ?? 0) + 1)} disabled={adding != null}>
-            <Plus size={14} strokeWidth={2.6} />Add speaker</button>}
+            <Plus size={14} strokeWidth={2.6} />Add expert</button>}
         </div>
       </div>
 
@@ -83,15 +85,15 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
 
       {experts.isLoading ? <div className="ov-empty text-muted">Loading…</div> : list.length === 0 && adding == null ? (
         <div className="ov-empty">
-          <span><strong>No speakers yet.</strong> Add HCPs here, or add them to agenda sessions and they appear here with their hours.</span>
-          {canAdd && <button className="btn btn-primary btn-sm" onClick={() => setAdding(1)}><Plus size={14} strokeWidth={2.6} />Add speaker</button>}
+          <span><strong>No experts yet.</strong> Add them here, or add speakers to agenda sessions and they appear here with their hours.</span>
+          {canAdd && <button className="btn btn-primary btn-sm" onClick={() => setAdding(1)}><Plus size={14} strokeWidth={2.6} />Add expert</button>}
         </div>
       ) : (
         <div className="table-scroll">
           <table className="agenda-table speakers-table">
             <thead>
               <tr>
-                <th>HCP</th><th>Role</th><th>Contract</th>
+                <th>Expert</th><th>Role</th><th>Contract</th>
                 <th className="num">Rate / h</th><th className="num">Prep h</th><th className="num">Service h</th><th className="num">Travel h</th>
                 <th className="num">Total</th><th aria-label="Actions" />
               </tr>
@@ -105,7 +107,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                     <td>
                       <span className="dt-person">
                         <Avatar size={30} initials={initialsOf(name)} color={avatarColorFor(name)} />
-                        <span><span className="speaker-name"><span className="agenda-title">{name}</span><EligibilityMark value={x.eligibility} /></span><div className="dt-sub">{hcpSub(x.hcp)}</div></span>
+                        <span><span className="speaker-name"><Link to={`/experts/${x.hcp_id}`} className="agenda-title expert-link">{name}</Link><EligibilityMark value={x.eligibility} /></span><div className="dt-sub">{hcpSub(x.hcp)}</div></span>
                       </span>
                     </td>
                     <td>
@@ -117,7 +119,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                       ) : roleLabel(x.role)}
                     </td>
                     <td>{contract ? <span className="contract-ref"><FileText size={13} aria-hidden />{contract.contract_number}</span> : <span className="text-muted">—</span>}</td>
-                    <td className="num"><RateCell value={x.hourly_rate} currency={x.currency ?? 'EUR'} policy={policy} label={`Hourly rate for ${name}`} disabled={!canEdit}
+                    <td className="num"><RateCell value={x.hourly_rate} currency={x.currency ?? 'EUR'} policy={policies?.[x.hcp_id]} label={`Hourly rate for ${name}`} disabled={!canEdit}
                       onInvalid={setCellError} onSave={(v) => update.mutate({ id: x.id, patch: { hourly_rate: v } })} /></td>
                     <td className="num"><HoursCell value={x.prep_hours} label={`Prep hours for ${name}`} disabled={!canEdit}
                       onSave={(v) => update.mutate({ id: x.id, patch: { prep_hours: v } })} /></td>
@@ -128,7 +130,7 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                     <td className="agenda-menu">
                       {canDelete && (
                         <Menu label={`Actions for ${name}`} width={190}
-                          items={[{ key: 'remove', label: 'Remove speaker', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }]}
+                          items={[{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }]}
                           trigger={(t) => <button className="icon-btn" aria-label={`Actions for ${name}`} {...t}><MoreVertical size={16} /></button>} />
                       )}
                     </td>
@@ -148,12 +150,12 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
           </table>
         </div>
       )}
-      {list.length > 0 && <p className="field-hint speakers-note">Boxed values can be edited. Service hours come from the agenda.{policy && ` Rates default to ${money(policy.default, policy.currency)} per hour, ${rateRange(policy).toLowerCase()}, until FMV rates are in place.`}</p>}
+      {list.length > 0 && <p className="field-hint speakers-note">Boxed values can be edited. Service hours come from the agenda. Rates default from each expert's FMV record and can be negotiated within its range (hover a rate to see it).</p>}
 
       {removing && (
-        <ConfirmDialog title="Remove speaker?" confirmLabel="Remove speaker" pending={remove.isPending} error={remove.error ? friendly(remove.error.message) : null}
+        <ConfirmDialog title="Remove expert?" confirmLabel="Remove expert" pending={remove.isPending} error={remove.error ? friendly(remove.error.message) : null}
           onConfirm={() => remove.mutate(removing)} onCancel={() => { remove.reset(); setRemoving(null); }}>
-          {removing.hcp?.display_name} will be removed from this event's speakers
+          {removing.hcp?.display_name} will be removed from this event's experts
           {removing.event_session_speaker.length ? ` and from ${removing.event_session_speaker.length} agenda session${removing.event_session_speaker.length === 1 ? '' : 's'}` : ''}.
           {removing.event_expert_contract.length > 0 && ' Their contracts stay on record but are no longer linked to this event.'}
         </ConfirmDialog>
@@ -220,7 +222,7 @@ function HoursCell({ value, onSave, label, disabled }: { value: number; onSave: 
 
 const HCP_GROUPS = [{ group: 'hcp' as const, label: 'In Event Coordinator' }];
 
-/** Add an HCP directly: choose who, their type, and prep/travel. Enter saves and opens the next row; Esc cancels. */
+/** Add an expert directly: choose who, their role, and prep/travel; the rate defaults from their FMV. Enter saves and opens the next row; Esc cancels. */
 function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string; taken: string[]; onSaved: () => void; onCancel: () => void }) {
   const qc = useQueryClient();
   const hcps = useHcps();
@@ -228,7 +230,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
   const [who, setWho] = useState<SpeakerOption | null>(null);
   const hcpId = who?.hcp_id ?? '';
   const [role, setRole] = useState<ExpertRole>('speaker');
-  const policy = useRatePolicy().data;
+  const policy = useRatePolicy(hcpId || undefined, eventId).data;
   const [rate, setRate] = useState('');
   const [prep, setPrep] = useState('');
   const [travel, setTravel] = useState('');
@@ -247,7 +249,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
     onError: (e) => setError(e.message),
   });
   const submit = () => {
-    if (!hcpId) { setError('Choose an HCP'); return; }
+    if (!hcpId) { setError('Choose an expert'); return; }
     const r = rate.trim() ? Number(rate.replace(',', '.')) : null;
     const bad = r != null && policy ? rateProblem(r, policy) : null;
     if (bad) { setError(bad); return; }
@@ -264,11 +266,11 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
       <tr className="agenda-inline" onKeyDown={onKey}>
         <td colSpan={2}>
           <div className="speaker-add-who">
-            <PersonPicker label="Choose an HCP" options={options} groups={HCP_GROUPS} canSearchCrm={can(me, 'hcp', 'create')} autoOpen
+            <PersonPicker label="Choose an expert" options={options} groups={HCP_GROUPS} canSearchCrm={can(me, 'hcp', 'create')} autoOpen
               onPick={(o) => { setWho(o); setError(null); }}
               trigger={(t) => (
-                <button type="button" className="input sel-trigger picker-field" aria-label="HCP" aria-invalid={error === 'Choose an HCP' || undefined} {...t}>
-                  <span className={who ? 'sel-value' : 'sel-value placeholder'}>{who?.name ?? 'Choose an HCP…'}</span><ChevronDown size={15} className="sel-chevron" aria-hidden />
+                <button type="button" className="input sel-trigger picker-field" aria-label="Expert" aria-invalid={error === 'Choose an expert' || undefined} {...t}>
+                  <span className={who ? 'sel-value' : 'sel-value placeholder'}>{who?.name ?? 'Choose an expert…'}</span><ChevronDown size={15} className="sel-chevron" aria-hidden />
                 </button>
               )} />
             <Select aria-label="Role" value={role} onChange={(v) => setRole(v as ExpertRole)} options={ROLES.map((r) => ({ value: r, label: roleLabel(r) }))} />
@@ -285,7 +287,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
         <td className="num"><input className="hours-input" inputMode="decimal" aria-label="Travel hours" placeholder="0.0" value={travel} onChange={(e) => setTravel(e.target.value)} /></td>
         <td />
         <td className="agenda-inline-actions">
-          <button type="button" className="icon-btn ok" aria-label="Add speaker" title="Add (Enter)" disabled={save.isPending} onClick={submit}><Check size={16} /></button>
+          <button type="button" className="icon-btn ok" aria-label="Add expert" title="Add (Enter)" disabled={save.isPending} onClick={submit}><Check size={16} /></button>
           <button type="button" className="icon-btn" aria-label="Cancel" title="Cancel (Esc)" onClick={onCancel}><X size={16} /></button>
         </td>
       </tr>
