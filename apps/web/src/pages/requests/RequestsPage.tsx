@@ -15,8 +15,6 @@ import type { Person } from '../event/team/teamData';
 type Scope = 'all' | 'mine';
 const DEFAULTS = { scope: 'all', status: '', q: '' } as const;
 
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep');
-
 const PersonCell = ({ p, none }: { p: Person | null; none: string }) => p
   ? <span className="dt-person"><Avatar size={24} initials={p.initials} color={p.avatar_color} isAgent={p.user_type === 'agent'} />{p.display_name}</span>
   : <span className="text-muted">{none}</span>;
@@ -54,7 +52,7 @@ export function RequestsPage() {
 
   const columns = useMemo<Column<RequestListRow>[]>(() => [
     {
-      id: 'title', header: 'Request', width: '30%', sortValue: (r) => r.title,
+      id: 'title', header: 'Request', width: '34%', sortValue: (r) => r.title,
       cell: (r) => (
         <>
           <Link to={`/requests/${r.id}`} className="dt-primary">{r.title}</Link>
@@ -68,21 +66,18 @@ export function RequestsPage() {
       cell: (r) => <RequestStatusPill status={r.status} />,
     },
     {
-      id: 'starts_at', header: 'Start', width: '20%', sortValue: (r) => r.starts_at,
+      id: 'starts_at', header: 'Start', width: '22%', sortValue: (r) => r.starts_at,
       cell: (r) => r.starts_at ? <span className="dt-nowrap">{eventDateTime(r.starts_at, r.timezone)}</span> : <span className="text-muted">Not set</span>,
     },
-    { id: 'requester', header: 'Requested by', width: '15%', sortValue: (r) => r.requester?.display_name, cell: (r) => <PersonCell p={r.requester} none="—" /> },
+    { id: 'requester', header: 'Requested by', width: '17%', sortValue: (r) => r.requester?.display_name, cell: (r) => <PersonCell p={r.requester} none="—" /> },
     {
-      id: 'submitted_at', header: 'Submitted', width: '10%', sortValue: (r) => r.submitted_at,
-      cell: (r) => r.submitted_at ? <span className="dt-nowrap">{shortDate(r.submitted_at)}</span> : <span className="text-muted">Not yet</span>,
-    },
-    {
-      id: 'coordinator', header: 'Coordinator', width: '14%', sortValue: (r) => r.coordinator?.display_name,
+      id: 'coordinator', header: 'Coordinator', width: '16%', sortValue: (r) => r.coordinator?.display_name,
       cell: (r) => <PersonCell p={r.coordinator} none={r.status === 'draft' ? '—' : 'Unassigned'} />,
     },
   ], [statuses]);
 
-  const { rows, sort, setSort } = useTableSort(filtered, columns, { columnId: 'submitted_at', dir: 'desc' });
+  // Unsorted, the list keeps the query's order: newest requests first
+  const { rows, sort, setSort } = useTableSort(filtered, columns, null);
   const filtersActive = scope !== DEFAULTS.scope || status || q;
   const clear = () => setParams(new URLSearchParams(), { replace: true });
 
