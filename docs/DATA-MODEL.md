@@ -54,7 +54,8 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 | Table | P0 | Key fields | Notes |
 |---|---|---|---|
-| `event_request` | ✓ | request_number, title, event_type_id, status, requested_by, coordinator_id (null = unassigned), country, city, proposed_start/end, expected_attendees, estimated_spend, currency, rationale, event_id | ERD "Request"; 1:1 with an event once approved |
+| `event_request` | ✓ | request_number, title (Name), event_type_id, status (draft, review, approved, rejected), requested_by, coordinator_id (null = unassigned), timezone, starts_at, ends_at, rationale (Business justification), submitted_at, country, city, expected_attendees, estimated_spend, currency, event_id | ERD "Request"; 1:1 with an event once approved. Saved through `save_request(p)`; only drafts change; submit = status draft → review |
+| `request_team_member` | ✓ | request_id, user_id, team_role (→ `team_role`), role_label | **New**: who can access a request; the requester is owner |
 | `event` | ✓ | event_number, name, event_type_id, status, request_id, owner_id, country, city, venue_name, venue_address, timezone, starts_at, ends_at, expected_attendees, estimated_spend, currency, description, crm ids | ERD "Event" |
 | `event_team_member` | ✓ | event_id, user_id, team_role (→ `team_role`: owner, organizer, approver, viewer), role_label (free, e.g. "Medical lead") | ERD "Event Team" → User. Decides who can access the event |
 | `event_session` | ✓ | event_id, title, session_kind, starts_at, ends_at, location, sort | ERD "Event Session": the agenda grid |
@@ -82,6 +83,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 | `event_content` | ✓ | event_id, content_id, usage (presentation/document), category (Agenda, Contract, Compliance, Finance, Presentation), session_id, review_status (draft/review/approved/rejected) | ERD "Event Content": the content grid + Documents tab |
 | `event_post` | ✓ | event_id, author_id, body, parent_id (replies) | ERD "Event Post": message board |
 | `event_post_reaction` | ✓ | post_id, user_id, emoji | |
+| `request_post` / `request_post_reaction` | ✓ | request_id, author_id, body, parent_id / post_id, user_id, emoji | **New**: the request team's discussion board |
 | `event_task` | ✓ | event_id, title, assignee_id, due_date, done_at, source_post_id | ERD "Event Task": also feeds Home "Needs my action" |
 | `notification` | ✓ | user_id, kind, title, body, record_type, record_id, read_at | Bell + Home |
 
@@ -101,6 +103,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 ## Relationship summary
 
 - `event_request` 1—1 `event`
+- `event_request` 1—N `request_team_member`, `request_post`
 - `event` N—1 `event_type`, `country`, `app_user` (owner)
 - `event` 1—N `event_team_member`, `event_session`, `event_expert`, `event_attendee`, `event_contracting_org`, `event_content`, `event_post`, `event_task`
 - `event_session` N—M `event_expert` via `event_session_speaker`

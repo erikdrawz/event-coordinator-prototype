@@ -42,7 +42,7 @@ select app.sid('tenant:alera'), app.sid('profile:coordinator'), o.obj,
        o.obj not in (select obj from config) and o.obj <> 'audit_log',
        o.obj not in (select obj from config) and o.obj <> 'audit_log',
        o.obj not in (select obj from config) and o.obj <> 'audit_log',
-       false            -- which events: the ones they're on the team of
+       o.obj = 'event_request'   -- home office sees every submitted request; events only through their team
   from objects o;
 
 -- Collaborator: read everything; contribute to the team board, tasks, content, attendees, requests
@@ -50,7 +50,7 @@ insert into public.permission (tenant_id, profile_id, object_name, can_read, can
 select app.sid('tenant:alera'), app.sid('profile:collaborator'), o.obj, true,
        o.obj in ('event_post','event_post_reaction','event_task','content','event_content','event_request','event_attendee'),
        o.obj in ('event_post','event_task','content','event_content','event_request','event_attendee'),
-       o.obj in ('event_post_reaction')
+       o.obj in ('event_post_reaction','event_request')
   from (values
     ('event_type'),('therapeutic_area'),('product'),('specialty'),('crm_connection'),
     ('hco'),('hcp'),('fmv_rate'),('event_request'),('event'),('event_product'),('event_team_member'),
@@ -95,3 +95,12 @@ select app.sid('tenant:alera'), app.sid('profile:bizadmin'), o.obj, true, w, w, 
 insert into public.user_group (id, tenant_id, name, description) values
   (app.sid('group:hq-events'), app.sid('tenant:alera'), 'HQ Events',      'Global strategic events team'),
   (app.sid('group:medical'),   app.sid('tenant:alera'), 'Medical Affairs','Medical leads and reviewers');
+
+-- Request team and board: the same rights as the event team and board, except that a requester
+-- (Collaborator) manages the team of their own requests
+insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
+select tenant_id, profile_id, 'request_' || substr(object_name, 7), can_read, can_create, can_edit, can_delete, view_all, modify_all
+  from public.permission
+ where object_name in ('event_team_member', 'event_post', 'event_post_reaction');
+update public.permission set can_create = true, can_edit = true, can_delete = true
+ where object_name = 'request_team_member' and profile_id = app.sid('profile:collaborator');
