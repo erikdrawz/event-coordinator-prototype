@@ -294,8 +294,6 @@ select app.sid('content:' || k), app.sid('tenant:alera'), title, kind, fname, mi
     ('sma-agenda',     'Advisory board agenda v3',                        'document',    'Advisory board agenda v3.docx',                       'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 64000, 'paul', null, 4),
     ('sma-agreements', 'HCP consulting agreements',                       'document',    'HCP consulting agreements.zip',                       'application/zip',  1830000, 'sarah', null, 8),
     ('sma-budget',     'Budget approval REQ-0051',                        'document',    'Budget approval REQ-0051.pdf',                        'application/pdf',   98000, 'michael', null, 16),
-    ('tpl-csa',        'Consulting services agreement — template v4',     'template',    'CSA template v4.docx',                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 88000, 'alex', null, 120),
-    ('tpl-wo',         'Work order — template v2',                        'template',    'Work order template v2.docx',                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 51000, 'alex', null, 120),
     ('bio-registries', 'Rare disease registries across the Nordics',      'presentation','Nordic registries - draft.pptx',                      'application/vnd.openxmlformats-officedocument.presentationml.presentation', 6100000, 'emma','vaaranen', 6)
   ) as t(k, title, kind, fname, mime, size, own, hcp, age_d);
 
@@ -314,38 +312,216 @@ select app.sid('ec:' || e || ':' || c), app.sid('tenant:alera'), app.sid('event:
   ) as t(e, c, usage, cat, s, rs, age_d);
 
 -- ---------------------------------------------------------------------
--- Contracting
+-- Contracting: templates (Markdown with merge fields), MSAs, Work Orders
 -- ---------------------------------------------------------------------
-insert into public.contract (id, tenant_id, contract_number, contract_type, status, counterparty_hcp_id, counterparty_hco_id,
-                             parent_contract_id, start_date, end_date, template_content_id, document_content_id, clm_reference)
+insert into public.contract_template (id, tenant_id, name, contract_type, file_name, country_codes, body, created_by, created_at)
+values
+(app.sid('tpl:msa'), app.sid('tenant:alera'), 'Master Service Agreement', 'msa', 'master-service-agreement.md', null, $md$# Master Service Agreement
+
+**Agreement number:** {{contract.number}}
+**Term:** {{contract.start_date}} to {{contract.end_date}}
+
+This Master Service Agreement is made between **{{company.name}}** ("the Company") and **{{expert.name}}**, {{expert.specialty}}, {{expert.organisation}}, {{expert.address}} ("the Expert").
+
+## 1. Purpose
+
+The Company may ask the Expert to provide services such as speaking, chairing, advising, consulting or training. Each engagement is agreed in a separate Work Order under this Agreement. A Work Order describes the event, the services and the fees.
+
+## 2. Fees
+
+Fees are set out in each Work Order. They are based on an hourly rate that reflects fair market value for the Expert's qualifications and the services, and cover preparation, the services themselves and travel time. No other payment or benefit is offered for the services.
+
+## 3. Independence and compliance
+
+- The Expert is engaged for their expertise. The engagement is not an inducement to prescribe, recommend, purchase or supply any product.
+- The Expert confirms they are permitted by their employer to provide the services and will declare this engagement where required.
+- The Company will disclose payments under this Agreement as required by applicable transparency rules, including the EFPIA Disclosure Code.
+
+## 4. Confidentiality and data protection
+
+The Expert keeps confidential all non-public information received from the Company. The Company processes the Expert's personal data to manage the engagement and meet its reporting obligations.
+
+## 5. Term and termination
+
+This Agreement runs from {{contract.start_date}} to {{contract.end_date}}. Either party may end it with 30 days' written notice. Work Orders already signed are completed unless both parties agree otherwise.
+
+## Signatures
+
+| For {{company.name}} | The Expert |
+|:---|:---|
+| Name: | {{expert.name}} |
+| Signature: | Signature: |
+| Date: | Date: |
+$md$, app.sid('user:alex'), now() - interval '120 days'),
+
+(app.sid('tpl:wo'), app.sid('tenant:alera'), 'Work Order', 'work_order', 'work-order.md', null, $md$# Work Order {{contract.number}}
+
+Under Master Service Agreement **{{parent.number}}** between **{{company.name}}** and **{{expert.name}}**, valid {{parent.start_date}} to {{parent.end_date}}. The terms of that Agreement apply to this Work Order.
+
+## Engagement
+
+| | |
+|:---|:---|
+| Event | {{event.name}} ({{event.number}}) |
+| Event type | {{event.type}} |
+| Date | {{event.dates}} |
+| Location | {{event.location}} |
+| Role | {{engagement.role}} |
+
+## Services and fees
+
+The Expert will prepare for and deliver the services above. Fees are based on the agreed hourly rate of **{{honorarium.rate}}**:
+
+{{honorarium.table}}
+
+The total fee is **{{honorarium.total}}**. It is paid within 30 days after the event, against an invoice. Reasonable travel and accommodation costs are booked by the Company or reimbursed against receipts.
+
+## Signatures
+
+| For {{company.name}} | The Expert |
+|:---|:---|
+| Name: | {{expert.name}} |
+| Signature: | Signature: |
+| Date: | Date: |
+$md$, app.sid('user:alex'), now() - interval '120 days'),
+
+(app.sid('tpl:sec'), app.sid('tenant:alera'), 'Single-event Contract', 'event_contract', 'single-event-contract.md', null, $md$# Single-event Contract
+
+**Contract number:** {{contract.number}}
+
+This contract is made between **{{company.name}}** ("the Company") and **{{expert.name}}**, {{expert.specialty}}, {{expert.organisation}}, {{expert.address}} ("the Expert") for one engagement.
+
+## 1. Engagement
+
+| | |
+|:---|:---|
+| Event | {{event.name}} ({{event.number}}) |
+| Event type | {{event.type}} |
+| Date | {{event.dates}} |
+| Location | {{event.location}} |
+| Role | {{engagement.role}} |
+
+## 2. Fees
+
+Fees are based on an hourly rate of **{{honorarium.rate}}**, which reflects fair market value for the Expert's qualifications and the services:
+
+{{honorarium.table}}
+
+The total fee is **{{honorarium.total}}**, paid within 30 days after the event against an invoice. Reasonable travel and accommodation costs are booked by the Company or reimbursed against receipts.
+
+## 3. Independence and compliance
+
+- The engagement is not an inducement to prescribe, recommend, purchase or supply any product.
+- The Expert confirms they are permitted by their employer to provide the services.
+- The Company will disclose this payment as required by applicable transparency rules, including the EFPIA Disclosure Code.
+
+## 4. Confidentiality
+
+The Expert keeps confidential all non-public information received from the Company.
+
+## Signatures
+
+| For {{company.name}} | The Expert |
+|:---|:---|
+| Name: | {{expert.name}} |
+| Signature: | Signature: |
+| Date: | Date: |
+$md$, app.sid('user:alex'), now() - interval '120 days'),
+
+(app.sid('tpl:sec-de'), app.sid('tenant:alera'), 'Single-event Contract — Germany', 'event_contract', 'single-event-contract-de.md', '{DE}', $md$# Single-event Contract (Germany)
+
+**Contract number:** {{contract.number}}
+
+This contract is made between **{{company.name}}** ("the Company") and **{{expert.name}}**, {{expert.organisation}}, {{expert.address}} ("the Expert").
+
+## 1. Engagement
+
+The Expert takes part in **{{event.name}}** ({{event.dates}}, {{event.location}}) as {{engagement.role}}.
+
+## 2. Fees
+
+{{honorarium.table}}
+
+The total fee is **{{honorarium.total}}**, paid within 30 days after the event against an invoice.
+
+## 3. Employer approval
+
+Before the engagement, the Expert obtains the written approval of their employer (Dienstherrengenehmigung) where required, and gives the Company a copy.
+
+## 4. Transparency
+
+The Company discloses this payment under the FSA Transparency Code.
+
+## Signatures
+
+| For {{company.name}} | The Expert |
+|:---|:---|
+| Name: | {{expert.name}} |
+| Signature: | Signature: |
+| Date: | Date: |
+$md$, app.sid('user:alex'), now() - interval '60 days'),
+
+(app.sid('tpl:add'), app.sid('tenant:alera'), 'Addendum — fees', 'addendum', 'addendum-fees.md', null, $md$# Addendum {{contract.number}}
+
+to {{parent.type}} **{{parent.number}}** between **{{company.name}}** and **{{expert.name}}** for **{{event.name}}** ({{event.dates}}).
+
+## Changed fees
+
+From the date of this Addendum, the fees for the engagement are as follows, at an hourly rate of **{{honorarium.rate}}**:
+
+{{honorarium.table}}
+
+The new total fee is **{{honorarium.total}}**. All other terms of {{parent.number}} stay the same.
+
+## Signatures
+
+| For {{company.name}} | The Expert |
+|:---|:---|
+| Name: | {{expert.name}} |
+| Signature: | Signature: |
+| Date: | Date: |
+$md$, app.sid('user:alex'), now() - interval '120 days');
+
+-- Event templates for every external event type; the German contract only where those events run in Germany
+insert into public.event_type_contract_template (event_type_id, contract_template_id, tenant_id)
+select app.sid('etype:' || t.k), app.sid('tpl:' || x.tpl), app.sid('tenant:alera')
+  from (values ('advisory'), ('conference'), ('symposium'), ('seminar'), ('roundtable'), ('workshop'), ('investigator')) as t(k)
+ cross join (values ('wo'), ('sec'), ('add')) as x(tpl)
+union all
+select app.sid('etype:' || k), app.sid('tpl:sec-de'), app.sid('tenant:alera')
+  from (values ('advisory'), ('symposium'), ('seminar')) as t(k);
+
+-- Signed MSAs for most regular experts (Vaaranen's is still a draft); Lind has none
+insert into public.contract (id, tenant_id, contract_number, contract_type, status, title, counterparty_hcp_id, counterparty_hco_id,
+                             event_id, start_date, end_date, template_id, clm_reference, sent_at, signed_at)
 select app.sid('contract:' || k), app.sid('tenant:alera'),
-       prefix || '-' || extract(year from current_date) || '-' || num, ty, st,
+       prefix || '-' || extract(year from current_date) || '-' || num, ty, st, title,
        case when hcp is not null then app.sid('hcp:' || hcp) end, case when hco is not null then app.sid('hco:' || hco) end,
-       null, date_trunc('year', current_date)::date, (date_trunc('year', current_date) + interval '1 year - 1 day')::date,
-       case when tpl is not null then app.sid('content:' || tpl) end, case when doc is not null then app.sid('content:' || doc) end, clm
+       case when ev is not null then app.sid('event:' || ev) end,
+       date_trunc('year', current_date)::date, (date_trunc('year', current_date) + interval '2 years - 1 day')::date,
+       case when tpl is not null then app.sid('tpl:' || tpl) end, clm,
+       case when st in ('sent', 'executed') then date_trunc('year', current_date) - interval '20 days' end,
+       case when st = 'executed' then date_trunc('year', current_date) - interval '14 days' end
   from (values
-    ('csa-muir',      'CSA', '114', 'service_agreement', 'draft',    'muir',      null,           'tpl-csa', null,        'ICX-AG-20114'),
-    ('csa-griffiths', 'CSA', '109', 'service_agreement', 'draft',    'griffiths', null,           'tpl-csa', null,        'ICX-AG-20109'),
-    ('csa-eriksson',  'CSA', '087', 'service_agreement', 'draft',    'eriksson',  null,           'tpl-csa', null,        'ICX-AG-20087'),
-    ('csa-vaaranen',  'CSA', '131', 'service_agreement', 'draft',    'vaaranen',  null,           'tpl-csa', null,        'ICX-AG-20131'),
-    ('venue-sma',     'VEN', '031', 'venue',             'sent',     null,        'marriott-cph', null,      'sma-venue', null)
-  ) as t(k, prefix, num, ty, st, hcp, hco, tpl, doc, clm);
+    ('msa-muir',      'MSA', '0114', 'msa',   'executed', 'Master Service Agreement', 'muir',      null,           null,        'msa', 'ICX-AG-20114'),
+    ('msa-griffiths', 'MSA', '0109', 'msa',   'executed', 'Master Service Agreement', 'griffiths', null,           null,        'msa', 'ICX-AG-20109'),
+    ('msa-eriksson',  'MSA', '0087', 'msa',   'executed', 'Master Service Agreement', 'eriksson',  null,           null,        'msa', 'ICX-AG-20087'),
+    ('msa-vogel',     'MSA', '0092', 'msa',   'executed', 'Master Service Agreement', 'vogel',     null,           null,        'msa', 'ICX-AG-20092'),
+    ('msa-vaaranen',  'MSA', '0131', 'msa',   'draft',    'Master Service Agreement', 'vaaranen',  null,           null,        'msa', null),
+    ('venue-sma',     'VEN', '0031', 'venue', 'sent',     'Venue contract — Copenhagen Marriott', null, 'marriott-cph', 'sma-board', null, null)
+  ) as t(k, prefix, num, ty, st, title, hcp, hco, ev, tpl, clm);
+update public.contract set document_content_id = app.sid('content:sma-venue') where id = app.sid('contract:venue-sma');
 
--- Work orders under the umbrella agreements, one per event engagement
-insert into public.contract (id, tenant_id, contract_number, contract_type, status, counterparty_hcp_id, parent_contract_id,
-                             start_date, end_date, template_content_id, clm_reference)
+-- Draft Work Orders for the SMA Board chair and speaker, under their MSAs
+insert into public.contract (id, tenant_id, contract_number, contract_type, status, title, event_expert_id, parent_contract_id,
+                             start_date, end_date, template_id)
 select app.sid('contract:wo-' || k), app.sid('tenant:alera'), 'WO-' || extract(year from current_date) || '-' || num,
-       'work_order', st, app.sid('hcp:' || hcp), app.sid('contract:csa-' || hcp), current_date + 5, current_date + 5,
-       app.sid('content:tpl-wo'), clm
-  from (values ('muir','0451','draft','muir',null), ('griffiths','0448','draft','griffiths','ICX-WO-30448')) t(k, num, st, hcp, clm);
+       'work_order', 'draft', 'Work Order — SMA Board', app.sid('expert:sma-board:' || k), app.sid('contract:msa-' || k),
+       current_date + 5, current_date + 5, app.sid('tpl:wo')
+  from (values ('muir', '0451'), ('griffiths', '0448')) t(k, num);
 
-insert into public.event_expert_contract (event_expert_id, contract_id, tenant_id, event_id) values
-  (app.sid('expert:sma-board:muir'),      app.sid('contract:csa-muir'),      app.sid('tenant:alera'), app.sid('event:sma-board')),
-  (app.sid('expert:sma-board:muir'),      app.sid('contract:wo-muir'),       app.sid('tenant:alera'), app.sid('event:sma-board')),
-  (app.sid('expert:sma-board:griffiths'), app.sid('contract:csa-griffiths'), app.sid('tenant:alera'), app.sid('event:sma-board')),
-  (app.sid('expert:sma-board:griffiths'), app.sid('contract:wo-griffiths'),  app.sid('tenant:alera'), app.sid('event:sma-board')),
-  (app.sid('expert:bioforum:eriksson'),   app.sid('contract:csa-eriksson'),  app.sid('tenant:alera'), app.sid('event:bioforum')),
-  (app.sid('expert:bioforum:vaaranen'),   app.sid('contract:csa-vaaranen'),  app.sid('tenant:alera'), app.sid('event:bioforum'));
+select app.render_contract(id) from public.contract where template_id is not null;
+select app.sync_number_sequences();
 
 insert into public.event_contracting_org (id, tenant_id, event_id, hco_id, purpose) values
   (app.sid('eco:sma-board:marriott'), app.sid('tenant:alera'), app.sid('event:sma-board'), app.sid('hco:marriott-cph'), 'venue');

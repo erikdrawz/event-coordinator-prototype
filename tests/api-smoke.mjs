@@ -213,10 +213,56 @@ ok(leftOnSession.data?.length === 0, 'removing a speaker removes them from the s
 // …unless a contract is out for signature or signed
 await saveSession(paul, { id: sess.data.id, speakers: [{ hcp_id: lindHcp.data[0].id }] });
 lind = (await expertOf()).data?.[0];
-const lindContract = await api(paul, 'contract', { method: 'POST', body: { contract_number: `SMOKE-${Date.now()}`, contract_type: 'work_order', status: 'sent', counterparty_hcp_id: lindHcp.data[0].id } });
-await api(paul, 'event_expert_contract', { method: 'POST', body: { event_expert_id: lind.id, contract_id: lindContract.data?.[0]?.id, event_id: ev.id } });
+// Contracting: a Single-event Contract for Lind (no MSA), sent with its PDF and signed
+const createContract = (who, p) => api(who, 'rpc/create_contract', { method: 'POST', body: { p } });
+const storage = (token, path, { method = 'GET', body, type } = {}) => fetch(`${URL_}/storage/v1/object/${path}`, { method, body,
+  headers: { apikey: KEY, authorization: `Bearer ${token}`, ...(type ? { 'content-type': type, 'x-upsert': 'true' } : {}) } });
+const pdf = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n');
+ok((await createContract(paul, { contract_type: 'event_contract', event_expert_id: lind.id })).status >= 400, 'an expert must be eligible to be contracted');
+await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { eligibility: 'eligible' } });
+const noMsa = await createContract(paul, { contract_type: 'work_order', event_expert_id: lind.id });
+ok(noMsa.status >= 400 && /Master Service Agreement/.test(noMsa.data?.message), 'a Work Order needs a signed MSA that covers the event');
+const opts = (await api(paul, 'rpc/contract_options', { method: 'POST', body: { p_event_expert_id: lind.id } })).data;
+ok(opts?.eligible === true && opts?.msa === null && opts?.templates?.event_contract?.length === 1 && opts?.templates?.work_order?.length === 1,
+   'contract_options: no MSA, one template per type for an advisory board in France');
+const sec = await createContract(paul, { contract_type: 'event_contract', event_expert_id: lind.id });
+const lindPay = (await api(paul, `event_expert?id=eq.${lind.id}&select=total_payable`)).data?.[0];
+ok(sec.status === 200 && /^SEC-\d{4}-\d{4}$/.test(sec.data?.contract_number) && sec.data?.status === 'draft' && sec.data?.event_id === ev.id,
+   'a Single-event Contract is created as a draft with its own number');
+ok(Number(sec.data?.honorarium?.total) === Number(lindPay.total_payable) && sec.data?.body?.includes('Smoke Test Board') && sec.data?.body?.includes('| Preparation |'),
+   'the contract text carries the event and the agreed honorarium (prep, service, travel)');
+ok((await createContract(paul, { contract_type: 'event_contract', event_expert_id: lind.id })).status >= 400, 'one open contract per expert on an event');
+const add1 = await createContract(paul, { contract_type: 'addendum', event_expert_id: lind.id });
+ok(add1.status === 200 && add1.data?.parent_contract_id === sec.data?.id && /^ADD-/.test(add1.data?.contract_number), 'an Addendum attaches to the open contract');
+ok((await api(paul, `contract?id=eq.${sec.data?.id}`, { method: 'PATCH', body: { status: 'executed' } })).status >= 400, "a draft can't jump to signed");
+ok((await api(paul, 'rpc/send_contract', { method: 'POST', body: { p_id: sec.data?.id, p_file: { path: `${sec.data?.id}/missing.pdf` } } })).status >= 400,
+   "a contract can't be sent without its PDF");
+ok((await storage(sarah, `contracts/${sec.data?.id}/x.pdf`, { method: 'POST', body: pdf, type: 'application/pdf' })).status >= 400,
+   "someone who can't edit the event can't upload the contract's PDF");
+const filePath = `${sec.data?.id}/${sec.data?.contract_number}.pdf`;
+const up = await storage(paul, `contracts/${filePath}`, { method: 'POST', body: pdf, type: 'application/pdf' });
+const sent = await api(paul, 'rpc/send_contract', { method: 'POST', body: { p_id: sec.data?.id, p_file: { path: filePath, file_name: `${sec.data?.contract_number}.pdf`, size_bytes: pdf.length } } });
+ok(up.ok && sent.data?.status === 'sent' && sent.data?.document_content_id && /^ICX-/.test(sent.data?.clm_reference ?? ''), 'sending stores the PDF and hands it to the contracting tool');
+ok((await storage(paul, `authenticated/contracts/${filePath}`)).ok, 'the stored PDF can be downloaded');
+ok((await api(paul, `contract?id=eq.${sec.data?.id}`, { method: 'PATCH', body: { body: 'Changed' } })).status >= 400, "a sent contract's text can't change");
+ok((await api(sarah, `contract?id=eq.${sec.data?.id}&select=id`)).data?.length === 0, "an event's contracts are only visible to those who see the event");
+ok((await api(paul, 'rpc/mark_contract_signed', { method: 'POST', body: { p_id: sec.data?.id } })).data?.status === 'executed', 'a sent contract is marked as signed');
+ok((await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'DELETE' })).status >= 400, "an expert with a signed contract can't be removed from the event");
+// MSAs belong to the expert; a direct insert is always a draft; templates are checked
+const lindMsa = await createContract(paul, { contract_type: 'msa', hcp_id: lindHcp.data[0].id });
+ok(lindMsa.status === 200 && lindMsa.data?.event_id === null && lindMsa.data?.end_date > lindMsa.data?.start_date, 'an MSA is created on the expert, for two years');
+const msaSpoof = await api(paul, 'contract', { method: 'POST', body: { contract_type: 'msa', counterparty_hcp_id: lindHcp.data[0].id, status: 'executed' } });
+ok(msaSpoof.data?.[0]?.status === 'draft', 'a contract created through the API starts as a draft');
+await api(paul, `contract?id=in.(${lindMsa.data?.id},${msaSpoof.data?.[0]?.id})`, { method: 'DELETE' });
+const tplType = (await api(paul, 'event_type?name=eq.Advisory%20board&select=id')).data?.[0]?.id;
+ok((await api(alex, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'work_order', body: 'Dear {{expert.nmae}}' } })).status >= 400,
+   'a template with an unknown merge field is refused');
+ok((await api(paul, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'work_order', body: 'Dear {{expert.name}}' } })).status >= 400,
+   "a coordinator can't add contract templates");
+ok((await api(alex, 'event_type_contract_template', { method: 'POST', body: { event_type_id: tplType, contract_template_id: (await api(alex, 'contract_template?contract_type=eq.msa&select=id')).data?.[0]?.id } })).status >= 400,
+   "MSA templates don't belong to event types");
 await saveSession(paul, { id: sess.data.id, speakers: [] });
-ok((await expertOf()).data?.length === 1, 'a speaker with a sent contract stays without sessions');
+ok((await expertOf()).data?.length === 1, 'a speaker with a signed contract stays without sessions');
 // Deleting a session takes its only speakers with it
 const evaHcp = await api(paul, 'hcp?last_name=eq.Sørensen&select=id');
 const evaSess = await saveSession(paul, { event_id: ev.id, title: 'Smoke panel', starts_local: '2026-12-01T11:00', ends_local: '2026-12-01T11:30', speakers: [{ hcp_id: evaHcp.data[0].id }] });
@@ -375,11 +421,12 @@ ok(reqAccess.data?.access === 'edit' && reqAccess.data?.team_role === 'owner', '
 await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.id})`, { method: 'DELETE' });
 await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });
 await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: { job_title: lisa.data[0].job_title } });
+await storage(alex, `contracts/${filePath}`, { method: 'DELETE' });
 await api(paul, `event?id=eq.${ev.id}`, { method: 'DELETE' });
 await api(alex, `event_request?id=eq.${reqId}`, { method: 'DELETE' });
 await api(paul, `hcp?id=eq.${imported.data?.id}`, { method: 'DELETE' });
 await api(paul, `hco?id=eq.${karinHcp.data?.[0]?.primary_hco?.id}`, { method: 'DELETE' });
-await api(paul, `contract?id=eq.${lindContract.data?.[0]?.id}`, { method: 'DELETE' });
+await api(alex, `content?id=eq.${sent.data?.document_content_id}`, { method: 'DELETE' });
 await api(paul, `event_expert?id=eq.${holm.data[0].id}`, { method: 'PATCH', body: { check_status: 'pending', check_notes: null } });
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');

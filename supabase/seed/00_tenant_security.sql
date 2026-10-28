@@ -25,7 +25,7 @@ with objects(obj) as (values
   ('event_request'),('event'),('event_product'),('event_team_member'),('event_session'),
   ('event_expert'),('event_session_speaker'),('event_attendee'),('event_contracting_org'),
   ('content'),('event_content'),('contract'),
-  ('event_expert_contract'),('event_attendee_contract'),('org_contract'),
+  ('event_attendee_contract'),('org_contract'),
   ('event_post'),('event_post_reaction'),('event_task'),
   ('approval_process'),('approval_process_step'),('approval'),('approval_action'),
   ('user_group'),('user_group_member'),('audit_log'),('custom_field'),('custom_field_layout'),
@@ -55,7 +55,7 @@ select app.sid('tenant:alera'), app.sid('profile:collaborator'), o.obj, true,
     ('event_type'),('therapeutic_area'),('product'),('specialty'),('crm_connection'),
     ('hco'),('hcp'),('fmv_rate'),('event_request'),('event'),('event_product'),('event_team_member'),
     ('event_session'),('event_expert'),('event_session_speaker'),('event_attendee'),('event_contracting_org'),
-    ('content'),('event_content'),('contract'),('event_expert_contract'),('event_attendee_contract'),('org_contract'),
+    ('content'),('event_content'),('contract'),('event_attendee_contract'),('org_contract'),
     ('event_post'),('event_post_reaction'),('event_task'),('approval'),('approval_action'),('audit_log'),
     ('custom_field'),('custom_field_layout'),
     ('event_type_country'),('app_user_country'),('session_kind')
@@ -104,3 +104,9 @@ select tenant_id, profile_id, 'request_' || substr(object_name, 7), can_read, ca
  where object_name in ('event_team_member', 'event_post', 'event_post_reaction');
 update public.permission set can_create = true, can_edit = true, can_delete = true
  where object_name = 'request_team_member' and profile_id = app.sid('profile:collaborator');
+
+-- Contract templates are configuration like event types: the same rights
+insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
+select tenant_id, profile_id, o, can_read, can_create, can_edit, can_delete, view_all, modify_all
+  from public.permission, unnest(array['contract_template', 'event_type_contract_template']) o
+ where object_name = 'event_type';
