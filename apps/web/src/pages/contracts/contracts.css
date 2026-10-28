@@ -1,0 +1,73 @@
+/* Contract page: the document (two thirds) and its details (one third) */
+.event-head.contract-head { padding-bottom: 20px; }
+.contract-head .event-head-row { align-items: center; }
+.contract-head .event-actions .btn svg { margin-right: 2px; }
+.contract-note { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--radius-md); font-size: var(--text-base);
+  background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); }
+.contract-note .link { color: inherit; font-weight: 700; }
+
+.contract-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 18px; align-items: start; margin-top: 18px; }
+.contract-side { display: grid; gap: 18px; min-width: 0; }
+.contract-paper { padding: 44px 56px; min-width: 0; }
+
+.fee-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: var(--text-md); }
+.fee-table th { text-align: left; font-weight: 500; color: var(--color-text-secondary); padding: 6px 0; }
+.fee-table td { text-align: right; padding: 6px 0 6px 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fee-table td:nth-child(2) { color: var(--color-text-muted); }
+.fee-table tfoot th, .fee-table tfoot td:last-child { font-weight: 800; color: var(--color-text); }
+.fee-table tfoot tr { border-top: 1px solid var(--color-border); }
+
+/* The document itself: a sheet of paper, in the PDF's type sizes */
+.cdoc { max-width: 680px; margin: 0 auto; font-size: var(--text-md); line-height: 1.55; color: var(--color-text); }
+.cdoc h1 { font-size: var(--text-2xl); font-weight: 800; margin: 0 0 16px; letter-spacing: -0.01em; }
+.cdoc h2 { font-size: var(--text-lg); font-weight: 700; margin: 22px 0 8px; }
+.cdoc h3 { font-size: var(--text-md); font-weight: 700; margin: 16px 0 6px; }
+.cdoc p { margin: 0 0 10px; }
+.cdoc ul, .cdoc ol { margin: 0 0 10px; padding-left: 22px; }
+.cdoc li { margin-bottom: 4px; }
+.cdoc hr { border: 0; border-top: 1px solid var(--color-border); margin: 14px 0; }
+.cdoc table { width: 100%; border-collapse: collapse; margin: 4px 0 14px; font-variant-numeric: tabular-nums; }
+.cdoc th, .cdoc td { padding: 6px 10px 6px 0; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.cdoc th { font-size: var(--text-base); font-weight: 700; color: var(--color-text-secondary); }
+.cdoc tr:last-child td { border-bottom: 0; }
+
+/* Merge fields in template previews */
+.merge-chip { padding: 0 5px; border-radius: var(--radius-sm); background: var(--color-accent-soft); color: var(--color-accent);
+  font-size: 0.86em; font-weight: 600; white-space: nowrap; }
+.merge-chip.unknown { background: var(--tone-red-bg); color: var(--tone-red-fg); text-decoration: wavy underline; }
+
+/* New contract dialog */
+.contract-for { margin: 0 0 14px; color: var(--color-text-secondary); }
+.type-choices { display: grid; gap: 8px; }
+.type-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); cursor: pointer; }
+.type-choice > span { display: flex; flex-direction: column; gap: 2px; }
+.type-choice input { margin-top: 3px; accent-color: var(--color-accent); }
+.type-choice.selected { border-color: var(--color-accent); background: var(--color-accent-softer); }
+.type-choice.disabled { cursor: not-allowed; background: var(--color-surface-muted); }
+.type-choice.disabled strong { color: var(--color-text-muted); }
+.type-choice-why { font-size: var(--text-sm); color: var(--tone-yellow-fg); }
+.contract-fee { padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface-muted); font-size: var(--text-base); }
+
+/* Contract references in lists */
+.contract-cell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.contract-cell a { font-weight: 600; text-decoration: none; white-space: nowrap; }
+.contract-cell a:hover { text-decoration: underline; }
+
+@media (max-width: 960px) {
+  .contract-body { grid-template-columns: minmax(0, 1fr); }
+  .contract-head .event-head-row { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .contract-paper { padding: 24px 18px; }
+}
+
+/* Print: only the document */
+@media print {
+  @page { size: A4; margin: 20mm 18mm; }
+  body { background: #fff; }
+  body * { visibility: hidden; }
+  .contract-paper, .contract-paper * { visibility: visible; }
+  .contract-paper { position: absolute; inset: 0 auto auto 0; width: 100%; padding: 0; border: 0; box-shadow: none; }
+  .cdoc { max-width: none; font-size: 10.5pt; }
+}

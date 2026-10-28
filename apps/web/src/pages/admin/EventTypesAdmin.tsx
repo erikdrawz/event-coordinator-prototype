@@ -10,7 +10,7 @@ import { Modal } from '../../ui/Modal';
 import { CheckboxField, Field, FormSection } from '../../ui/Form';
 import { MultiSelect } from '../../ui/MultiSelect';
 import { AdminPage } from './AdminLayout';
-import { ADMIN_KEY, must, syncLinks, useCountries, useCustomFields, useEventTypes, type EventTypeRow } from './adminData';
+import { ADMIN_KEY, must, syncLinks, useContractTemplates, useCountries, useCustomFields, useEventTypes, type EventTypeRow } from './adminData';
 
 function Codes({ values, all, allLabel }: { values: string[]; all?: boolean; allLabel: string }) {
   if (!values.length) return <span className="admin-all">{all ? allLabel : 'None'}</span>;
@@ -22,23 +22,29 @@ export function EventTypesAdmin() {
   const { me } = useAuth();
   const types = useEventTypes();
   const fields = useCustomFields();
+  const templates = useContractTemplates();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<EventTypeRow | 'new' | null>(null);
 
   const columns = useMemo<Column<EventTypeRow>[]>(() => [
-    { id: 'name', header: 'Event type', width: '28%', sortValue: (t) => t.name,
+    { id: 'name', header: 'Event type', width: '22%', sortValue: (t) => t.name,
       cell: (t) => <><button className="dt-primary as-button" onClick={() => setEditing(t)}>{t.name}</button>
         {t.description && <div className="dt-sub">{t.description}</div>}</> },
-    { id: 'countries', header: 'Countries', width: '32%', sortValue: (t) => t.event_type_country.length,
+    { id: 'countries', header: 'Countries', width: '26%', sortValue: (t) => t.event_type_country.length,
       cell: (t) => <Codes values={t.event_type_country.map((c) => c.country_code).sort()} allLabel="" /> },
-    { id: 'fields', header: 'Event details fields', width: '26%',
+    { id: 'fields', header: 'Event details fields', width: '19%',
       cell: (t) => {
         const names = (fields.data ?? []).filter((f) => f.is_active && f.custom_field_layout.some((l) => l.event_type_id === t.id || l.event_type_id === null)).map((f) => f.label);
         return <span className="dt-sub">{names.length ? names.join(', ') : 'None'}</span>;
       } },
-    { id: 'active', header: 'Status', width: '14%', sortValue: (t) => (t.is_active ? 0 : 1),
+    { id: 'templates', header: 'Contract templates', width: '21%',
+      cell: (t) => {
+        const names = (templates.data ?? []).filter((c) => t.event_type_contract_template.some((l) => l.contract_template_id === c.id)).map((c) => c.name);
+        return <span className="dt-sub">{names.length ? names.join(', ') : 'None'}</span>;
+      } },
+    { id: 'active', header: 'Status', width: '12%', sortValue: (t) => (t.is_active ? 0 : 1),
       cell: (t) => <span className={`pill ${t.is_active ? 'pill-green' : 'pill-grey'}`}>{t.is_active ? 'Active' : 'Inactive'}</span> },
-  ], [fields.data]);
+  ], [fields.data, templates.data]);
 
   const filtered = useMemo(() => types.data?.filter((t) => !q || t.name.toLowerCase().includes(q.toLowerCase())), [types.data, q]);
   const { rows, sort, setSort } = useTableSort(filtered, columns, { columnId: 'name', dir: 'asc' });
@@ -61,6 +67,9 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
   const qc = useQueryClient();
   const countries = useCountries();
   const fields = useCustomFields();
+  const templates = useContractTemplates();
+  const beforeTemplates = type?.event_type_contract_template.map((l) => l.contract_template_id) ?? [];
+  const [tplIds, setTplIds] = useState(beforeTemplates);
   // Fields shown on this type, oldest first. "All types" assignments (API-made) show as locked.
   const allTypes = (fields.data ?? []).filter((f) => f.custom_field_layout.some((l) => l.event_type_id === null));
   const beforeFields = (fields.data ?? []).filter((f) => type && f.custom_field_layout.some((l) => l.event_type_id === type.id)).map((f) => f.id);
@@ -77,6 +86,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
   const canType = can(me, 'event_type', type ? 'edit' : 'create');
   const canCountries = can(me, 'event_type_country', 'create');
   const canFields = can(me, 'custom_field_layout', 'create');
+  const canTemplates = can(me, 'event_type_contract_template', 'create');
 
   const save = useMutation({
     mutationFn: async () => {
@@ -90,6 +100,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
       if (!id) return;
       if (canCountries) await syncLinks('event_type_country', 'event_type_id', id, 'country_code', beforeCountries, ctry);
       if (canFields && fieldIds) await syncLinks('custom_field_layout', 'event_type_id', id, 'custom_field_id', beforeFields, fieldIds);
+      if (canTemplates) await syncLinks('event_type_contract_template', 'event_type_id', id, 'contract_template_id', beforeTemplates, tplIds);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: [ADMIN_KEY] }); qc.invalidateQueries({ queryKey: ['event-form-options'] }); onClose(); },
   });
@@ -102,7 +113,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
 
   return (
     <Modal open size="lg" title={type ? type.name : 'New event type'} onClose={onClose}
-      footer={canType || canCountries || canFields ? <>
+      footer={canType || canCountries || canFields || canTemplates ? <>
         <button type="button" className="btn" onClick={onClose}>Cancel</button>
         <button type="submit" form="event-type-form" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
       </> : <button type="button" className="btn" onClick={onClose}>Close</button>}>
@@ -136,6 +147,14 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
               options={(fields.data ?? []).filter((f) => (f.is_active || chosenFields.includes(f.id)) && !allTypes.includes(f)).map((f) => ({ value: f.id, label: f.label }))} />}
           </Field>
           {allTypes.length > 0 && <p className="admin-section-note">Also shown on every event type: {allTypes.map((f) => f.label).join(', ')}.</p>}
+        </FormSection>
+        <FormSection title="Contracts">
+          <Field label="Contract templates" wide hint="Work Orders, Single-event Contracts and Addenda for experts on these events are drafted from these. Each is available in all of this type's countries unless the template is limited to some.">
+            {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Contract templates" value={tplIds} onChange={setTplIds}
+              disabled={!canTemplates || templates.isLoading} placeholder="No contract templates" maxChips={10}
+              options={(templates.data ?? []).filter((c) => c.contract_type !== 'msa' && (c.is_active || tplIds.includes(c.id)))
+                .map((c) => ({ value: c.id, label: c.country_codes?.length ? `${c.name} (${c.country_codes.join(', ')})` : c.name }))} />}
+          </Field>
         </FormSection>
       </form>
     </Modal>

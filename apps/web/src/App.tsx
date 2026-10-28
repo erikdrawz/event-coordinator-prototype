@@ -12,11 +12,13 @@ import { RequestsPage } from './pages/requests/RequestsPage';
 import { RequestPage } from './pages/requests/RequestPage';
 import { ExpertsPage } from './pages/experts/ExpertsPage';
 import { ExpertPage } from './pages/experts/ExpertPage';
+import { ContractPage } from './pages/contracts/ContractPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { EventTypesAdmin } from './pages/admin/EventTypesAdmin';
 import { ProductsAdmin, TherapeuticAreasAdmin } from './pages/admin/MasterDataAdmin';
 import { UsersAdmin } from './pages/admin/UsersAdmin';
 import { CustomFieldsAdmin } from './pages/admin/CustomFieldsAdmin';
+import { ContractTemplatesAdmin } from './pages/admin/ContractTemplatesAdmin';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, me, loading } = useAuth();
@@ -47,12 +49,14 @@ export function App() {
         <Route path="requests/:id" element={<RequestPage />} />
         <Route path="experts" element={<ExpertsPage />} />
         <Route path="experts/:id" element={<ExpertPage />} />
+        <Route path="contracts/:id" element={<ContractPage />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="event-types" replace />} />
           <Route path="event-types" element={<EventTypesAdmin />} />
           <Route path="products" element={<ProductsAdmin />} />
           <Route path="therapeutic-areas" element={<TherapeuticAreasAdmin />} />
           <Route path="custom-fields" element={<CustomFieldsAdmin />} />
+          <Route path="contract-templates" element={<ContractTemplatesAdmin />} />
           <Route path="users" element={<UsersAdmin />} />
         </Route>
         <Route path="*" element={<PlaceholderPage title="Page not found" phase="no phase — check the address" />} />

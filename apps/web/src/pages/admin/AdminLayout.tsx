@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Boxes, CalendarCog, FlaskConical, Users, Workflow, ListChecks, Plug, SlidersHorizontal } from 'lucide-react';
+import { Boxes, CalendarCog, FileSignature, FlaskConical, Users, Workflow, ListChecks, Plug, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import './admin.css';
 
@@ -9,6 +9,7 @@ const SECTIONS = [
   { to: 'products', label: 'Products', icon: Boxes },
   { to: 'therapeutic-areas', label: 'Therapeutic areas', icon: FlaskConical },
   { to: 'custom-fields', label: 'Custom fields', icon: SlidersHorizontal },
+  { to: 'contract-templates', label: 'Contract templates', icon: FileSignature },
   { to: 'users', label: 'Users', icon: Users },
 ];
 // On the roadmap, shown so admins can see where configuration is heading

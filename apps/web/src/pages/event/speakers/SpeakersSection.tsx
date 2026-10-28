@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useEventAccess } from '../eventAccess';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, FileText, MoreVertical, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, FilePlus2, FileSignature, MoreVertical, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { can } from '../../../lib/permissions';
@@ -13,8 +13,11 @@ import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { eventKey, initials, type SpeakerOption } from '../agenda/agendaData';
 import { PersonPicker } from '../people/PersonPicker';
+import { NewContractModal } from '../../contracts/NewContractModal';
+import { ContractStatusPill } from '../../contracts/ContractStatusPill';
+import '../../contracts/contracts.css';
 import {
-  ROLES, currencySymbol, hcpSub, hours, money, rateRange, roleLabel, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
+  ROLES, currencySymbol, hcpSub, hours, mainContract, money, rateRange, roleLabel, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
 } from './speakersData';
 
 const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility in review' } as const;
@@ -43,11 +46,13 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
   const experts = useExperts(eventId);
   const [adding, setAdding] = useState<number | null>(null);
   const [removing, setRemoving] = useState<Expert | null>(null);
+  const [contracting, setContracting] = useState<{ x: Expert; addendum: boolean } | null>(null);
   const [cellError, setCellError] = useState<string | null>(null);
   const policies = useRatePolicies(eventId).data;
   const canAdd = can(me, 'event_expert', 'create') && canEditEvent;
   const canEdit = can(me, 'event_expert', 'edit') && canEditEvent;
   const canDelete = can(me, 'event_expert', 'delete') && canEditEvent;
+  const canContract = can(me, 'contract', 'create') && canEditEvent;
   const list = experts.data ?? [];
   const grand = list.reduce((a, x) => a + x.total_payable, 0);
   const currency = list[0]?.currency ?? 'EUR';
@@ -100,8 +105,13 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
             </thead>
             <tbody>
               {list.map((x) => {
-                const contract = x.event_expert_contract.map((c) => c.contract).find((c) => c?.contract_type === 'service_agreement') ?? x.event_expert_contract[0]?.contract;
+                const { main, addenda } = mainContract(x);
                 const name = x.hcp?.display_name ?? 'Unknown HCP';
+                const menu = [
+                  ...(canContract && !main && x.eligibility === 'eligible' ? [{ key: 'contract', label: 'Create contract', icon: <FileSignature size={14} />, onSelect: () => setContracting({ x, addendum: false }) }] : []),
+                  ...(canContract && main ? [{ key: 'addendum', label: 'Add addendum', icon: <FilePlus2 size={14} />, onSelect: () => setContracting({ x, addendum: true }) }] : []),
+                  ...(canDelete ? [{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }] : []),
+                ];
                 return (
                   <tr key={x.id}>
                     <td>
@@ -118,7 +128,17 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                         </div>
                       ) : roleLabel(x.role)}
                     </td>
-                    <td>{contract ? <span className="contract-ref"><FileText size={13} aria-hidden />{contract.contract_number}</span> : <span className="text-muted">—</span>}</td>
+                    <td>
+                      {main ? (
+                        <span className="contract-cell">
+                          <Link to={`/contracts/${main.id}`}>{main.contract_number}</Link>
+                          <ContractStatusPill status={main.status as 'draft'} small />
+                          {addenda.length > 0 && <span className="dt-sub">+{addenda.length} addend{addenda.length === 1 ? 'um' : 'a'}</span>}
+                        </span>
+                      ) : canContract && x.eligibility === 'eligible'
+                        ? <button type="button" className="link" onClick={() => setContracting({ x, addendum: false })}>Create</button>
+                        : <span className="text-muted" data-tip={x.eligibility === 'eligible' ? undefined : 'Only eligible experts can be contracted'}>—</span>}
+                    </td>
                     <td className="num"><RateCell value={x.hourly_rate} currency={x.currency ?? 'EUR'} policy={policies?.[x.hcp_id]} label={`Hourly rate for ${name}`} disabled={!canEdit}
                       onInvalid={setCellError} onSave={(v) => update.mutate({ id: x.id, patch: { hourly_rate: v } })} /></td>
                     <td className="num"><HoursCell value={x.prep_hours} label={`Prep hours for ${name}`} disabled={!canEdit}
@@ -128,9 +148,9 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
                       onSave={(v) => update.mutate({ id: x.id, patch: { travel_hours: v } })} /></td>
                     <td className="num total">{x.eligibility === 'ineligible' ? '—' : money(x.total_payable, x.currency ?? 'EUR')}</td>
                     <td className="agenda-menu">
-                      {canDelete && (
+                      {menu.length > 0 && (
                         <Menu label={`Actions for ${name}`} width={190}
-                          items={[{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }]}
+                          items={menu}
                           trigger={(t) => <button className="icon-btn" aria-label={`Actions for ${name}`} {...t}><MoreVertical size={16} /></button>} />
                       )}
                     </td>
@@ -157,8 +177,16 @@ export function SpeakersSection({ eventId }: { eventId: string }) {
           onConfirm={() => remove.mutate(removing)} onCancel={() => { remove.reset(); setRemoving(null); }}>
           {removing.hcp?.display_name} will be removed from this event's experts
           {removing.event_session_speaker.length ? ` and from ${removing.event_session_speaker.length} agenda session${removing.event_session_speaker.length === 1 ? '' : 's'}` : ''}.
-          {removing.event_expert_contract.length > 0 && ' Their contracts stay on record but are no longer linked to this event.'}
+          {removing.contract.some((c) => c.status === 'draft') && ' Their draft contracts are deleted with them.'}
         </ConfirmDialog>
+      )}
+      {contracting && (
+        <NewContractModal onClose={() => setContracting(null)} target={{
+          kind: 'engagement', addendum: contracting.addendum, eventExpertId: contracting.x.id, eventId, hcpId: contracting.x.hcp_id,
+          name: contracting.x.hcp?.display_name ?? 'This expert',
+          honorarium: { total: contracting.x.total_payable, currency: contracting.x.currency ?? 'EUR', rate: contracting.x.hourly_rate,
+            prep: contracting.x.prep_hours, service: contracting.x.service_hours, travel: contracting.x.travel_hours },
+        }} />
       )}
     </section>
   );

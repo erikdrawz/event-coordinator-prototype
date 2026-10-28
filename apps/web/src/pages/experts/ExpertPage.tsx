@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Building2, FileSignature, MapPin, Stethoscope } from 'lucide-react';
+import { Building2, MapPin, Plus, Stethoscope } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
 import { avatarColorFor } from '../../lib/avatar';
@@ -11,6 +11,10 @@ import { formatDate } from '../../ui/DateInput';
 import { money, roleLabel } from '../event/speakers/speakersData';
 import { EligibilityPill } from './EligibilityPill';
 import { ExpertFormModal } from './ExpertFormModal';
+import { ContractStatusPill } from '../contracts/ContractStatusPill';
+import { NewContractModal } from '../contracts/NewContractModal';
+import { useExpertContracts, useTypeLabel } from '../contracts/contractsData';
+import '../contracts/contracts.css';
 import { fmvState, initialsOf, useEngagements, useExpert, type Engagement, type ExpertRow } from './expertsData';
 import '../event.css';
 import './experts.css';
@@ -30,7 +34,7 @@ const FMV_STATE = { current: { label: 'Current', tone: 'green' }, upcoming: { la
 
 /**
  * One expert: who they are, whether they can be engaged, their FMV rates and the events they
- * were or will be part of. Contracts come later.
+ * were or will be part of, and their contracts.
  */
 export function ExpertPage() {
   const { id } = useParams();
@@ -76,10 +80,7 @@ export function ExpertPage() {
         <div className="expert-main">
           <EngagementsCard list={list} loading={engagements.isLoading} error={engagements.error} />
           <FmvCard expert={x} />
-          <section className="card ov-card" aria-labelledby="contracts-title">
-            <div className="ov-head"><div className="ov-title-row"><h2 id="contracts-title" className="ov-title">Contracts</h2></div></div>
-            <div className="ov-empty"><span><FileSignature size={15} className="inline-icon" aria-hidden /><strong>Contracts come next.</strong> Service agreements and work orders with {x.first_name} {x.last_name} will be listed here.</span></div>
-          </section>
+          <ContractsCard expert={x} canCreate={can(me, 'contract', 'create')} />
         </div>
         <DetailsCard expert={x} />
       </div>
@@ -126,6 +127,47 @@ function EngagementsCard({ list, loading, error }: { list: Engagement[]; loading
           </table>
         </div>
       )}
+    </section>
+  );
+}
+
+function ContractsCard({ expert: x, canCreate }: { expert: ExpertRow; canCreate: boolean }) {
+  const { data, isLoading, error } = useExpertContracts(x.id);
+  const typeLabel = useTypeLabel();
+  const [adding, setAdding] = useState(false);
+  const list = data ?? [];
+  return (
+    <section className="card ov-card" aria-labelledby="contracts-title">
+      <div className="ov-head">
+        <div className="ov-title-row">
+          <h2 id="contracts-title" className="ov-title">Contracts</h2>
+          <span className="card-sub">{list.length ? `${list.length} contract${list.length === 1 ? '' : 's'}` : ''}</span>
+        </div>
+        {canCreate && <div className="ov-actions"><button className="btn btn-outline btn-sm" onClick={() => setAdding(true)}><Plus size={14} strokeWidth={2.6} />Add MSA</button></div>}
+      </div>
+      {error && <div className="form-error" role="alert">{error.message}</div>}
+      {isLoading ? <div className="ov-empty text-muted">Loading…</div> : list.length === 0 ? (
+        <div className="ov-empty"><span><strong>No contracts yet.</strong> A Master Service Agreement is added here; Work Orders and Single-event Contracts are created from the Experts section of an event.</span></div>
+      ) : (
+        <div className="table-scroll">
+          <table className="agenda-table expert-table">
+            <thead><tr><th>Contract</th><th>Type</th><th>Status</th><th>Term</th><th>Event</th><th>Related</th></tr></thead>
+            <tbody>
+              {list.map((c) => (
+                <tr key={c.id} className={c.status === 'cancelled' ? 'is-past' : undefined}>
+                  <td className="dt-nowrap"><Link to={`/contracts/${c.id}`} className="agenda-title expert-link">{c.contract_number}</Link></td>
+                  <td>{typeLabel(c.contract_type)}</td>
+                  <td><ContractStatusPill status={c.status} /></td>
+                  <td className="dt-nowrap">{c.start_date ? <>{formatDate(c.start_date)}{c.end_date && c.end_date !== c.start_date && <div className="dt-sub">to {formatDate(c.end_date)}</div>}</> : empty}</td>
+                  <td>{c.event ? <Link to={`/events/${c.event.id}`} className="expert-link">{c.event.name}</Link> : empty}</td>
+                  <td>{c.parent ? <Link to={`/contracts/${c.parent.id}`} className="expert-link">{c.parent.contract_number}</Link> : empty}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {adding && <NewContractModal target={{ kind: 'msa', hcpId: x.id, name: x.display_name }} onClose={() => setAdding(false)} />}
     </section>
   );
 }

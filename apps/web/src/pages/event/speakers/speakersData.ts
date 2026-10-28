@@ -11,7 +11,8 @@ export interface Expert {
   hourly_rate: number | null; currency: string | null;
   prep_hours: number; service_hours: number; travel_hours: number; total_payable: number;
   hcp: { display_name: string; city: string | null; specialty: { name: string } | null } | null;
-  event_expert_contract: { contract: { contract_number: string; contract_type: string; status: string } | null }[];
+  /** The engagement's contracts: Work Order or Single-event Contract, and Addenda */
+  contract: { id: string; contract_number: string; contract_type: string; status: string; parent_contract_id: string | null }[];
   event_session_speaker: { id: string }[];
 }
 
@@ -26,7 +27,7 @@ export function useExperts(eventId: string) {
     queryFn: async () => {
       const { data, error } = await supabase.from('event_expert')
         .select('id,hcp_id,role,created_at,eligibility,check_status,check_notes,hourly_rate,currency,prep_hours,service_hours,travel_hours,total_payable,' +
-                'hcp(display_name,city,specialty(name)),event_expert_contract(contract(contract_number,contract_type,status)),event_session_speaker(id)')
+                'hcp(display_name,city,specialty(name)),contract!contract_event_expert_id_fkey(id,contract_number,contract_type,status,parent_contract_id),event_session_speaker(id)')
         .eq('event_id', eventId)
         .order('created_at');
       if (error) throw error;
@@ -100,5 +101,11 @@ export const rateRange = (p: RatePolicy) => {
 export const currencySymbol = (c = 'EUR') => new Intl.NumberFormat('en-GB', { style: 'currency', currency: c }).formatToParts(0).find((x) => x.type === 'currency')?.value ?? c;
 
 /** Mirrors app.expert_keeps_without_sessions(): a sent or executed contract keeps a speaker without sessions. */
-export const keepsWithoutSessions = (x: Pick<Expert, 'event_expert_contract'>) =>
-  x.event_expert_contract.some((c) => c.contract?.status === 'sent' || c.contract?.status === 'executed');
+export const keepsWithoutSessions = (x: Pick<Expert, 'contract'>) =>
+  x.contract.some((c) => c.status === 'sent' || c.status === 'executed');
+
+/** The engagement's open Work Order or Single-event Contract (one at most), and its open addenda. */
+export function mainContract(x: Pick<Expert, 'contract'>) {
+  const main = x.contract.find((c) => (c.contract_type === 'work_order' || c.contract_type === 'event_contract') && c.status !== 'cancelled') ?? null;
+  return { main, addenda: main ? x.contract.filter((c) => c.parent_contract_id === main.id && c.status !== 'cancelled') : [] };
+}

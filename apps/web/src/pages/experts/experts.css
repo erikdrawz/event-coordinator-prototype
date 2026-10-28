@@ -1,5 +1,5 @@
 /* Expert page: engagements, FMV and contracts (two thirds), details (one third) */
-.expert-head { padding-bottom: 20px; }
+.event-head.expert-head { padding-bottom: 20px; }
 .expert-head .event-head-row { align-items: center; }
 .expert-note { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--radius-md); font-size: var(--text-base); }
 .expert-note.is-yellow { background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); }

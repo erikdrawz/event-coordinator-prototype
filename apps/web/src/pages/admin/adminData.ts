@@ -13,6 +13,12 @@ export interface Product { id: string; name: string; is_active: boolean; therape
 export interface EventTypeRow {
   id: string; name: string; description: string | null; default_duration_minutes: number | null; is_active: boolean;
   event_type_country: { country_code: string }[];
+  event_type_contract_template: { contract_template_id: string }[];
+}
+export interface ContractTemplateRow {
+  id: string; name: string; contract_type: string; body: string; file_name: string | null;
+  country_codes: string[] | null; is_active: boolean; updated_at: string;
+  event_type_contract_template: { event_type_id: string }[];
 }
 export interface Profile { id: string; name: string; is_admin: boolean }
 export interface UserRow {
@@ -56,8 +62,24 @@ export function useEventTypes() {
   return useQuery({
     queryKey: [ADMIN_KEY, 'event-types'],
     queryFn: () => rows<EventTypeRow>(supabase.from('event_type')
-      .select('id,name,description,default_duration_minutes,is_active,event_type_country(country_code)')
+      .select('id,name,description,default_duration_minutes,is_active,event_type_country(country_code),event_type_contract_template(contract_template_id)')
       .order('name')),
+  });
+}
+/** Contract templates with the event types that use them. */
+export function useContractTemplates() {
+  return useQuery({
+    queryKey: [ADMIN_KEY, 'contract-templates'],
+    queryFn: () => rows<ContractTemplateRow>(supabase.from('contract_template')
+      .select('id,name,contract_type,body,file_name,country_codes,is_active,updated_at,event_type_contract_template(event_type_id)')
+      .order('name')),
+  });
+}
+/** The {{merge fields}} templates can use. */
+export function useMergeFields() {
+  return useQuery({
+    queryKey: ['contract-merge-fields'], staleTime: Infinity,
+    queryFn: () => rows<{ field: string; description: string }>(supabase.rpc('contract_merge_fields')),
   });
 }
 /** Event custom fields, oldest first (the order they're shown in). */
