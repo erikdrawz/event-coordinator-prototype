@@ -23,7 +23,7 @@ export function UnassignedRequests() {
         <ul className="home-list">
           {data.rows.map((q) => (
             <li key={q.id}>
-              <Link to="/requests" className="home-request-row">
+              <Link to={`/requests/${q.id}`} className="home-request-row">
                 <Avatar size={30} initials={q.requester?.initials} color={q.requester?.avatar_color}
                   isAgent={q.requester?.user_type === 'agent'} title={q.requester?.display_name} />
                 <span className="home-row-main">

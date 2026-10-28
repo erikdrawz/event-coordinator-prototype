@@ -7,7 +7,7 @@ import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
-import { postTime, postsKey, usePosts, type Person, type Post, type Thread } from './teamData';
+import { boardTables, postTime, postsKey, usePosts, type Board, type Person, type Post, type Thread } from './teamData';
 
 const EMOJI = ['👍', '🎉', '👀', '❤️', '✅', '⚠️'];
 const SHOWN_REPLIES = 2;
@@ -46,19 +46,23 @@ function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCance
   );
 }
 
-/** The team's message board: posts, threaded replies and reactions. Anyone on the team can post. */
-export function Discussion({ eventId, eventName, canEditEvent }: { eventId: string; eventName: string; canEditEvent: boolean }) {
+/**
+ * The team's message board for an event or a request: posts, threaded replies and reactions.
+ * Anyone on the team can post. canModerate: may delete other people's posts.
+ */
+export function Discussion({ board, name, canModerate }: { board: Board; name: string; canModerate: boolean }) {
   const { me } = useAuth();
   const qc = useQueryClient();
-  const posts = usePosts(eventId);
+  const t = boardTables(board);
+  const posts = usePosts(board);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Post | null>(null);
-  const refresh = () => qc.invalidateQueries({ queryKey: postsKey(eventId) });
+  const refresh = () => qc.invalidateQueries({ queryKey: postsKey(board) });
 
   const post = useMutation({
     mutationFn: async ({ body, parent_id }: { body: string; parent_id?: string }) => {
-      const { error } = await supabase.from('event_post').insert({ event_id: eventId, body, parent_id: parent_id ?? null });
+      const { error } = await supabase.from(t.post).insert({ [t.key]: board.id, body, parent_id: parent_id ?? null });
       if (error) throw new Error(error.message);
     },
     onSuccess: (_, v) => { refresh(); if (v.parent_id) { setReplyTo(null); setExpanded((s) => new Set(s).add(v.parent_id!)); } },
@@ -66,15 +70,15 @@ export function Discussion({ eventId, eventName, canEditEvent }: { eventId: stri
   const react = useMutation({
     mutationFn: async ({ p, emoji, on }: { p: Post; emoji: string; on: boolean }) => {
       const { error } = on
-        ? await supabase.from('event_post_reaction').delete().match({ post_id: p.id, emoji, user_id: me!.id })
-        : await supabase.from('event_post_reaction').insert({ post_id: p.id, emoji, event_id: eventId });
+        ? await supabase.from(t.reaction).delete().match({ post_id: p.id, emoji, user_id: me!.id })
+        : await supabase.from(t.reaction).insert({ post_id: p.id, emoji, [t.key]: board.id });
       if (error) throw new Error(error.message);
     },
     onSettled: refresh,
   });
   const remove = useMutation({
     mutationFn: async (p: Post) => {
-      const { error } = await supabase.from('event_post').delete().eq('id', p.id);
+      const { error } = await supabase.from(t.post).delete().eq('id', p.id);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => { refresh(); setDeleting(null); },
@@ -85,7 +89,7 @@ export function Discussion({ eventId, eventName, canEditEvent }: { eventId: stri
 
   const reactions = (p: Post, small?: boolean) => {
     const counts = new Map<string, { n: number; mine: boolean }>();
-    for (const r of p.event_post_reaction) {
+    for (const r of p.reactions) {
       const c = counts.get(r.emoji) ?? { n: 0, mine: false };
       counts.set(r.emoji, { n: c.n + 1, mine: c.mine || r.user_id === me?.id });
     }
@@ -105,7 +109,7 @@ export function Discussion({ eventId, eventName, canEditEvent }: { eventId: stri
     );
   };
 
-  const postActions = (p: Post) => (p.author_id === me?.id || canEditEvent) && (
+  const postActions = (p: Post) => (p.author_id === me?.id || canModerate) && (
     <Menu label="Post actions" width={170}
       items={[{ key: 'delete', label: 'Delete', icon: <Trash2 size={14} />, danger: true, onSelect: () => setDeleting(p) }]}
       trigger={(t) => <button type="button" className="icon-btn post-menu" aria-label="Post actions" {...t}><MoreVertical size={15} /></button>} />
@@ -146,7 +150,7 @@ export function Discussion({ eventId, eventName, canEditEvent }: { eventId: stri
                       {postActions(r)}
                     </div>
                     <p className="post-body">{r.body}</p>
-                    {r.event_post_reaction.length > 0 && reactions(r, true)}
+                    {r.reactions.length > 0 && reactions(r, true)}
                   </div>
                 </div>
               ))}
@@ -169,12 +173,12 @@ export function Discussion({ eventId, eventName, canEditEvent }: { eventId: stri
       </div>
       <div className="post post-new">
         <Avatar size={34} initials={me?.initials} color={me?.avatar_color ?? avatarColorFor(me?.display_name ?? '?')} />
-        <Composer placeholder="Post an update or ask the team…" note={`Everyone on the ${eventName} team can read this`} submitLabel="Post"
+        <Composer placeholder="Post an update or ask the team…" note={`Everyone on the ${name} team can read this`} submitLabel="Post"
           pending={post.isPending} onSubmit={(body) => post.mutateAsync({ body })} />
       </div>
       {error && <div className="form-error" role="alert">{error.message}</div>}
       {posts.isLoading ? <div className="ov-empty text-muted">Loading…</div>
-        : threads.length === 0 ? <div className="ov-empty"><span><strong>No posts yet.</strong> Start the conversation: updates, questions and decisions for the team.</span></div>
+        : threads.length === 0 ? <div className="ov-empty"><span><strong>No posts yet.</strong> {board.kind === 'request' ? 'Questions and answers between the requester, the approvers and the team.' : 'Start the conversation: updates, questions and decisions for the team.'}</span></div>
         : <div className="posts">{threads.map(renderThread)}</div>}
 
       {deleting && (

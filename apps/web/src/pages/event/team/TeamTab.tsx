@@ -10,8 +10,8 @@ export function TeamTab({ event }: { event: { id: string; name: string } }) {
   const { canEdit } = useEventAccess();
   return (
     <div className="team-tab">
-      <Discussion eventId={event.id} eventName={event.name} canEditEvent={canEdit && can(me, 'event_post', 'delete')} />
-      <TeamPanel eventId={event.id} canEditEvent={canEdit} />
+      <Discussion board={{ kind: 'event', id: event.id }} name={event.name} canModerate={canEdit && can(me, 'event_post', 'delete')} />
+      <TeamPanel board={{ kind: 'event', id: event.id }} canEdit={canEdit} />
     </div>
   );
 }

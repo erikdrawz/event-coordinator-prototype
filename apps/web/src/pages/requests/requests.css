@@ -1,0 +1,10 @@
+/* Request page: details and discussion (two thirds), team (one third) */
+.request-head { padding-bottom: 20px; }
+.request-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); gap: 18px; align-items: start; margin-top: 18px; }
+.request-main { display: grid; gap: 18px; min-width: 0; }
+.request-details { margin-top: 12px; grid-template-columns: minmax(0, 1fr); }
+.request-note {
+  margin: 16px 0 0; padding: 10px 12px; border-radius: var(--radius-md);
+  background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); font-size: var(--text-base);
+}
+@media (max-width: 960px) { .request-body { grid-template-columns: minmax(0, 1fr); } }

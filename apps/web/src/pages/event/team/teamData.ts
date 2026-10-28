@@ -9,12 +9,22 @@ export interface TeamMember { id: string; user_id: string; team_role: string; ro
 export interface Reaction { emoji: string; user_id: string }
 export interface Post {
   id: string; parent_id: string | null; body: string; created_at: string; author_id: string;
-  author: Person | null; event_post_reaction: Reaction[];
+  author: Person | null; reactions: Reaction[];
 }
 export interface Thread extends Post { replies: Post[] }
 
-export const teamKey = (eventId: string) => ['event', eventId, 'team'];
-export const postsKey = (eventId: string) => ['event', eventId, 'posts'];
+/**
+ * A record with a team and a board: an event or a request. Their tables follow one naming
+ * pattern (<kind>_team_member, <kind>_post, <kind>_post_reaction, keyed by <kind>_id).
+ */
+export interface Board { kind: 'event' | 'request'; id: string }
+export const boardTables = ({ kind }: Board) => ({
+  team: `${kind}_team_member`, post: `${kind}_post`, reaction: `${kind}_post_reaction`, key: `${kind}_id`,
+});
+/** Everything cached for the record (access, team, posts) sits under this key. */
+export const boardKey = (b: Board) => [b.kind, b.id];
+export const teamKey = (b: Board) => [b.kind, b.id, 'team'];
+export const postsKey = (b: Board) => [b.kind, b.id, 'posts'];
 const PERSON = 'id,display_name,initials,avatar_color,job_title,user_type';
 
 /** Access roles, from the team_role table. */
@@ -29,13 +39,14 @@ export function useTeamRoles() {
   });
 }
 
-export function useTeam(eventId: string) {
+export function useTeam(board: Board) {
+  const t = boardTables(board);
   return useQuery({
-    queryKey: teamKey(eventId),
+    queryKey: teamKey(board),
     queryFn: async () => {
-      const { data, error } = await supabase.from('event_team_member')
-        .select(`id,user_id,team_role,role_label,created_at,user:app_user!event_team_member_user_id_fkey(${PERSON})`)
-        .eq('event_id', eventId);
+      const { data, error } = await supabase.from(t.team)
+        .select(`id,user_id,team_role,role_label,created_at,user:app_user!${t.team}_user_id_fkey(${PERSON})`)
+        .eq(t.key, board.id);
       if (error) throw error;
       return data as unknown as TeamMember[];
     },
@@ -55,13 +66,14 @@ export function usePeople(enabled: boolean) {
 }
 
 /** The board: top-level posts newest first, each with its replies oldest first. */
-export function usePosts(eventId: string) {
+export function usePosts(board: Board) {
+  const t = boardTables(board);
   return useQuery({
-    queryKey: postsKey(eventId),
+    queryKey: postsKey(board),
     queryFn: async () => {
-      const { data, error } = await supabase.from('event_post')
-        .select(`id,parent_id,body,created_at,author_id,author:app_user!event_post_author_id_fkey(${PERSON}),event_post_reaction(emoji,user_id)`)
-        .eq('event_id', eventId)
+      const { data, error } = await supabase.from(t.post)
+        .select(`id,parent_id,body,created_at,author_id,author:app_user!${t.post}_author_id_fkey(${PERSON}),reactions:${t.reaction}(emoji,user_id)`)
+        .eq(t.key, board.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       const posts = data as unknown as Post[];

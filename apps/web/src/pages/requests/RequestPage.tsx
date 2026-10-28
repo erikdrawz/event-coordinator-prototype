@@ -1,0 +1,166 @@
+import { useState, type ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, Clock, FileText, Pencil, Send, Trash2, UserRound, Users } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth';
+import { can } from '../../lib/permissions';
+import { eventDateTime, timeAgo } from '../../lib/format';
+import { Avatar } from '../../components/Avatar';
+import { Menu, type MenuItem } from '../../ui/Menu';
+import { ConfirmDialog } from '../../ui/ConfirmDialog';
+import { Discussion } from '../event/team/Discussion';
+import { TeamPanel } from '../event/team/TeamPanel';
+import type { Person } from '../event/team/teamData';
+import { RequestFormModal } from './RequestFormModal';
+import { RequestStatusPill } from './RequestStatusPill';
+import { missingForSubmit, useMyRequestAccess, useRequest, type RequestRow } from './requestData';
+import '../event.css';
+import './requests.css';
+
+const listOf = (items: string[]) => new Intl.ListFormat('en-GB', { type: 'conjunction' }).format(items);
+const empty = <span className="text-muted">—</span>;
+
+function Row({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+  return <div className={`details-row${wide ? ' wide' : ''}`}><dt>{label}</dt><dd>{children}</dd></div>;
+}
+const PersonValue = ({ p }: { p: Person | null }) => p
+  ? <span className="dt-person"><Avatar size={22} initials={p.initials} color={p.avatar_color} isAgent={p.user_type === 'agent'} />{p.display_name}</span> : empty;
+
+function duration(r: RequestRow) {
+  if (!r.starts_at || !r.ends_at) return null;
+  const mins = Math.round((new Date(r.ends_at).getTime() - new Date(r.starts_at).getTime()) / 60000);
+  return mins >= 1440 ? `${Math.ceil(mins / 1440)} days` : `${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ''}`;
+}
+
+/**
+ * A request: what's asked for (name, type, when, why), its status, and the team's discussion.
+ * Drafts can be edited, submitted for approval or deleted; after that the details are fixed.
+ */
+export function RequestPage() {
+  const { id } = useParams();
+  const { me } = useAuth();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { data: r, isLoading } = useRequest(id);
+  const access = useMyRequestAccess(id);
+  const [editing, setEditing] = useState(false);
+  const [confirm, setConfirm] = useState<'submit' | 'delete' | null>(null);
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['request', id] });
+    qc.invalidateQueries({ queryKey: ['requests'] });
+    qc.invalidateQueries({ queryKey: ['home'] });
+  };
+  const submit = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('event_request').update({ status: 'review' }).eq('id', id!);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => { refresh(); setConfirm(null); },
+  });
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error, count } = await supabase.from('event_request').delete({ count: 'exact' }).eq('id', id!);
+      if (error) throw new Error(error.message);
+      if (!count) throw new Error("This request couldn't be deleted. Only drafts can be deleted, by the requester or an organizer.");
+    },
+    onSuccess: () => { qc.removeQueries({ queryKey: ['request', id] }); qc.invalidateQueries({ queryKey: ['requests'] }); qc.invalidateQueries({ queryKey: ['home'] }); navigate('/requests'); },
+  });
+
+  if (isLoading) return <main className="page"><div className="empty-state">Loading…</div></main>;
+  if (!r) return <main className="page"><div className="card empty-state"><div className="empty-state-title">Request not found</div>It may have been deleted, or you don't have access.</div></main>;
+
+  const isDraft = r.status === 'draft';
+  const canEdit = access.data?.access === 'edit' && can(me, 'event_request', 'edit');
+  const missing = missingForSubmit(r);
+  const actions: MenuItem[] = canEdit && isDraft ? [
+    { key: 'submit', label: 'Submit for approval', icon: <Send size={14} />, onSelect: () => setConfirm('submit') },
+    ...(can(me, 'event_request', 'delete') ? [{ key: 'delete', label: 'Delete request', icon: <Trash2 size={14} />, danger: true, onSelect: () => setConfirm('delete') }] : []),
+  ] : [];
+  const board = { kind: 'request' as const, id: r.id };
+  const when = r.starts_at ? [eventDateTime(r.starts_at, r.timezone), duration(r)].filter(Boolean).join(' · ') : 'Date to be confirmed';
+  const noActions = !canEdit ? "You can view this request; the requester and organizers act on it"
+    : isDraft ? 'No actions available' : 'Approving and rejecting come with approvals';
+
+  return (
+    <main className="page">
+      <section className="card event-head request-head">
+        <nav className="crumbs"><Link to="/requests">Requests</Link><span>/</span><span>{r.title}</span></nav>
+        <div className="event-head-row">
+          <div className="event-head-main">
+            <div className="event-title-row">
+              <h1 className="event-title">{r.title}</h1>
+              <RequestStatusPill status={r.status} />
+            </div>
+            <div className="event-meta">
+              <span><FileText size={15} />{r.request_number}</span>
+              <span><Users size={15} />{r.event_type?.name}</span>
+              <span><Clock size={15} />{when}</span>
+              <span><UserRound size={15} />Requested by {r.requester?.display_name ?? 'a former user'}</span>
+            </div>
+          </div>
+          <div className="event-actions">
+            {canEdit && isDraft && <button className="btn" onClick={() => setEditing(true)}>Edit request</button>}
+            {actions.length > 0 ? (
+              <Menu label="Request actions" width={220} items={actions}
+                trigger={(t) => <button type="button" className="btn btn-primary" {...t}>Actions <ChevronDown size={16} /></button>} />
+            ) : (
+              <button type="button" className="btn btn-primary" disabled title={noActions}>Actions <ChevronDown size={16} /></button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="request-body">
+        <div className="request-main">
+          <section className="card details-card" aria-labelledby="request-details-title">
+            <div className="details-head">
+              <h2 id="request-details-title" className="card-title">Request details</h2>
+              {canEdit && isDraft && <button className="btn" onClick={() => setEditing(true)}><Pencil size={14} />Edit</button>}
+            </div>
+            <dl className="details-grid request-details">
+              <Row label="Name" wide>{r.title}</Row>
+              <Row label="Event type">{r.event_type?.name ?? empty}</Row>
+              <Row label="Start">{r.starts_at ? eventDateTime(r.starts_at, r.timezone) : empty}</Row>
+              <Row label="End">{r.ends_at ? eventDateTime(r.ends_at, r.timezone) : empty}</Row>
+              <Row label="Requested by"><PersonValue p={r.requester} /></Row>
+              <Row label="Submitted">{r.submitted_at ? <span title={new Date(r.submitted_at).toLocaleString('en-GB')}>{timeAgo(r.submitted_at)}</span> : <span className="text-muted">Not yet</span>}</Row>
+              <Row label="Coordinator">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
+              <Row label="Time zone">{r.timezone.replace(/_/g, ' ')}</Row>
+              <Row label="Business justification" wide>{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
+            </dl>
+            {isDraft && canEdit && missing.length > 0 && (
+              <p className="request-note">Add the {listOf(missing)} before you submit this request for approval.</p>
+            )}
+          </section>
+          <Discussion board={board} name={r.title} canModerate={canEdit && can(me, 'request_post', 'delete')} />
+        </div>
+        <TeamPanel board={board} canEdit={canEdit} />
+      </div>
+
+      {editing && <RequestFormModal request={r} onClose={() => setEditing(false)} />}
+
+      {confirm === 'submit' && (missing.length ? (
+        <ConfirmDialog title="Complete the request first" confirmLabel="Edit request" danger={false}
+          onConfirm={() => { setConfirm(null); setEditing(true); }} onCancel={() => setConfirm(null)}>
+          Add the {listOf(missing)} before you submit it for approval.
+        </ConfirmDialog>
+      ) : (
+        <ConfirmDialog title="Submit for approval?" confirmLabel="Submit for approval" danger={false}
+          pending={submit.isPending} error={submit.error?.message}
+          onConfirm={() => submit.mutate()} onCancel={() => { submit.reset(); setConfirm(null); }}>
+          <strong>{r.title}</strong> goes to review, and home office can see it. Its details can't be changed after this;
+          the team and the discussion stay open.
+        </ConfirmDialog>
+      ))}
+      {confirm === 'delete' && (
+        <ConfirmDialog title="Delete this request?" confirmLabel="Delete request"
+          pending={remove.isPending} error={remove.error?.message}
+          onConfirm={() => remove.mutate()} onCancel={() => { remove.reset(); setConfirm(null); }}>
+          <strong>{r.title}</strong> is deleted with its team and discussion. This can't be undone.
+        </ConfirmDialog>
+      )}
+    </main>
+  );
+}

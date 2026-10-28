@@ -50,8 +50,8 @@ export function NeedsMyAction({ meId }: { meId: string }) {
         <ul className="home-list">
           {rows.map((r) => r.kind === 'approval' ? (
             <li key={r.a.id}>
-              {/* Approving happens on the request itself (Phase 2), so this row only opens it */}
-              <Link to="/requests" className="home-action-row">
+              {/* Approving happens on the request itself (with approvals), so this row only opens it */}
+              <Link to={r.a.request ? `/requests/${r.a.request.id}` : "/requests"} className="home-action-row">
                 <span className="home-check" aria-hidden />
                 <span className="home-row-main">
                   <span className="home-action-title">Approve {r.a.request?.title ?? 'request'}</span>

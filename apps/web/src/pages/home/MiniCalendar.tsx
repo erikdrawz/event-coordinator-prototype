@@ -30,7 +30,7 @@ export function MiniCalendar({ meId, scope }: { meId: string; scope: Scope }) {
     const m = new Map<string, Mark[]>();
     const add = (key: string, mark: Mark) => m.set(key, [...(m.get(key) ?? []), mark]);
     events?.forEach((e) => add(ymdInZone(e.starts_at, e.timezone), { kind: 'event', label: e.name }));
-    approvals?.forEach((a) => a.request?.proposed_start && add(a.request.proposed_start, { kind: 'request', label: `Request: ${a.request.title}` }));
+    approvals?.forEach((a) => a.request?.starts_at && add(ymdInZone(a.request.starts_at, a.request.timezone), { kind: 'request', label: `Request: ${a.request.title}` }));
     tasks?.forEach((t) => t.due_date && add(t.due_date, { kind: 'milestone', label: `Task: ${t.title}` }));
     return m;
   }, [events, approvals, tasks]);

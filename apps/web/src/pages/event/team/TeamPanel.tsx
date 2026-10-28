@@ -10,38 +10,53 @@ import { Select } from '../../../ui/Select';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { PersonPicker } from '../people/PersonPicker';
 import { initials, type SpeakerOption } from '../agenda/agendaData';
-import { usePeople, useTeam, useTeamRoles, type TeamMember } from './teamData';
+import { boardKey, boardTables, usePeople, useTeam, useTeamRoles, type Board, type TeamMember } from './teamData';
 
 const PEOPLE_GROUPS = [{ group: 'team' as const, label: 'People in your organisation' }];
 
+const COPY = {
+  event: {
+    intro: 'Only people on the team can open this event and post on the board.',
+    removed: "They'll no longer be able to open this event or post on its board. If they speak in an agenda session as a team member, they'll be taken off it.",
+    others: 'Business and System Admins can see every event.',
+  },
+  request: {
+    intro: 'Only people on the team can open this request and post on the board.',
+    removed: "They'll no longer be able to open this request or post on its board.",
+    others: 'Once submitted, home office (Event Coordinators, Business Admins) can see it too.',
+  },
+};
+
 /**
- * Who can access this event and why. Owner and organizers edit it and manage the team; approvers
- * and viewers see it and post. The database enforces all of this (event_access); the panel only
- * offers what it allows.
+ * Who can access this event or request and why. Owner and organizers edit it and manage the team;
+ * approvers and viewers see it and post. The database enforces all of this (event_access,
+ * request_access); the panel only offers what it allows. canEdit: my access lets me edit the record.
  */
-export function TeamPanel({ eventId, canEditEvent }: { eventId: string; canEditEvent: boolean }) {
+export function TeamPanel({ board, canEdit }: { board: Board; canEdit: boolean }) {
   const { me } = useAuth();
   const qc = useQueryClient();
-  const team = useTeam(eventId);
+  const t = boardTables(board);
+  const copy = COPY[board.kind];
+  const team = useTeam(board);
   const roles = useTeamRoles();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<TeamMember | null>(null);
-  const canManage = canEditEvent && can(me, 'event_team_member', 'create');
+  const canManage = canEdit && can(me, t.team, 'create');
   const roleOf = (code: string) => roles.data?.find((r) => r.code === code);
   const sort = (m: TeamMember) => roleOf(m.team_role)?.sort ?? 99;
   const members = [...(team.data ?? [])].sort((a, b) => sort(a) - sort(b) || (a.user?.display_name ?? '').localeCompare(b.user?.display_name ?? ''));
-  const refresh = () => qc.invalidateQueries({ queryKey: ['event', eventId] });
+  const refresh = () => qc.invalidateQueries({ queryKey: boardKey(board) });
 
   const update = useMutation({
     mutationFn: async ({ id, team_role }: { id: string; team_role: string }) => {
-      const { error } = await supabase.from('event_team_member').update({ team_role }).eq('id', id);
+      const { error } = await supabase.from(t.team).update({ team_role }).eq('id', id);
       if (error) throw new Error(error.message);
     },
     onSettled: refresh,
   });
   const remove = useMutation({
     mutationFn: async (m: TeamMember) => {
-      const { error } = await supabase.from('event_team_member').delete().eq('id', m.id);
+      const { error } = await supabase.from(t.team).delete().eq('id', m.id);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => { refresh(); setRemoving(null); },
@@ -59,10 +74,10 @@ export function TeamPanel({ eventId, canEditEvent }: { eventId: string; canEditE
         </div>
         {canManage && !adding && <button type="button" className="btn btn-outline btn-sm" onClick={() => setAdding(true)}><Plus size={14} strokeWidth={2.6} />Add</button>}
       </div>
-      <p className="team-intro">Only people on the team can open this event and post on the board.</p>
+      <p className="team-intro">{copy.intro}</p>
       {error && <div className="form-error" role="alert">{error.message}</div>}
 
-      {adding && <AddMember eventId={eventId} taken={members.map((m) => m.user_id)} roles={assignable} onDone={() => setAdding(false)} />}
+      {adding && <AddMember board={board} taken={members.map((m) => m.user_id)} roles={assignable} onDone={() => setAdding(false)} />}
 
       <ul className="team-list">
         {members.map((m) => {
@@ -99,12 +114,12 @@ export function TeamPanel({ eventId, canEditEvent }: { eventId: string; canEditE
           <div key={r.code}><dt>{r.label}</dt><dd>{r.description.replace(/ Approvals come later\.$/, '')}</dd></div>
         ))}
       </dl>
-      <p className="field-hint">Business and System Admins can see every event.</p>
+      <p className="field-hint">{copy.others}</p>
 
       {removing && (
         <ConfirmDialog title={`Remove ${removing.user?.display_name ?? 'this person'}?`} confirmLabel="Remove from team" pending={remove.isPending} error={remove.error?.message}
           onConfirm={() => remove.mutate(removing)} onCancel={() => { remove.reset(); setRemoving(null); }}>
-          They'll no longer be able to open this event or post on its board. If they speak in an agenda session as a team member, they'll be taken off it.
+          {copy.removed}
         </ConfirmDialog>
       )}
     </section>
@@ -112,7 +127,7 @@ export function TeamPanel({ eventId, canEditEvent }: { eventId: string; canEditE
 }
 
 /** Pick a person, their access and an optional label (e.g. "Medical lead"), then add them. */
-function AddMember({ eventId, taken, roles, onDone }: { eventId: string; taken: string[]; roles: { code: string; label: string }[]; onDone: () => void }) {
+function AddMember({ board, taken, roles, onDone }: { board: Board; taken: string[]; roles: { code: string; label: string }[]; onDone: () => void }) {
   const qc = useQueryClient();
   const people = usePeople(true);
   const [who, setWho] = useState<SpeakerOption | null>(null);
@@ -124,10 +139,11 @@ function AddMember({ eventId, taken, roles, onDone }: { eventId: string; taken: 
 
   const add = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('event_team_member').insert({ event_id: eventId, user_id: who!.user_id, team_role: role, role_label: label.trim() || null });
+      const t = boardTables(board);
+      const { error } = await supabase.from(t.team).insert({ [t.key]: board.id, user_id: who!.user_id, team_role: role, role_label: label.trim() || null });
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['event', eventId] }); onDone(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: boardKey(board) }); onDone(); },
     onError: (e) => setError(e.message),
   });
   const submit = () => { if (!who) { setError('Choose a person'); return; } setError(null); add.mutate(); };
