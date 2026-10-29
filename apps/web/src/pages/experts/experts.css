@@ -7,8 +7,10 @@
 
 .expert-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 18px; align-items: start; margin-top: 18px; }
 .expert-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
-.expert-details .details-grid { grid-template-columns: minmax(0, 1fr); margin-top: 12px; }
-.expert-details .details-row { grid-template-columns: 112px minmax(0, 1fr); }
+.expert-details .details-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 12px; }
+/* Side cards are narrow: label beside the value */
+.expert-details .details-row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 0; border-bottom: 0; }
+.expert-details .details-row dt { font-size: var(--text-base); }
 
 .expert-link { text-decoration: none; }
 .expert-link:hover { color: var(--color-accent); text-decoration: underline; }

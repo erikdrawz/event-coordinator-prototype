@@ -23,8 +23,8 @@ import './requests.css';
 const listOf = (items: string[]) => new Intl.ListFormat('en-GB', { type: 'conjunction' }).format(items);
 const empty = <span className="text-muted">—</span>;
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return <div className="details-row"><dt>{label}</dt><dd>{children}</dd></div>;
+function Row({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+  return <div className={`details-row${wide ? ' wide' : ''}`}><dt>{label}</dt><dd>{children}</dd></div>;
 }
 const PersonValue = ({ p }: { p: Person | null }) => p
   ? <span className="dt-person"><Avatar size={22} initials={p.initials} color={p.avatar_color} isAgent={p.user_type === 'agent'} />{p.display_name}</span> : empty;
@@ -143,7 +143,7 @@ export function RequestPage() {
                 <Row label="Date">{r.event_date ? formatDate(r.event_date) : empty}</Row>
                 <Row label="Duration">{durationLabel ?? empty}</Row>
               </>}
-              <Row label="Business justification">{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
+              <Row label="Business justification" wide>{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
               <Row label="Requested by"><PersonValue p={r.requester} /></Row>
               <Row label="Assignee">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
             </dl>
