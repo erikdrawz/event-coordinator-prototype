@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, ChevronDown, MapPin, Clock, Users } from 'lucide-react';
+import { Ban, ChevronDown, MapPin, Clock, Pill, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { daysUntil, eventDateParts } from '../lib/format';
 import { DateTile } from '../components/DateTile';
@@ -23,6 +23,15 @@ interface EventDetail {
   id: string; name: string; status: EventStatus; starts_at: string | null; ends_at: string | null; timezone: string;
   city: string | null; country_code: string | null; venue_name: string | null; cancel_reason: string | null;
   event_type: { name: string } | null; country: { name: string } | null;
+  event_product: { product: { name: string } | null }[];
+}
+
+/** "Brevair", "Brevair, Telia", "Brevair, Telia +2"; the full list goes in the tooltip. */
+function ProductsMeta({ e }: { e: EventDetail }) {
+  const names = e.event_product.map((p) => p.product?.name).filter((n): n is string => Boolean(n)).sort((a, b) => a.localeCompare(b));
+  if (names.length === 0) return <span className="text-muted"><Pill size={15} />No product</span>;
+  const shown = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ');
+  return <span data-tip={names.length > 2 ? names.join(', ') : undefined} aria-label={`Products: ${names.join(', ')}`}><Pill size={15} />{shown}</span>;
 }
 
 function whenLine(e: EventDetail): string {
@@ -69,7 +78,7 @@ export function EventPage() {
     queryKey: ['event', id],
     queryFn: async () => {
       const { data, error } = await supabase.from('event')
-        .select('id,name,status,starts_at,ends_at,timezone,city,country_code,venue_name,cancel_reason,event_type(name),country(name)')
+        .select('id,name,status,starts_at,ends_at,timezone,city,country_code,venue_name,cancel_reason,event_type(name),country(name),event_product(product(name))')
         .eq('id', id!).maybeSingle();
       if (error) throw error;
       return data as unknown as EventDetail | null;
@@ -104,6 +113,7 @@ export function EventPage() {
             </div>
             <div className="event-meta">
               <span><Users size={15} />{e.event_type?.name}</span>
+              <ProductsMeta e={e} />
               <span><MapPin size={15} />{[e.venue_name ?? e.city, e.country?.name].filter(Boolean).join(' · ')}</span>
               <span><Clock size={15} />{whenLine(e)}</span>
             </div>
