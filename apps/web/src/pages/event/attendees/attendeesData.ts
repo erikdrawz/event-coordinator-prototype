@@ -6,6 +6,10 @@ export type Rsvp = 'invited' | 'accepted' | 'tentative' | 'declined';
 export type AttendeeCrmStatus = 'pending' | 'reconciled' | 'not_found' | 'not_applicable';
 export interface Lookup<C extends string> { code: C; label: string; tone: Tone; sort: number }
 
+/** user: a colleague; expert: an HCP on the event's Experts list; attendee: anyone else */
+export type AttendeeType = 'user' | 'expert' | 'attendee';
+export const ATTENDEE_TYPE_LABEL: Record<AttendeeType, string> = { expert: 'Expert', attendee: 'Attendee', user: 'User' };
+
 export interface Attendee {
   id: string; attendee_kind: 'hcp' | 'user' | 'other'; hcp_id: string | null; user_id: string | null;
   display_name: string | null; organisation: string | null; role_label: string | null;
@@ -14,6 +18,8 @@ export interface Attendee {
   owner_id: string | null; owner: { id: string; display_name: string; initials: string | null; avatar_color: string | null } | null;
   hcp: { display_name: string; last_name: string; city: string | null; specialty: { name: string } | null } | null;
   user: { display_name: string; last_name: string; initials: string | null; avatar_color: string | null } | null;
+  /** Worked out on load: it follows the event's Experts list */
+  type: AttendeeType;
 }
 
 /** One person to add: an HCP in EC, or a CRM record that is copied into EC on the way. */
@@ -24,19 +30,24 @@ export const attendeesKey = (eventId: string) => ['event', eventId, 'attendees']
 export const attendeeName = (a: Attendee) => a.hcp?.display_name ?? a.user?.display_name ?? a.display_name ?? 'Unknown';
 const sortName = (a: Attendee) => a.hcp?.last_name ?? a.user?.last_name ?? a.display_name ?? '';
 
-/** The event's attendees: HCPs first, then colleagues and guests, each by last name. */
+/** The event's attendees with their type: experts first, then other attendees, then users, each by last name. */
 export function useAttendees(eventId: string) {
   return useQuery({
     queryKey: attendeesKey(eventId),
     queryFn: async () => {
+      const experts = await supabase.from('event_expert').select('hcp_id').eq('event_id', eventId);
+      if (experts.error) throw experts.error;
+      const onExperts = new Set((experts.data ?? []).map((x) => x.hcp_id as string));
       const { data, error } = await supabase.from('event_attendee')
         .select('id,attendee_kind,hcp_id,user_id,display_name,organisation,role_label,rsvp,attended,crm_status,owner_id,' +
                 'owner:app_user!event_attendee_owner_id_fkey(id,display_name,initials,avatar_color),' +
                 'hcp(display_name,last_name,city,specialty(name)),user:app_user!event_attendee_user_id_fkey(display_name,last_name,initials,avatar_color)')
         .eq('event_id', eventId);
       if (error) throw error;
-      const kind = { hcp: 0, user: 1, other: 2 };
-      return (data as unknown as Attendee[]).sort((a, b) => kind[a.attendee_kind] - kind[b.attendee_kind] || sortName(a).localeCompare(sortName(b)));
+      const order: Record<AttendeeType, number> = { expert: 0, attendee: 1, user: 2 };
+      return (data as unknown as Omit<Attendee, 'type'>[])
+        .map((a): Attendee => ({ ...a, type: a.attendee_kind === 'user' ? 'user' : a.hcp_id && onExperts.has(a.hcp_id) ? 'expert' : 'attendee' }))
+        .sort((a, b) => order[a.type] - order[b.type] || sortName(a).localeCompare(sortName(b)));
     },
   });
 }

@@ -12,7 +12,7 @@ import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { useEventAccess } from '../eventAccess';
 import { usePeople } from '../team/teamData';
 import { AddAttendeesModal } from './AddAttendeesModal';
-import { attendeeName, attendeesKey, useAttendeeCrmStatuses, useAttendees, useRsvps, type Attendee, type Rsvp } from './attendeesData';
+import { ATTENDEE_TYPE_LABEL, attendeeName, attendeesKey, useAttendeeCrmStatuses, useAttendees, useRsvps, type Attendee, type Rsvp } from './attendeesData';
 import './attendees.css';
 
 const ATTENDED = [{ value: true, label: 'Yes', tone: 'green' }, { value: false, label: 'No', tone: 'grey' }] as const;
@@ -85,7 +85,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
         <div className="table-scroll">
           <table className="agenda-table attendees-table">
             <thead>
-              <tr><th>Name</th><th>Organisation</th><th>RSVP</th><th>Attended</th><th>Owner</th><th>CRM</th><th aria-label="Actions" /></tr>
+              <tr><th>Name</th><th>Type</th><th>RSVP</th><th>Attended</th><th>Owner</th><th>CRM</th><th aria-label="Actions" /></tr>
             </thead>
             <tbody>
               {list.map((a) => {
@@ -106,7 +106,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
                         </span>
                       </span>
                     </td>
-                    <td className="att-org">{a.organisation ?? <span className="text-muted">—</span>}</td>
+                    <td className="att-type">{ATTENDEE_TYPE_LABEL[a.type]}</td>
                     <td>
                       {canEdit ? (
                         <Menu label={`RSVP for ${name}`} width={160}
