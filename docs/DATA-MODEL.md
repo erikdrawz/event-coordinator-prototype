@@ -104,7 +104,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 ## 8. Later phases
 
-`budget`, `event_budget`, `planned_expense`, `actual_expense`, `invoice`, `invoice_line` (Phase 5); `integration_outbox` (Phases 3–4). `crm_mock.hcp` / `crm_mock.hco` exist: the mock CRMs behind `crm_search_hcp` / `crm_import_hcp`, keyed by (crm_connection_id, external_id). `hcp` and `hco` are unique per (crm_connection_id, crm_external_id).
+Spend (Phase 5, built): `event_spend` (one invoice/receipt line), `event_spend_attribution` (who received it, per-person amounts), lookups `spend_type` and `tov_category`, view `event_tov` (ToV lines from spend and signed contracts), `demo_invoice` (simulated extraction). Still to come: `budget`, `event_budget`, `planned_expense`; `integration_outbox` (Phases 3–4). `crm_mock.hcp` / `crm_mock.hco` exist: the mock CRMs behind `crm_search_hcp` / `crm_import_hcp`, keyed by (crm_connection_id, external_id). `hcp` and `hco` are unique per (crm_connection_id, crm_external_id).
 
 ## Relationship summary
 

@@ -116,6 +116,12 @@ select tenant_id, profile_id, 'request_' || substr(object_name, 7), can_read, ca
 update public.permission set can_create = true, can_edit = true, can_delete = true
  where object_name = 'request_team_member' and profile_id = app.sid('profile:collaborator');
 
+-- Spend and who received it: the same rights as attendees
+insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
+select tenant_id, profile_id, o, can_read, can_create, can_edit, can_delete, view_all, modify_all
+  from public.permission, unnest(array['event_spend', 'event_spend_attribution']) o
+ where object_name = 'event_attendee';
+
 -- Contract templates are configuration like event types: the same rights
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
 select tenant_id, profile_id, o, can_read, can_create, can_edit, can_delete, view_all, modify_all

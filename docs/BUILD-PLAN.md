@@ -85,7 +85,8 @@ Expert directory and profile, FMV rates, tier requests, contracts (service agree
 - Next: import from a file, **mock reconciliation** for attendees still to reconcile, CRM write-back via the outbox
 
 ### Phase 5: Spend
-Budgets, planned/actual expenses, invoice upload + extraction (an agent-user demo).
+- ✓ Spend tab (after Attendees): expenses typed in or read from invoices by the Invoice Agent (simulated extraction over demo invoices; review and confirm), each attributed to one person or split evenly across attendees (`event_spend` + `event_spend_attribution`); signed speaker fees join from contracts; tiles, a Per HCP (ToV) view and a CSV export for ToV reporting (`event_tov`)
+- Next: budgets and planned vs actual, real invoice extraction (an edge function reading the file), currency conversion for reporting, uneven splits, per-country ToV rules
 
 ### Phase 6: Admin (rest)
 Still to come after the Phase 1 basics: business rules, approval processes, event statuses per event type, custom field ordering and sections, more field types in the Admin UI, CRM connections.

@@ -15,6 +15,7 @@ import { OverviewTab } from './event/OverviewTab';
 import { CancelEventDialog } from './event/CancelEventDialog';
 import { TeamTab } from './event/team/TeamTab';
 import { AttendeesTab } from './event/attendees/AttendeesTab';
+import { SpendTab } from './event/spend/SpendTab';
 import { EventAccessContext, useMyEventAccess } from './event/eventAccess';
 import type { EventStatus } from '../lib/types';
 import './event.css';
@@ -57,7 +58,7 @@ function countdown(iso: string | null): string | null {
 }
 
 const TABS = [
-  { id: 'overview', label: 'Overview' }, { id: 'team', label: 'Team' }, { id: 'attendees', label: 'Attendees' },
+  { id: 'overview', label: 'Overview' }, { id: 'team', label: 'Team' }, { id: 'attendees', label: 'Attendees' }, { id: 'spend', label: 'Spend' },
   { id: 'documents', label: 'Documents' }, { id: 'details', label: 'Event details' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
@@ -146,7 +147,7 @@ export function EventPage() {
       </section>
       <div id="event-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="event-tabpanel">
         <EventAccessContext.Provider value={{ canEdit: onTeamEdit, teamRole: myAccess.data?.team_role ?? null }}>
-        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : tab === 'team' ? <TeamTab event={e} /> : tab === 'attendees' ? <AttendeesTab event={e} /> : (
+        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : tab === 'team' ? <TeamTab event={e} /> : tab === 'attendees' ? <AttendeesTab event={e} /> : tab === 'spend' ? <SpendTab event={e} /> : (
           <section className="card empty-state">
             <div className="empty-state-title">{TABS.find((t) => t.id === tab)?.label} comes next</div>
             This tab is being built on the same event data. Overview, Team, Attendees and Event details are ready.

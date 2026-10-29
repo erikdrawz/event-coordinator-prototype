@@ -513,6 +513,37 @@ ok((await api(paul, bothAtt, { method: 'PATCH', body: { rsvp: 'tentative', atten
 ok((await api(lisaT, bothAtt, { method: 'PATCH', body: { rsvp: 'declined' } })).data?.length === 0
    && (await api(paul, `${bothAtt}&select=rsvp`)).data?.every((a) => a.rsvp === 'tentative'), "a bulk change skips attendees the caller can't edit");
 
+// Spend: what was paid and who received it; an even split adds up to the cent; ToV reports HCP shares
+ok((await api(lisaT, 'event_spend', { method: 'POST', body: { event_id: ev.id, spend_type: 'meals', spend_date: '2026-12-01', description: 'Smoke dinner', amount: 100 } })).status >= 400,
+   "someone without edit access can't record spend");
+const dinner = await api(paul, 'event_spend', { method: 'POST', body: { event_id: ev.id, spend_type: 'meals', spend_date: '2026-12-01', description: 'Smoke dinner', amount: 100.01 } });
+ok(dinner.status === 201 && dinner.data?.[0]?.tov_category === 'hospitality', 'a new expense takes the usual ToV category of its type');
+const dinnerId = dinner.data?.[0]?.id;
+const split = (ids) => api(paul, 'rpc/split_spend', { method: 'POST', body: { p_spend_id: dinnerId, p_attendee_ids: ids } });
+ok((await split([holmAtt?.id, crypto.randomUUID()])).status >= 400, 'a spend line is split only across attendees of its event');
+ok((await api(lisaT, 'rpc/split_spend', { method: 'POST', body: { p_spend_id: dinnerId, p_attendee_ids: [holmAtt?.id] } })).status >= 400,
+   "someone without edit access can't change who received spend");
+await split([holmAtt?.id, karinAtt?.id]);
+const shares = async () => (await api(paul, `event_spend_attribution?spend_id=eq.${dinnerId}&select=amount`)).data?.map((a) => Number(a.amount)).sort() ?? [];
+ok(JSON.stringify(await shares()) === JSON.stringify([50, 50.01]), 'an even split hands the leftover cent to one person, so it adds up');
+const tovLines = async () => (await api(paul, `event_tov?event_id=eq.${ev.id}&source=eq.spend&select=hcp_id,amount`)).data ?? [];
+ok((await tovLines()).length === 2, "each HCP's share is a ToV line");
+await api(paul, `event_spend?id=eq.${dinnerId}`, { method: 'PATCH', body: { amount: 90 } });
+ok(JSON.stringify(await shares()) === JSON.stringify([45, 45]), 'changing the amount re-spreads it across the same people');
+await api(paul, `event_spend?id=eq.${dinnerId}`, { method: 'PATCH', body: { tov_category: 'not_reportable' } });
+ok((await tovLines()).length === 0, 'a not-reportable expense leaves the ToV report');
+const read = (name) => api(paul, 'rpc/extract_invoice', { method: 'POST', body: { p_event_id: ev.id, p_file_name: name } });
+const readDinner = await read('dinner-kokkeriet-KK-2026-0418.png');
+ok(readDinner.data?.found === true && readDinner.data.spend_type === 'meals' && readDinner.data.agent?.name === 'Invoice Agent', 'the Invoice Agent reads a known invoice into a draft line');
+const readUnknown = await read('scan-0001.pdf');
+ok(readUnknown.data?.found === false && (await api(lisaT, 'rpc/extract_invoice', { method: 'POST', body: { p_event_id: ev.id, p_file_name: 'x.pdf' } })).status >= 400,
+   "an unknown invoice comes back empty, and only editors of the event can have invoices read");
+await api(paul, `event_spend?id=eq.${dinnerId}`, { method: 'DELETE' });
+ok((await api(paul, `event_spend_attribution?spend_id=eq.${dinnerId}&select=id`)).data?.length === 0, 'deleting an expense removes who received it');
+const derm = await api(paul, 'event?name=eq.Derm%20Roundtable&select=id');
+const dermTov = await api(paul, `event_tov?event_id=eq.${derm.data?.[0]?.id}&source=eq.contract&select=amount`);
+ok(dermTov.data?.length === 2, 'signed speaker fees join the ToV report from their contracts');
+
 // Account Manager: field reps create their own events and add experts to them, but don't edit experts
 // and see only their own requests
 const daniel = await login('daniel.novak@alera.example');
