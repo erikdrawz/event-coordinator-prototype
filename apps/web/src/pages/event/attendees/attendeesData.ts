@@ -20,6 +20,8 @@ export interface Attendee {
   user: { display_name: string; last_name: string; initials: string | null; avatar_color: string | null } | null;
   /** Worked out on load: it follows the event's Experts list */
   type: AttendeeType;
+  crm_external_id: string | null; crm_connection: { name: string } | null;
+  created_at: string; updated_at: string; creator: { display_name: string } | null;
 }
 
 /** One person to add: an HCP in EC, or a CRM record that is copied into EC on the way. */
@@ -41,6 +43,7 @@ export function useAttendees(eventId: string) {
       const { data, error } = await supabase.from('event_attendee')
         .select('id,attendee_kind,hcp_id,user_id,display_name,organisation,role_label,rsvp,attended,crm_status,owner_id,' +
                 'owner:app_user!event_attendee_owner_id_fkey(id,display_name,initials,avatar_color),' +
+                'crm_external_id,crm_connection(name),created_at,updated_at,creator:app_user!event_attendee_created_by_fkey(display_name),' +
                 'hcp(display_name,last_name,city,specialty(name)),user:app_user!event_attendee_user_id_fkey(display_name,last_name,initials,avatar_color)')
         .eq('event_id', eventId);
       if (error) throw error;
@@ -64,6 +67,21 @@ function useLookup<C extends string>(table: string) {
 }
 export const useRsvps = () => useLookup<Rsvp>('attendee_rsvp');
 export const useAttendeeCrmStatuses = () => useLookup<AttendeeCrmStatus>('attendee_crm_status');
+
+export type AttendeePatch = { rsvp?: Rsvp; attended?: boolean; owner_id?: string; organisation?: string | null; role_label?: string | null };
+
+/** Changes one or many attendees in one call; returns how many the database let through (the rest weren't editable). */
+export async function updateAttendees(ids: string[], patch: AttendeePatch) {
+  const { data, error } = await supabase.from('event_attendee').update(patch).in('id', ids).select('id');
+  if (error) throw new Error(error.message);
+  return data.length;
+}
+/** Removes one or many attendees; returns how many were removed. */
+export async function removeAttendees(ids: string[]) {
+  const { data, error } = await supabase.from('event_attendee').delete().in('id', ids).select('id');
+  if (error) throw new Error(error.message);
+  return data.length;
+}
 
 /** Adds HCPs from EC or the CRMs in one call (add_event_attendees); people already attending are skipped. */
 export async function addAttendees(eventId: string, people: AttendeePick[]) {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEventAccess } from '../eventAccess';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BadgeCheck, Check, ChevronDown, FilePlus2, FileSignature, MoreVertical, Plus, Trash2, X } from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, FilePlus2, FileSignature, MoreVertical, PanelRight, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { can } from '../../../lib/permissions';
@@ -11,6 +11,7 @@ import { Avatar } from '../../../components/Avatar';
 import { Select } from '../../../ui/Select';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
+import { BulkBar, SelectAllCell, SelectRowCell, isRowClick, useRowSelection } from '../../../ui/BulkSelect';
 import { eventKey, initials, type SpeakerOption } from '../agenda/agendaData';
 import { PersonPicker } from '../people/PersonPicker';
 import { NewContractModal } from '../../contracts/NewContractModal';
@@ -18,8 +19,10 @@ import { ContractStatusPill } from '../../contracts/ContractStatusPill';
 import '../../contracts/contracts.css';
 import { RequestFormModal } from '../../requests/RequestFormModal';
 import { RequestStatusPill } from '../../requests/RequestStatusPill';
+import { HoursCell, RateCell, ServiceHours, rateProblem } from './speakerCells';
+import { ExpertPanel, expertInitials } from './ExpertPanel';
 import {
-  ROLES, currencySymbol, hcpSub, hours, isOpenRequest, mainContract, money, rateRange, roleLabel, useEventTieringRequests, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
+  ROLES, currencySymbol, hcpSub, isOpenRequest, keepsWithoutSessions, mainContract, money, rateRange, roleLabel, useEventTieringRequests, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole,
 } from './speakersData';
 
 const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility pending' } as const;
@@ -33,24 +36,27 @@ function EligibilityMark({ value }: { value: Expert['eligibility'] }) {
     </span>
   );
 }
-const initialsOf = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+const plural = (n: number) => `${n} expert${n === 1 ? '' : 's'}`;
 const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'That expert is already on this event.' : m);
 
 /**
  * The event's experts (speakers, chairs, advisors, …) and their honoraria. Experts arrive here from
  * the agenda automatically or are added directly. Service hours come from the agenda; prep and
- * travel are typed in the row; the rate defaults from the expert's FMV record.
+ * travel are typed in the row; the rate defaults from the expert's FMV record. Clicking a row opens
+ * the expert in a side panel with every detail; ticking rows offers bulk changes.
  */
-export function SpeakersSection({ eventId, eventName }: { eventId: string; eventName: string }) {
+export function SpeakersSection({ eventId, eventName, timezone }: { eventId: string; eventName: string; timezone: string }) {
   const { me } = useAuth();
   const navigate = useNavigate();
   const { canEdit: canEditEvent } = useEventAccess();
   const qc = useQueryClient();
   const experts = useExperts(eventId);
   const [adding, setAdding] = useState<number | null>(null);
-  const [removing, setRemoving] = useState<Expert | null>(null);
+  const [removing, setRemoving] = useState<Expert[] | null>(null);
   const [contracting, setContracting] = useState<{ x: Expert; addendum: boolean } | null>(null);
   const [tiering, setTiering] = useState<Expert | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const tieringRequests = useEventTieringRequests(eventId).data;
   const [cellError, setCellError] = useState<string | null>(null);
   const policies = useRatePolicies(eventId).data;
@@ -62,35 +68,66 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
   const list = experts.data ?? [];
   const grand = list.reduce((a, x) => a + x.total_payable, 0);
   const currency = list[0]?.currency ?? 'EUR';
+  const selection = useRowSelection(list.map((x) => x.id));
+  const canSelect = canEdit || canDelete;
+  const open = list.find((x) => x.id === openId) ?? null;
+  useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 6000); return () => clearTimeout(t); }, [notice]);
 
   const update = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Pick<Expert, 'prep_hours' | 'travel_hours' | 'hourly_rate' | 'role'>> }) => {
-      const { error } = await supabase.from('event_expert').update(patch).eq('id', id);
+    mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Pick<Expert, 'prep_hours' | 'travel_hours' | 'hourly_rate' | 'role'>> }) => {
+      const { data, error } = await supabase.from('event_expert').update(patch).in('id', ids).select('id');
       if (error) throw new Error(error.message);
+      return data.length;
     },
     onMutate: () => setCellError(null),
+    onSuccess: (n, { ids }) => { if (ids.length > 1) setNotice(n === ids.length ? `${plural(n)} updated` : `${plural(n)} updated; ${ids.length - n} you can't edit were left as they were`); },
     onSettled: () => qc.invalidateQueries({ queryKey: eventKey(eventId) }),
   });
+  const setOne = (id: string) => (patch: Partial<Pick<Expert, 'prep_hours' | 'travel_hours' | 'hourly_rate' | 'role'>>) => update.mutate({ ids: [id], patch });
+  // Experts with a contract out for signature or signed stay (the database refuses them); the rest go in one call
   const remove = useMutation({
-    mutationFn: async (x: Expert) => {
-      const { error } = await supabase.from('event_expert').delete().eq('id', x.id);
+    mutationFn: async (rows: Expert[]) => {
+      const go = rows.filter((x) => !keepsWithoutSessions(x));
+      if (go.length === 0) throw new Error(rows.length === 1
+        ? `${rows[0].hcp?.display_name ?? 'This expert'} has a contract that is out for signature or signed. Cancel it before removing them from the event.`
+        : 'Each of them has a contract that is out for signature or signed, so none were removed.');
+      const { data, error } = await supabase.from('event_expert').delete().in('id', go.map((x) => x.id)).select('id');
       if (error) throw new Error(error.message);
+      return { removed: data.length, kept: rows.length - go.length };
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: eventKey(eventId) }); setRemoving(null); },
+    onSuccess: ({ removed, kept }, rows) => {
+      if (rows.some((x) => x.id === openId)) setOpenId(null);
+      if (rows.length > 1) setNotice(`${plural(removed)} removed${kept ? `; ${kept} with a sent or signed contract stayed` : ''}`);
+      qc.invalidateQueries({ queryKey: eventKey(eventId) }); setRemoving(null);
+    },
   });
 
   const sub = list.length === 0 ? 'No experts yet'
     : `${list.length} expert${list.length === 1 ? '' : 's'}`;
+  const ticked = list.filter((x) => selection.has(x.id));
+  const sessionsOf = (rows: Expert[]) => rows.reduce((n, x) => n + x.event_session_speaker.length, 0);
 
   return (
     <section className="card ov-card" aria-labelledby="speakers-title">
-      <div className="ov-head">
-        <div className="ov-title-row"><h2 id="speakers-title" className="ov-title">Experts</h2><span className="card-sub">{sub}</span></div>
-        <div className="ov-actions">
-          {canAdd && <button className="btn btn-outline btn-sm" onClick={() => setAdding((n) => (n ?? 0) + 1)} disabled={adding != null}>
-            <Plus size={14} strokeWidth={2.6} />Add expert</button>}
+      {selection.some ? (
+        <BulkBar selection={selection} noun={['expert', 'experts']} notice={notice}>
+          {canEdit && (
+            <Menu label="Set the role of the selected experts" width={180}
+              items={ROLES.map((r) => ({ key: r, label: roleLabel(r), onSelect: () => update.mutate({ ids: [...selection.selected], patch: { role: r } }) }))}
+              trigger={(t) => <button type="button" className="btn btn-sm" {...t}>Role<ChevronDown size={14} aria-hidden /></button>} />
+          )}
+          {canDelete && <button type="button" className="btn btn-sm btn-danger-outline" onClick={() => setRemoving(ticked)}><Trash2 size={14} />Remove</button>}
+        </BulkBar>
+      ) : (
+        <div className="ov-head">
+          <div className="ov-title-row"><h2 id="speakers-title" className="ov-title">Experts</h2><span className="card-sub">{sub}</span></div>
+          <div className="ov-actions">
+            {notice && <span className="bs-notice" role="status">{notice}</span>}
+            {canAdd && <button className="btn btn-outline btn-sm" onClick={() => setAdding((n) => (n ?? 0) + 1)} disabled={adding != null}>
+              <Plus size={14} strokeWidth={2.6} />Add expert</button>}
+          </div>
         </div>
-      </div>
+      )}
 
       {(cellError || update.error || experts.error) && <div className="form-error" role="alert">{cellError ?? (update.error ?? experts.error)!.message}</div>}
 
@@ -104,6 +141,7 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
           <table className="agenda-table speakers-table">
             <thead>
               <tr>
+                {canSelect && <SelectAllCell selection={selection} label="Select all experts" />}
                 <th>Expert</th><th>Role</th><th>Contract</th>
                 <th className="num">Rate / h</th><th className="num">Prep h</th><th className="num">Service h</th><th className="num">Travel h</th>
                 <th className="num">Total</th><th aria-label="Actions" />
@@ -117,24 +155,29 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                 const tier = tieringRequests?.get(x.hcp_id);
                 const openTier = x.eligibility !== 'eligible' && isOpenRequest(tier) ? tier : undefined;
                 const menu = [
+                  { key: 'details', label: 'Show details', icon: <PanelRight size={14} />, onSelect: () => setOpenId(x.id) },
                   ...(tier ? [{ key: 'tiering', label: `View tiering request ${tier.request_number}`, icon: <BadgeCheck size={14} />, onSelect: () => navigate(`/requests/${tier.id}`) }] : []),
                   ...(x.eligibility !== 'eligible' && !openTier && canRequestTiering ? [{ key: 'log-tiering', label: 'Log tiering request', icon: <BadgeCheck size={14} />, onSelect: () => setTiering(x) }] : []),
                   ...(canContract && !main && x.eligibility === 'eligible' ? [{ key: 'contract', label: 'Add contract', icon: <FileSignature size={14} />, onSelect: () => setContracting({ x, addendum: false }) }] : []),
                   ...(canContract && main ? [{ key: 'addendum', label: 'Add addendum', icon: <FilePlus2 size={14} />, onSelect: () => setContracting({ x, addendum: true }) }] : []),
-                  ...(canDelete ? [{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }] : []),
+                  ...(canDelete ? [{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving([x]) }] : []),
                 ];
+                const cls = ['row-openable', x.id === openId && 'is-open', selection.has(x.id) && 'is-selected'].filter(Boolean).join(' ');
                 return (
-                  <tr key={x.id}>
+                  <tr key={x.id} className={cls} tabIndex={0}
+                    onClick={(e) => { if (isRowClick(e)) setOpenId(x.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) setOpenId(x.id); }}>
+                    {canSelect && <SelectRowCell selection={selection} id={x.id} label={`Select ${name}`} />}
                     <td>
                       <span className="dt-person">
-                        <Avatar size={30} initials={initialsOf(name)} color={avatarColorFor(name)} />
+                        <Avatar size={30} initials={expertInitials(name)} color={avatarColorFor(name)} />
                         <span><span className="speaker-name"><Link to={`/experts/${x.hcp_id}`} className="agenda-title expert-link">{name}</Link><EligibilityMark value={x.eligibility} /></span><div className="dt-sub">{hcpSub(x.hcp)}</div></span>
                       </span>
                     </td>
                     <td>
                       {canEdit ? (
                         <div className="cell-select">
-                          <Select aria-label={`Role for ${name}`} value={x.role} onChange={(v) => update.mutate({ id: x.id, patch: { role: v as ExpertRole } })}
+                          <Select aria-label={`Role for ${name}`} value={x.role} onChange={(v) => setOne(x.id)({ role: v as ExpertRole })}
                             options={ROLES.map((r) => ({ value: r, label: roleLabel(r) }))} />
                         </div>
                       ) : roleLabel(x.role)}
@@ -158,44 +201,50 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                           : <span className="text-muted" data-tip={x.eligibility === 'eligible' ? undefined : 'Only eligible experts can be contracted'}>—</span>}
                     </td>
                     <td className="num"><RateCell value={x.hourly_rate} currency={x.currency ?? 'EUR'} policy={policies?.[x.hcp_id]} label={`Hourly rate for ${name}`} disabled={!canEdit}
-                      onInvalid={setCellError} onSave={(v) => update.mutate({ id: x.id, patch: { hourly_rate: v } })} /></td>
+                      onInvalid={setCellError} onSave={(v) => setOne(x.id)({ hourly_rate: v })} /></td>
                     <td className="num"><HoursCell value={x.prep_hours} label={`Prep hours for ${name}`} disabled={!canEdit}
-                      onSave={(v) => update.mutate({ id: x.id, patch: { prep_hours: v } })} /></td>
+                      onSave={(v) => setOne(x.id)({ prep_hours: v })} /></td>
                     <td className="num"><ServiceHours value={x.service_hours} sessions={x.event_session_speaker.length} /></td>
                     <td className="num"><HoursCell value={x.travel_hours} label={`Travel hours for ${name}`} disabled={!canEdit}
-                      onSave={(v) => update.mutate({ id: x.id, patch: { travel_hours: v } })} /></td>
+                      onSave={(v) => setOne(x.id)({ travel_hours: v })} /></td>
                     <td className="num total">{x.eligibility === 'ineligible' ? '—' : money(x.total_payable, x.currency ?? 'EUR')}</td>
                     <td className="agenda-menu">
-                      {menu.length > 0 && (
-                        <Menu label={`Actions for ${name}`} width={280}
-                          items={menu}
-                          trigger={(t) => <button className="icon-btn" aria-label={`Actions for ${name}`} {...t}><MoreVertical size={16} /></button>} />
-                      )}
+                      <Menu label={`Actions for ${name}`} width={280}
+                        items={menu}
+                        trigger={(t) => <button className="icon-btn" aria-label={`Actions for ${name}`} {...t}><MoreVertical size={16} /></button>} />
                     </td>
                   </tr>
                 );
               })}
               {adding != null && (
-                <AddSpeakerRow key={adding} eventId={eventId} taken={list.map((x) => x.hcp_id)}
+                <AddSpeakerRow key={adding} eventId={eventId} taken={list.map((x) => x.hcp_id)} withSelect={canSelect}
                   onSaved={() => setAdding((n) => (n ?? 0) + 1)} onCancel={() => setAdding(null)} />
               )}
             </tbody>
             {list.length > 0 && (
               <tfoot>
-                <tr><td colSpan={7}>Total payable for this event</td><td className="num total">{money(grand, currency)}</td><td /></tr>
+                <tr><td colSpan={canSelect ? 8 : 7}>Total payable for this event</td><td className="num total">{money(grand, currency)}</td><td /></tr>
               </tfoot>
             )}
           </table>
         </div>
       )}
-      {list.length > 0 && <p className="field-hint speakers-note">Boxed values can be edited. Service hours come from the agenda. Rates default from each expert's FMV record and can be negotiated within its range (hover a rate to see it); without one the rate is €0.</p>}
+      {list.length > 0 && <p className="field-hint speakers-note">Boxed values can be edited. Service hours come from the agenda. Rates default from each expert's FMV record and can be negotiated within its range (hover a rate to see it); without one the rate is €0. Click a row for every detail{canSelect ? '; tick rows to change several at once' : ''}.</p>}
 
+      {open && (
+        <ExpertPanel x={open} timezone={timezone} policy={policies?.[open.hcp_id]} tier={tieringRequests?.get(open.hcp_id)}
+          canEdit={canEdit} canContract={canContract} canDelete={canDelete} canRequestTiering={canRequestTiering}
+          onChange={setOne(open.id)} onInvalid={setCellError} onContract={(addendum) => setContracting({ x: open, addendum })}
+          onTiering={() => setTiering(open)} onRemove={() => setRemoving([open])} onClose={() => setOpenId(null)} />
+      )}
       {removing && (
-        <ConfirmDialog title="Remove expert?" confirmLabel="Remove expert" pending={remove.isPending} error={remove.error ? friendly(remove.error.message) : null}
+        <ConfirmDialog title={removing.length === 1 ? 'Remove expert?' : `Remove ${plural(removing.length)}?`} confirmLabel={removing.length === 1 ? 'Remove expert' : 'Remove experts'}
+          pending={remove.isPending} error={remove.error ? friendly(remove.error.message) : null}
           onConfirm={() => remove.mutate(removing)} onCancel={() => { remove.reset(); setRemoving(null); }}>
-          {removing.hcp?.display_name} will be removed from this event's experts
-          {removing.event_session_speaker.length ? ` and from ${removing.event_session_speaker.length} agenda session${removing.event_session_speaker.length === 1 ? '' : 's'}` : ''}.
-          {removing.contract.some((c) => c.status === 'draft') && ' Their draft contracts are deleted with them.'}
+          {removing.length === 1 ? removing[0].hcp?.display_name : plural(removing.length)} will be removed from this event's experts
+          {sessionsOf(removing) ? ` and from ${sessionsOf(removing)} agenda session${sessionsOf(removing) === 1 ? '' : 's'}` : ''}.
+          {removing.some((x) => x.contract.some((c) => c.status === 'draft')) && ' Draft contracts are deleted with them.'}
+          {removing.length > 1 && removing.some(keepsWithoutSessions) && ` ${removing.filter(keepsWithoutSessions).length} with a contract out for signature or signed will stay.`}
         </ConfirmDialog>
       )}
       {tiering && (
@@ -214,70 +263,10 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
   );
 }
 
-const rateProblem = (v: number, p: RatePolicy) =>
-  Number.isNaN(v) ? 'Enter the rate as a number'
-    : p.source === 'none' && v !== 0 ? "This expert has no FMV rate for the event's date. Record one on their expert page to set a rate"
-    : p.mode === 'fixed' && v !== p.default ? `The rate is fixed at ${money(p.default, p.currency)} per hour`
-      : v < p.min || v > p.max ? `The rate must be between ${money(p.min, p.currency)} and ${money(p.max, p.currency)} per hour` : null;
-
-/** The hourly rate, editable within the rate policy; an out-of-range value is refused and put back. */
-function RateCell({ value, currency, policy, onSave, onInvalid, label, disabled }: {
-  value: number | null; currency: string; policy: RatePolicy | undefined; onSave: (v: number) => void; onInvalid: (m: string) => void; label: string; disabled?: boolean;
-}) {
-  const shown = value == null ? '' : String(value);
-  const [text, setText] = useState(shown);
-  useEffect(() => setText(shown), [shown]);
-  if (disabled || policy?.mode === 'fixed') {
-    const tip = policy?.source === 'none' ? rateRange(policy) : undefined;
-    return <span data-tip={tip} tabIndex={tip ? 0 : undefined}>{value != null ? money(value, currency) : '—'}</span>;
-  }
-  const commit = () => {
-    if (text.trim() === '') { setText(shown); return; }
-    const v = Math.round(Number(text.replace(',', '.')) * 100) / 100;
-    const bad = policy ? rateProblem(v, policy) : null;
-    if (bad) { onInvalid(bad); setText(shown); return; }
-    setText(String(v));
-    if (v !== value) onSave(v);
-  };
-  return (
-    <span className="money-input" data-tip={policy ? rateRange(policy) : undefined}>
-      <span aria-hidden>{currencySymbol(currency)}</span>
-      <input className="hours-input" inputMode="decimal" aria-label={label} value={text}
-        onChange={(e) => setText(e.target.value)} onBlur={commit}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } if (e.key === 'Escape') setText(shown); }} />
-    </span>
-  );
-}
-
-/** Read-only: service hours come from the agenda. */
-function ServiceHours({ value, sessions }: { value: number; sessions: number }) {
-  const tip = sessions ? `From the agenda: ${sessions} session${sessions === 1 ? '' : 's'}` : 'From the agenda';
-  return <span className="service-h" tabIndex={0} data-tip={tip} aria-label={`${hours(value)} service hours, ${tip.toLowerCase()}`}>{hours(value)}</span>;
-}
-
-/** An hours figure typed straight into the grid; saves on Enter or when leaving the field. */
-function HoursCell({ value, onSave, label, disabled }: { value: number; onSave: (v: number) => void; label: string; disabled?: boolean }) {
-  const [text, setText] = useState(hours(value));
-  useEffect(() => setText(hours(value)), [value]);
-  if (disabled) return <>{hours(value)}</>;
-  const commit = () => {
-    const v = text.trim() === '' ? 0 : Number(text.replace(',', '.'));
-    if (Number.isNaN(v) || v < 0) { setText(hours(value)); return; }
-    const rounded = Math.round(v * 100) / 100;
-    setText(hours(rounded));
-    if (rounded !== value) onSave(rounded);
-  };
-  return (
-    <input className="hours-input" inputMode="decimal" aria-label={label} value={text}
-      onChange={(e) => setText(e.target.value)} onBlur={commit}
-      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } if (e.key === 'Escape') { setText(hours(value)); } }} />
-  );
-}
-
 const HCP_GROUPS = [{ group: 'hcp' as const, label: 'In Event Center' }];
 
 /** Add an expert directly: choose who, their role, and prep/travel; the rate defaults from their FMV. Enter saves and opens the next row; Esc cancels. */
-function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string; taken: string[]; onSaved: () => void; onCancel: () => void }) {
+function AddSpeakerRow({ eventId, taken, withSelect, onSaved, onCancel }: { eventId: string; taken: string[]; withSelect: boolean; onSaved: () => void; onCancel: () => void }) {
   const qc = useQueryClient();
   const hcps = useHcps();
   const { me } = useAuth();
@@ -318,6 +307,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
   return (
     <>
       <tr className="agenda-inline" onKeyDown={onKey}>
+        {withSelect && <td />}
         <td colSpan={2}>
           <div className="speaker-add-who">
             <PersonPicker label="Choose an expert" options={options} groups={HCP_GROUPS} canSearchCrm={can(me, 'hcp', 'create')} autoOpen

@@ -87,6 +87,8 @@
 .btn-ghost { border-color: transparent; background: transparent; }
 .btn-danger { background: var(--tone-red-fg); border-color: var(--tone-red-fg); color: #fff; }
 .btn-danger:hover { background: var(--tone-red-fg); border-color: var(--tone-red-fg); color: #fff; filter: brightness(0.92); }
+.btn-danger-outline { color: var(--tone-red-fg); }
+.btn-danger-outline:hover { background: var(--tone-red-bg); border-color: var(--tone-red-fg); color: var(--tone-red-fg); }
 .btn-sm { padding: 4px 9px; font-size: var(--text-base); }
 .icon-btn {
   width: 30px; height: 30px; display: inline-grid; place-items: center; flex: none; padding: 0; cursor: pointer;

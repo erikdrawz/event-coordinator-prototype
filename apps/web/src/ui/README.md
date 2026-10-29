@@ -61,6 +61,16 @@ Positions any popup under its trigger (above it when there's no room), follows s
 ### `Menu` (`Menu.tsx`)
 A button that opens a list of actions: a row's ⋮ menu, or a picker like "+ Speaker". You render the trigger (it gets `ref`, `onClick` and ARIA props to spread); items have a label, optional icon, `danger`, `disabled`. Lists over 8 get a search box.
 
+### `SidePanel` (`SidePanel.tsx`)
+One related record (an attendee, an expert) on the right: the fields that don't fit the list, editable in place. Not modal: the list stays usable and clicking another row shows that record. Wide screens make room for it (`body.sp-open` narrows `.page`); phones get it full screen. Esc (when no menu or dialog is open) and ✕ close it, and focus returns where it was. Lay out fields with `PanelSection` + `PanelField` (label beside value); pin actions in `footer`.
+
+### Row selection and bulk actions (`BulkSelect.tsx`)
+- `useRowSelection(ids)`: which rows are ticked; rows that leave the list drop out.
+- `SelectAllCell` / `SelectRowCell`: the checkbox column (header ticks all; indeterminate when some).
+- `BulkBar`: replaces the card header while rows are ticked: "N selected · Clear", the actions, and a short outcome notice.
+- `isRowClick(e)`: true when a row click should open its panel (not on links, buttons, inputs or menus). Give such rows `row-openable`, `tabIndex={0}` and Enter to open.
+Bulk writes are one call for all ticked ids (`.in('id', ids)`); RLS leaves out rows the caller can't change, so report "N updated" from what came back.
+
 ### `ConfirmDialog` (`ConfirmDialog.tsx`)
 "Are you sure?" for destructive actions, in the app's style. Say what happens and what stays, e.g. "Speakers stay on the event."
 

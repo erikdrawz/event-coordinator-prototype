@@ -1,32 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, MoreVertical, Plus, Trash2, UserRound } from 'lucide-react';
-import { supabase } from '../../../lib/supabase';
+import { ChevronDown, MoreVertical, PanelRight, Plus, Trash2, UserRound } from 'lucide-react';
 import { useAuth } from '../../../lib/auth';
 import { can } from '../../../lib/permissions';
 import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
+import { BulkBar, SelectAllCell, SelectRowCell, isRowClick, useRowSelection } from '../../../ui/BulkSelect';
 import { useEventAccess } from '../eventAccess';
 import { usePeople } from '../team/teamData';
 import { AddAttendeesModal } from './AddAttendeesModal';
-import { ATTENDEE_TYPE_LABEL, attendeeName, attendeesKey, useAttendeeCrmStatuses, useAttendees, useRsvps, type Attendee, type Rsvp } from './attendeesData';
+import { AttendeePanel, attendeeSub, initialsOf } from './AttendeePanel';
+import { ATTENDED, AttendedControl, CrmPill, OwnerControl, PeopleMenu, RsvpControl, pill } from './attendeeControls';
+import {
+  ATTENDEE_TYPE_LABEL, attendeeName, attendeesKey, removeAttendees, updateAttendees, useAttendeeCrmStatuses, useAttendees, useRsvps,
+  type Attendee, type AttendeePatch,
+} from './attendeesData';
 import './attendees.css';
 
-const ATTENDED = [{ value: true, label: 'Yes', tone: 'green' }, { value: false, label: 'No', tone: 'grey' }] as const;
-const attendedOf = (v: boolean) => ATTENDED.find((o) => o.value === v)!;
+const plural = (n: number) => `${n} attendee${n === 1 ? '' : 's'}`;
 
-function OwnerValue({ owner }: { owner: Attendee['owner'] }) {
-  return owner
-    ? <span className="dt-person"><Avatar size={22} initials={owner.initials} color={owner.avatar_color} />{owner.display_name}</span>
-    : <span className="text-muted">—</span>;
-}
-
-const initialsOf = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-
-/** Who's invited to the event, how they answered, whether they came and who looks after them. HCPs are added in bulk from EC or the CRMs. */
+/**
+ * Who's invited to the event, how they answered, whether they came and who looks after them. HCPs are
+ * added in bulk from EC or the CRMs. Clicking a row opens the attendee in a side panel with every field;
+ * ticking rows offers bulk changes.
+ */
 export function AttendeesTab({ event }: { event: { id: string; name: string } }) {
   const { me } = useAuth();
   const navigate = useNavigate();
@@ -36,45 +36,71 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
   const rsvps = useRsvps().data;
   const crmStatuses = useAttendeeCrmStatuses().data;
   const [adding, setAdding] = useState(false);
-  const [removing, setRemoving] = useState<Attendee | null>(null);
+  const [removing, setRemoving] = useState<Attendee[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const canAdd = canEditEvent && can(me, 'event_attendee', 'create');
   const canEdit = canEditEvent && can(me, 'event_attendee', 'edit');
   const canDelete = canEditEvent && can(me, 'event_attendee', 'delete');
   const people = usePeople(canEdit).data;
-
-  const setField = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: { rsvp?: Rsvp; attended?: boolean; owner_id?: string } }) => {
-      const { error } = await supabase.from('event_attendee').update(patch).eq('id', id);
-      if (error) throw new Error(error.message);
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: attendeesKey(event.id) }),
-  });
-  const remove = useMutation({
-    mutationFn: async (a: Attendee) => {
-      const { error } = await supabase.from('event_attendee').delete().eq('id', a.id);
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: attendeesKey(event.id) }); setRemoving(null); },
-  });
+  useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 6000); return () => clearTimeout(t); }, [notice]);
 
   const list = attendees.data ?? [];
+  const selection = useRowSelection(list.map((a) => a.id));
+  const canSelect = canEdit || canDelete;
+  const open = list.find((a) => a.id === openId) ?? null;
+
+  const refresh = () => qc.invalidateQueries({ queryKey: attendeesKey(event.id) });
+  /** One attendee (from the list or the panel) or the ticked ones (from the bulk bar). */
+  const change = useMutation({
+    mutationFn: ({ ids, patch }: { ids: string[]; patch: AttendeePatch }) => updateAttendees(ids, patch),
+    onSuccess: (n, { ids }) => {
+      if (ids.length > 1 || selection.some) setNotice(n === ids.length ? `${plural(n)} updated` : `${plural(n)} updated; ${ids.length - n} you can't edit were left as they were`);
+    },
+    onSettled: refresh,
+  });
+  const remove = useMutation({
+    mutationFn: (rows: Attendee[]) => removeAttendees(rows.map((a) => a.id)),
+    onSuccess: (n, rows) => {
+      if (rows.some((a) => a.id === openId)) setOpenId(null);
+      if (rows.length > 1) setNotice(`${plural(n)} removed`);
+      setRemoving(null); refresh();
+    },
+  });
+  const setOne = (id: string) => (patch: AttendeePatch) => change.mutate({ ids: [id], patch });
+  const setMany = (patch: AttendeePatch) => change.mutate({ ids: [...selection.selected], patch });
+
   const accepted = list.filter((a) => a.rsvp === 'accepted').length;
-  const rsvpOf = (code: Rsvp) => rsvps?.find((r) => r.code === code);
-  const pill = (row: { label: string; tone: string } | undefined) => row && <span className={`pill pill-${row.tone}`}>{row.label}</span>;
+  const ticked = list.filter((a) => selection.has(a.id));
+  const bulkButton = (label: string) => (t: object) => <button type="button" className="btn btn-sm" {...t}>{label}<ChevronDown size={14} aria-hidden /></button>;
 
   return (
     <section className="card ov-card" aria-labelledby="attendees-title">
-      <div className="ov-head">
-        <div className="ov-title-row">
-          <h2 id="attendees-title" className="ov-title">Attendees</h2>
-          <span className="card-sub">{list.length === 0 ? 'No one invited yet' : `${list.length} invited · ${accepted} accepted`}</span>
+      {selection.some ? (
+        <BulkBar selection={selection} noun={['attendee', 'attendees']} notice={notice}>
+          {canEdit && <>
+            <Menu label="Set RSVP for the selected attendees" width={160}
+              items={(rsvps ?? []).map((r) => ({ key: r.code, label: pill(r), text: r.label, onSelect: () => setMany({ rsvp: r.code }) }))} trigger={bulkButton('RSVP')} />
+            <Menu label="Set Attended for the selected attendees" width={120}
+              items={ATTENDED.map((o) => ({ key: o.label, label: pill(o), text: o.label, onSelect: () => setMany({ attended: o.value }) }))} trigger={bulkButton('Attended')} />
+            <PeopleMenu label="Set the owner of the selected attendees" people={people} onPick={(p) => setMany({ owner_id: p.id })} trigger={bulkButton('Owner')} />
+          </>}
+          {canDelete && <button type="button" className="btn btn-sm btn-danger-outline" onClick={() => setRemoving(ticked)}><Trash2 size={14} />Remove</button>}
+        </BulkBar>
+      ) : (
+        <div className="ov-head">
+          <div className="ov-title-row">
+            <h2 id="attendees-title" className="ov-title">Attendees</h2>
+            <span className="card-sub">{list.length === 0 ? 'No one invited yet' : `${list.length} invited · ${accepted} accepted`}</span>
+          </div>
+          <div className="ov-actions">
+            {notice && <span className="bs-notice" role="status">{notice}</span>}
+            {canAdd && <button className="btn btn-outline btn-sm" onClick={() => setAdding(true)}><Plus size={14} strokeWidth={2.6} />Add attendees</button>}
+          </div>
         </div>
-        <div className="ov-actions">
-          {canAdd && <button className="btn btn-outline btn-sm" onClick={() => setAdding(true)}><Plus size={14} strokeWidth={2.6} />Add attendees</button>}
-        </div>
-      </div>
+      )}
 
-      {(attendees.error || setField.error) && <div className="form-error" role="alert">{(attendees.error ?? setField.error)!.message}</div>}
+      {(attendees.error || change.error) && <div className="form-error" role="alert">{(attendees.error ?? change.error)!.message}</div>}
 
       {attendees.isLoading ? <div className="ov-empty text-muted">Loading…</div> : list.length === 0 ? (
         <div className="ov-empty">
@@ -85,68 +111,42 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
         <div className="table-scroll">
           <table className="agenda-table attendees-table">
             <thead>
-              <tr><th>Name</th><th>Type</th><th>RSVP</th><th>Attended</th><th>Owner</th><th>CRM</th><th aria-label="Actions" /></tr>
+              <tr>
+                {canSelect && <SelectAllCell selection={selection} label="Select all attendees" />}
+                <th>Name</th><th>Type</th><th>RSVP</th><th>Attended</th><th>Owner</th><th>CRM</th><th aria-label="Actions" />
+              </tr>
             </thead>
             <tbody>
               {list.map((a) => {
                 const name = attendeeName(a);
-                const sub = a.hcp ? [a.hcp.specialty?.name, a.hcp.city].filter(Boolean).join(' · ') : a.user ? 'Colleague' : 'Guest';
                 const menu = [
+                  { key: 'details', label: 'Show details', icon: <PanelRight size={14} />, onSelect: () => setOpenId(a.id) },
                   ...(a.hcp_id ? [{ key: 'profile', label: 'View expert profile', icon: <UserRound size={14} />, onSelect: () => navigate(`/experts/${a.hcp_id}`) }] : []),
-                  ...(canDelete ? [{ key: 'remove', label: 'Remove attendee', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(a) }] : []),
+                  ...(canDelete ? [{ key: 'remove', label: 'Remove attendee', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving([a]) }] : []),
                 ];
+                const cls = ['row-openable', a.id === openId && 'is-open', selection.has(a.id) && 'is-selected'].filter(Boolean).join(' ');
                 return (
-                  <tr key={a.id}>
+                  <tr key={a.id} className={cls} tabIndex={0}
+                    onClick={(e) => { if (isRowClick(e)) setOpenId(a.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) setOpenId(a.id); }}>
+                    {canSelect && <SelectRowCell selection={selection} id={a.id} label={`Select ${name}`} />}
                     <td>
                       <span className="dt-person">
                         <Avatar size={30} initials={a.user?.initials ?? initialsOf(name)} color={a.user?.avatar_color ?? avatarColorFor(name)} />
                         <span>
                           {a.hcp_id ? <Link to={`/experts/${a.hcp_id}`} className="agenda-title expert-link">{name}</Link> : <span className="agenda-title">{name}</span>}
-                          <div className="dt-sub">{sub}</div>
+                          <div className="dt-sub">{attendeeSub(a)}</div>
                         </span>
                       </span>
                     </td>
                     <td className="att-type">{ATTENDEE_TYPE_LABEL[a.type]}</td>
-                    <td>
-                      {canEdit ? (
-                        <Menu label={`RSVP for ${name}`} width={160}
-                          items={(rsvps ?? []).map((r) => ({ key: r.code, label: pill(r), text: r.label, onSelect: () => r.code !== a.rsvp && setField.mutate({ id: a.id, patch: { rsvp: r.code } }) }))}
-                          trigger={(t) => (
-                            <button type="button" className={`pill pill-${rsvpOf(a.rsvp)?.tone ?? 'grey'} att-rsvp`} aria-label={`RSVP for ${name}: ${rsvpOf(a.rsvp)?.label ?? a.rsvp}. Change`} {...t}>
-                              {rsvpOf(a.rsvp)?.label ?? a.rsvp}<ChevronDown size={12} strokeWidth={2.6} aria-hidden />
-                            </button>
-                          )} />
-                      ) : pill(rsvpOf(a.rsvp))}
-                    </td>
-                    <td>
-                      {canEdit ? (
-                        <Menu label={`Attended: ${name}`} width={120}
-                          items={ATTENDED.map((o) => ({ key: o.label, label: pill(o), text: o.label, onSelect: () => o.value !== a.attended && setField.mutate({ id: a.id, patch: { attended: o.value } }) }))}
-                          trigger={(t) => (
-                            <button type="button" className={`pill pill-${attendedOf(a.attended).tone} att-rsvp`} aria-label={`Attended for ${name}: ${attendedOf(a.attended).label}. Change`} {...t}>
-                              {attendedOf(a.attended).label}<ChevronDown size={12} strokeWidth={2.6} aria-hidden />
-                            </button>
-                          )} />
-                      ) : pill(attendedOf(a.attended))}
-                    </td>
-                    <td>
-                      {canEdit ? (
-                        <Menu label={`Owner of ${name}`} width={240} searchable
-                          items={(people ?? []).map((p) => ({ key: p.id, label: <span className="dt-person"><Avatar size={22} initials={p.initials} color={p.avatar_color} />{p.display_name}</span>, text: p.display_name,
-                            onSelect: () => p.id !== a.owner_id && setField.mutate({ id: a.id, patch: { owner_id: p.id } }) }))}
-                          trigger={(t) => (
-                            <button type="button" className="att-owner" aria-label={`Owner of ${name}: ${a.owner?.display_name ?? 'nobody'}. Change`} {...t}>
-                              <OwnerValue owner={a.owner} /><ChevronDown size={12} strokeWidth={2.6} aria-hidden />
-                            </button>
-                          )} />
-                      ) : <OwnerValue owner={a.owner} />}
-                    </td>
-                    <td>{a.crm_status === 'not_applicable' ? <span className="text-muted">—</span> : pill(crmStatuses?.find((c) => c.code === a.crm_status))}</td>
+                    <td><RsvpControl name={name} value={a.rsvp} rsvps={rsvps} canEdit={canEdit} onChange={(rsvp) => setOne(a.id)({ rsvp })} /></td>
+                    <td><AttendedControl name={name} value={a.attended} canEdit={canEdit} onChange={(attended) => setOne(a.id)({ attended })} /></td>
+                    <td><OwnerControl name={name} owner={a.owner} people={people} canEdit={canEdit} onChange={(owner_id) => setOne(a.id)({ owner_id })} /></td>
+                    <td><CrmPill status={a.crm_status} statuses={crmStatuses} /></td>
                     <td className="agenda-menu">
-                      {menu.length > 0 && (
-                        <Menu label={`Actions for ${name}`} items={menu} width={200}
-                          trigger={(t) => <button type="button" className="icon-btn" aria-label={`Actions for ${name}`} {...t}><MoreVertical size={16} /></button>} />
-                      )}
+                      <Menu label={`Actions for ${name}`} items={menu} width={200}
+                        trigger={(t) => <button type="button" className="icon-btn" aria-label={`Actions for ${name}`} {...t}><MoreVertical size={16} /></button>} />
                     </td>
                   </tr>
                 );
@@ -155,12 +155,21 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
           </table>
         </div>
       )}
+      {list.length > 0 && <p className="field-hint att-hint">Click a row for every detail{canSelect ? '; tick rows to change several at once' : ''}.</p>}
 
+      {open && (
+        <AttendeePanel a={open} rsvps={rsvps} crmStatuses={crmStatuses} people={people} canEdit={canEdit} canDelete={canDelete}
+          onChange={setOne(open.id)} onRemove={() => setRemoving([open])} onClose={() => setOpenId(null)} />
+      )}
       {adding && <AddAttendeesModal event={event} attending={list} onClose={() => setAdding(false)} />}
       {removing && (
-        <ConfirmDialog title="Remove attendee" confirmLabel="Remove" pending={remove.isPending} error={remove.error?.message}
+        <ConfirmDialog title={removing.length === 1 ? 'Remove attendee' : `Remove ${plural(removing.length)}`} confirmLabel="Remove"
+          pending={remove.isPending} error={remove.error?.message}
           onConfirm={() => remove.mutate(removing)} onCancel={() => { setRemoving(null); remove.reset(); }}>
-          Remove {attendeeName(removing)} from this event's attendees? Their expert record and any engagement on this event stay as they are.
+          {removing.length === 1
+            ? <>Remove {attendeeName(removing[0])} from this event's attendees?</>
+            : <>Remove {plural(removing.length)} from this event's attendees?</>}{' '}
+          Their expert records and any engagement on this event stay as they are.
         </ConfirmDialog>
       )}
     </section>

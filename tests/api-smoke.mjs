@@ -507,6 +507,11 @@ ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', bo
    'an editor hands an attendee to another owner');
 const agentUser = await api(paul, 'app_user?email=eq.compliance-agent@agents.alera.example&select=id');
 ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { owner_id: agentUser.data?.[0]?.id } })).status >= 400, 'an attendee is owned by a person, not an agent');
+// Bulk changes from the list: one call for the ticked rows; rows the caller can't edit are left out
+const bothAtt = `event_attendee?id=in.(${holmAtt?.id},${karinAtt?.id})`;
+ok((await api(paul, bothAtt, { method: 'PATCH', body: { rsvp: 'tentative', attended: false } })).data?.length === 2, 'an editor changes several attendees in one call');
+ok((await api(lisaT, bothAtt, { method: 'PATCH', body: { rsvp: 'declined' } })).data?.length === 0
+   && (await api(paul, `${bothAtt}&select=rsvp`)).data?.every((a) => a.rsvp === 'tentative'), "a bulk change skips attendees the caller can't edit");
 
 // Account Manager: field reps create their own events and add experts to them, but don't edit experts
 // and see only their own requests

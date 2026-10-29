@@ -81,7 +81,8 @@ Expert directory and profile, FMV rates, tier requests, contracts (service agree
 
 ### Phase 4: Attendees & reconciliation
 - ✓ Attendees tab (name, role, organisation, RSVP, CRM status); Add attendees dialog: HCPs from Event Center (this event's experts first, select all) or the CRMs (copied into EC when added); RSVP changed from the row; remove
-- Next: import from a file, attended tracking and bulk actions (mark invited/attended), **mock reconciliation** for attendees still to reconcile, CRM write-back via the outbox
+- ✓ Attendees and Experts: a side panel on row click with every field, and bulk actions on ticked rows (attendees: RSVP, Attended, Owner, Remove; experts: Role, Remove)
+- Next: import from a file, **mock reconciliation** for attendees still to reconcile, CRM write-back via the outbox
 
 ### Phase 5: Spend
 Budgets, planned/actual expenses, invoice upload + extraction (an agent-user demo).

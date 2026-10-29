@@ -10,10 +10,14 @@ export interface Expert {
   eligibility: 'eligible' | 'ineligible' | 'pending'; check_status: 'passed' | 'pending' | 'failed'; check_notes: string | null;
   hourly_rate: number | null; currency: string | null;
   prep_hours: number; service_hours: number; travel_hours: number; total_payable: number;
-  hcp: { display_name: string; city: string | null; specialty: { name: string } | null } | null;
+  hcp: { display_name: string; city: string | null; specialty: { name: string } | null;
+         /** The expert's own eligibility, which this engagement started from */
+         eligibility: 'eligible' | 'ineligible' | 'pending'; eligibility_note: string | null; tier: string | null } | null;
   /** The engagement's contracts: Work Order or Single-event Contract, and Addenda */
   contract: { id: string; contract_number: string; contract_type: string; status: string; parent_contract_id: string | null }[];
-  event_session_speaker: { id: string }[];
+  /** Their agenda sessions; minutes null = the whole session */
+  event_session_speaker: { id: string; minutes: number | null; event_session: { id: string; title: string; starts_at: string; ends_at: string } | null }[];
+  created_at: string;
 }
 
 /** The latest tiering request logged for each of this event's experts, by expert. */
@@ -44,14 +48,15 @@ export function useExperts(eventId: string) {
     queryFn: async () => {
       const { data, error } = await supabase.from('event_expert')
         .select('id,hcp_id,role,created_at,eligibility,check_status,check_notes,hourly_rate,currency,prep_hours,service_hours,travel_hours,total_payable,' +
-                'hcp(display_name,city,specialty(name)),contract!contract_event_expert_id_fkey(id,contract_number,contract_type,status,parent_contract_id),event_session_speaker(id)')
+                'hcp(display_name,city,specialty(name),eligibility,eligibility_note,tier),contract!contract_event_expert_id_fkey(id,contract_number,contract_type,status,parent_contract_id),' +
+                'event_session_speaker(id,minutes,event_session(id,title,starts_at,ends_at))')
         .eq('event_id', eventId)
         .order('created_at');
       if (error) throw error;
       // numeric columns arrive as strings from some drivers; normalise once here.
       // Stable order: when they were added, then chairs first, then name (seeded speakers share a timestamp)
       const rank = (r: string) => ROLES.indexOf(r as ExpertRole);
-      return (data as unknown as (Expert & { created_at: string })[]).sort((a, b) =>
+      return (data as unknown as Expert[]).sort((a, b) =>
         a.created_at.localeCompare(b.created_at) || rank(a.role) - rank(b.role)
         || (a.hcp?.display_name ?? '').localeCompare(b.hcp?.display_name ?? '')).map((x) => ({
         ...x, prep_hours: Number(x.prep_hours), service_hours: Number(x.service_hours), travel_hours: Number(x.travel_hours),

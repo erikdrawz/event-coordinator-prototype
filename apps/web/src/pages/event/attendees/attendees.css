@@ -12,6 +12,8 @@
 .att-owner:hover > svg, .att-owner[aria-expanded='true'] > svg { opacity: 1; }
 .att-owner:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
+.att-hint { margin: 10px 0 0; }
+
 /* Add attendees dialog */
 .att-sources { margin-bottom: 14px; }
 .att-sources button:disabled { opacity: 0.5; cursor: default; }
