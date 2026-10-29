@@ -500,7 +500,30 @@ ok(karinAtt?.organisation === 'Uppsala University Hospital', 'a CRM attendee arr
 ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'maybe' } })).status >= 400, 'RSVP takes only known answers');
 ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'accepted' } })).data?.[0]?.rsvp === 'accepted', 'an editor records an RSVP');
 
+// Account Manager: field reps create their own events and add experts to them, but don't edit experts
+// and see only their own requests
+const daniel = await login('daniel.novak@alera.example');
+const danielMe = await api(daniel, 'rpc/me', { method: 'POST', body: {} });
+ok(danielMe.data?.profile?.name === 'Account Manager' && danielMe.data.permissions.hcp?.read && !danielMe.data.permissions.hcp?.edit
+   && danielMe.data.permissions.event_request?.view_all === false && me.data.permissions.event_request?.view_all === true,
+   "me() tells an Account Manager (reads experts, own requests only) from home office (all requests)");
+const amHcpEdit = await api(daniel, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: 'eligible' } });
+ok(Array.isArray(amHcpEdit.data) && amHcpEdit.data.length === 0, "an Account Manager can't edit an expert");
+ok((await api(daniel, 'fmv_rate', { method: 'POST', body: { hcp_id: holmHcp.data[0].id, rate: 200, min_rate: 180, max_rate: 220, currency: 'EUR', effective_date: '2041-01-01' } })).status >= 400,
+   "an Account Manager can't record FMV rates");
+ok((await crmImport(daniel, karin?.crm_connection_id, karin?.external_id)).status >= 400, "an Account Manager can't import experts from a CRM");
+ok((await api(daniel, 'rpc/create_contract', { method: 'POST', body: { p: { contract_type: 'msa', hcp_id: holmHcp.data[0].id } } })).status >= 400,
+   "an Account Manager can't add a Master Service Agreement");
+ok((await api(daniel, 'event_request?select=id')).data?.length === 0, "an Account Manager doesn't see other people's requests");
+const amReq = await saveReq(daniel, { title: 'AM smoke request', event_type_id: types.data[0].id });
+ok(amReq.status === 200 && (await api(daniel, 'event_request?select=id')).data?.length === 1, 'an Account Manager creates and sees their own requests');
+const amEv = await api(daniel, 'rpc/create_event', { method: 'POST', body: { p: { ...base, name: 'AM Smoke Dinner', country_code: 'DK', city: 'Copenhagen' } } });
+const amExpert = await api(daniel, 'event_expert', { method: 'POST', body: { event_id: amEv.data?.id, hcp_id: lindHcp.data[0].id, role: 'speaker' } });
+ok(amEv.status === 200 && amExpert.status === 201, 'an Account Manager creates an event and adds an expert to it');
+
 // Cleanup
+await api(daniel, `event_request?id=eq.${amReq.data?.id}`, { method: 'DELETE' });
+await api(alex, `event?id=eq.${amEv.data?.id}`, { method: 'DELETE' });
 await api(alex, `event_request?id=eq.${tier.data?.id}`, { method: 'DELETE' });
 await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.id})`, { method: 'DELETE' });
 await api(maria, `product?id=eq.${mProd.data?.[0]?.id}`, { method: 'DELETE' });

@@ -13,6 +13,7 @@ const DEMO_ACCOUNTS = [
   { email: 'paul.taylor@alera.example', name: 'Paul Taylor', role: 'Event Coordinator · HQ Events', initials: 'PT', color: '#2d3b45' },
   { email: 'lisa.anderson@alera.example', name: 'Lisa Anderson', role: 'Event Coordinator · Logistics', initials: 'LA', color: '#e8731a' },
   { email: 'sarah.mitchell@alera.example', name: 'Sarah Mitchell', role: 'Collaborator · Medical lead', initials: 'SM', color: '#2f9e5f' },
+  { email: 'daniel.novak@alera.example', name: 'Daniel Novak', role: 'Account Manager · Nordics', initials: 'DN', color: '#b45309' },
   { email: 'alex.morgan@alera.example', name: 'Alex Morgan', role: 'System Admin', initials: 'AM', color: '#5c6670' },
   { email: 'maria.castillo@alera.example', name: 'Maria Castillo', role: 'Business Admin', initials: 'MA', color: '#0f766e' },
 ];

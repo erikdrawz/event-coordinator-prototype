@@ -8,11 +8,11 @@ import { UnassignedRequests } from './home/UnassignedRequests';
 import { RecentlyWorkedOn } from './home/RecentlyWorkedOn';
 import { useEventForm } from './event/EventFormProvider';
 import { RequestFormModal } from './requests/RequestFormModal';
-import { can, canCreateEvents } from '../lib/permissions';
+import { can, canCreateEvents, seesAll } from '../lib/permissions';
 import type { Scope, When } from './home/queries';
 import './home.css';
 
-/** Home 4a: create + calendar + recent | agenda | needs my action + unassigned requests. */
+/** Home 4a: create + calendar + recent | agenda | needs my action + unassigned requests (home office only). */
 export function HomePage() {
   const { me } = useAuth();
   const [scope, setScope] = useState<Scope>('mine');
@@ -45,7 +45,7 @@ export function HomePage() {
 
       <div className="home-right">
         <NeedsMyAction meId={me.id} />
-        <UnassignedRequests />
+        {seesAll(me, 'event_request') && <UnassignedRequests />}
       </div>
       {creatingRequest && <RequestFormModal onClose={() => setCreatingRequest(false)} />}
     </main>

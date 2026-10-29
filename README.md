@@ -41,6 +41,7 @@ All demo logins use the password `EC-demo-2026!`. Change it before showing the e
 | Lisa Anderson | lisa.anderson@alera.example | Event Coordinator |
 | Sarah Mitchell | sarah.mitchell@alera.example | Collaborator (medical lead) |
 | Michael Chen | michael.chen@alera.example | Collaborator |
+| Daniel Novak | daniel.novak@alera.example | Account Manager (field rep) |
 | Alex Morgan | alex.morgan@alera.example | System Admin |
 | Maria Castillo | maria.castillo@alera.example | Business Admin |
 | Compliance Agent | compliance-agent@agents.alera.example | Agent (owned by Paul) |

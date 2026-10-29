@@ -80,7 +80,7 @@ export function ExpertPage() {
         <div className="expert-main">
           <EngagementsCard list={list} loading={engagements.isLoading} error={engagements.error} />
           <FmvCard expert={x} />
-          <ContractsCard expert={x} canCreate={can(me, 'contract', 'create')} />
+          <ContractsCard expert={x} canCreate={can(me, 'contract', 'create') && can(me, 'hcp', 'edit')} />
         </div>
         <DetailsCard expert={x} />
       </div>

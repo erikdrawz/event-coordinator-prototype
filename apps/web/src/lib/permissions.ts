@@ -11,6 +11,12 @@ export function can(me: Me | null | undefined, object: string, action: Action): 
   return me.profile.is_admin || Boolean(me.permissions[object]?.[action]);
 }
 
+/** Whether this user sees every record of an object (view_all), not only those shared with them. */
+export function seesAll(me: Me | null | undefined, object: string): boolean {
+  if (!me) return false;
+  return me.profile.is_admin || Boolean(me.permissions[object]?.view_all);
+}
+
 /** Whether this user may create events at all: allowed somewhere, or an admin. */
 export function canCreateEvents(me: Me | null | undefined): boolean {
   return can(me, 'event', 'create') && (Boolean(me?.profile.is_admin) || (me?.event_countries.length ?? 0) > 0);

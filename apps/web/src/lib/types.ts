@@ -18,7 +18,8 @@ export interface Me {
   event_countries: string[];
   profile: { id: string; name: string; is_admin: boolean; can_access_admin: boolean };
   tenant: { id: string; name: string; brand_name: string; brand_color: string };
-  permissions: Record<string, { read: boolean; create: boolean; edit: boolean; delete: boolean }>;
+  /** view_all: sees every record of the object, not only those shared with them (e.g. home office and requests) */
+  permissions: Record<string, { read: boolean; create: boolean; edit: boolean; delete: boolean; view_all?: boolean }>;
 }
 
 export type NotificationKind =

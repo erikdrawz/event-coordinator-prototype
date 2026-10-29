@@ -16,6 +16,7 @@ insert into public.profile (id, tenant_id, name, description, is_admin, can_acce
   (app.sid('profile:bizadmin'),    app.sid('tenant:alera'), 'Business Admin',    'Maintains products, therapeutic areas and users; reads everything', false, true),
   (app.sid('profile:coordinator'), app.sid('tenant:alera'), 'Event Coordinator', 'Runs strategic events end to end', false, false),
   (app.sid('profile:collaborator'),app.sid('tenant:alera'), 'Collaborator',      'Contributes to events: medical, compliance, requesters', false, false),
+  (app.sid('profile:account-manager'), app.sid('tenant:alera'), 'Account Manager', 'Field reps who meet HCPs and create their own events', false, false),
   (app.sid('profile:agent'),       app.sid('tenant:alera'), 'Agent',             'AI agents acting for a named human; narrow write access', false, false);
 
 -- Object permissions -------------------------------------------------
@@ -44,6 +45,16 @@ select app.sid('tenant:alera'), app.sid('profile:coordinator'), o.obj,
        o.obj not in (select obj from config) and o.obj <> 'audit_log',
        o.obj = 'event_request'   -- home office sees every submitted request; events only through their team
   from objects o;
+
+-- Account Manager: as an Event Coordinator, except experts (HCPs, organisations, FMV rates) are
+-- read-only (they can still add them to events) and they see only their own requests (no view_all)
+insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all)
+select tenant_id, app.sid('profile:account-manager'), object_name, can_read,
+       can_create and object_name not in ('hco', 'hcp', 'fmv_rate'),
+       can_edit   and object_name not in ('hco', 'hcp', 'fmv_rate'),
+       can_delete and object_name not in ('hco', 'hcp', 'fmv_rate'),
+       false
+  from public.permission where profile_id = app.sid('profile:coordinator');
 
 -- Collaborator: read everything; contribute to the team board, tasks, content, attendees, requests
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete)
