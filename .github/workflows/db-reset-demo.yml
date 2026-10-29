@@ -25,5 +25,21 @@ jobs:
           version: 2.122.0  # pinned; bump deliberately after reading the CLI changelog
       - name: Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      # The CLI's reset clean-out looks for sequences with relkind 's' instead of 'S', so standalone
+      # sequences (request, event and contract numbers) survive and the first migration that creates
+      # them fails. Drop them first, over the pooler address `supabase link` saved.
+      - name: Drop leftover sequences
+        run: |
+          test -s supabase/.temp/pooler-url || { echo "No pooler URL saved by supabase link"; exit 1; }
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" psql "$(cat supabase/.temp/pooler-url)" -v ON_ERROR_STOP=1 -c "
+            do \$\$ declare r record; begin
+              for r in select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                        where n.nspname = 'public' and c.relkind = 'S'
+                          and not exists (select 1 from pg_depend d where d.objid = c.oid and d.classid = 'pg_class'::regclass and d.deptype in ('a', 'i'))
+              loop
+                raise notice 'dropping sequence public.%', r.relname;
+                execute format('drop sequence if exists public.%I cascade', r.relname);
+              end loop;
+            end \$\$;"
       - name: Reset database (migrations + seed)
         run: yes | supabase db reset --linked
