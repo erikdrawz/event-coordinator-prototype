@@ -9,7 +9,9 @@ export interface Lookup<C extends string> { code: C; label: string; tone: Tone; 
 export interface Attendee {
   id: string; attendee_kind: 'hcp' | 'user' | 'other'; hcp_id: string | null; user_id: string | null;
   display_name: string | null; organisation: string | null; role_label: string | null;
-  rsvp: Rsvp; attended: boolean | null; crm_status: AttendeeCrmStatus;
+  rsvp: Rsvp; attended: boolean; crm_status: AttendeeCrmStatus;
+  /** Who is responsible for the attendee: whoever added them, unless handed on */
+  owner_id: string | null; owner: { id: string; display_name: string; initials: string | null; avatar_color: string | null } | null;
   hcp: { display_name: string; last_name: string; city: string | null; specialty: { name: string } | null } | null;
   user: { display_name: string; last_name: string; initials: string | null; avatar_color: string | null } | null;
 }
@@ -28,7 +30,8 @@ export function useAttendees(eventId: string) {
     queryKey: attendeesKey(eventId),
     queryFn: async () => {
       const { data, error } = await supabase.from('event_attendee')
-        .select('id,attendee_kind,hcp_id,user_id,display_name,organisation,role_label,rsvp,attended,crm_status,' +
+        .select('id,attendee_kind,hcp_id,user_id,display_name,organisation,role_label,rsvp,attended,crm_status,owner_id,' +
+                'owner:app_user!event_attendee_owner_id_fkey(id,display_name,initials,avatar_color),' +
                 'hcp(display_name,last_name,city,specialty(name)),user:app_user!event_attendee_user_id_fkey(display_name,last_name,initials,avatar_color)')
         .eq('event_id', eventId);
       if (error) throw error;

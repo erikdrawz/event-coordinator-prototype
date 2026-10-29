@@ -267,7 +267,7 @@ select app.sid('att:' || e || ':' || coalesce(h, u)), app.sid('tenant:alera'), a
        case when h is not null then 'hcp' else 'user' end,
        case when h is not null then app.sid('hcp:' || h) end,
        case when u is not null then app.sid('user:' || u) end,
-       org, role, rsvp, attended,
+       org, role, rsvp, coalesce(attended, false),
        case when u is not null then 'not_applicable' else crm end,
        case when h is not null and crm = 'reconciled' then (select p.crm_connection_id from public.hcp p where p.id = app.sid('hcp:' || h)) end,
        case when h is not null and crm = 'reconciled' then (select p.crm_external_id from public.hcp p where p.id = app.sid('hcp:' || h)) end

@@ -493,7 +493,7 @@ ok((await addAtt(paul, [{ name: 'Walk-in' }])).status >= 400, 'an attendee needs
 const addedAtt = await addAtt(paul, people);
 ok(addedAtt.status === 200 && addedAtt.data?.added === 2 && addedAtt.data?.skipped === 0, 'attendees are added from EC and from the CRM in one call');
 ok((await addAtt(paul, people)).data?.skipped === 2, 'people already attending are skipped');
-const atts = await api(paul, `event_attendee?event_id=eq.${ev.id}&select=id,hcp_id,rsvp,organisation,crm_status`);
+const atts = await api(paul, `event_attendee?event_id=eq.${ev.id}&select=id,hcp_id,rsvp,organisation,crm_status,attended,owner_id`);
 const holmAtt = atts.data?.find((a) => a.hcp_id === holmHcp.data[0].id);
 const karinAtt = atts.data?.find((a) => a.hcp_id === imported.data?.id);
 ok(holmAtt?.rsvp === 'invited' && holmAtt?.organisation === 'Odense University Hospital' && holmAtt?.crm_status === 'reconciled',
@@ -501,6 +501,12 @@ ok(holmAtt?.rsvp === 'invited' && holmAtt?.organisation === 'Odense University H
 ok(karinAtt?.organisation === 'Uppsala University Hospital', 'a CRM attendee arrives with their organisation');
 ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'maybe' } })).status >= 400, 'RSVP takes only known answers');
 ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'accepted' } })).data?.[0]?.rsvp === 'accepted', 'an editor records an RSVP');
+ok(holmAtt?.attended === false && holmAtt?.owner_id === me.data.id, 'an attendee starts as not attended, owned by whoever added them');
+ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { attended: true } })).data?.[0]?.attended === true, 'an editor records attendance');
+ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { owner_id: lisa.data[0].id } })).data?.[0]?.owner_id === lisa.data[0].id,
+   'an editor hands an attendee to another owner');
+const agentUser = await api(paul, 'app_user?email=eq.compliance-agent@agents.alera.example&select=id');
+ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { owner_id: agentUser.data?.[0]?.id } })).status >= 400, 'an attendee is owned by a person, not an agent');
 
 // Account Manager: field reps create their own events and add experts to them, but don't edit experts
 // and see only their own requests

@@ -10,13 +10,23 @@ import { Avatar } from '../../../components/Avatar';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { useEventAccess } from '../eventAccess';
+import { usePeople } from '../team/teamData';
 import { AddAttendeesModal } from './AddAttendeesModal';
 import { attendeeName, attendeesKey, useAttendeeCrmStatuses, useAttendees, useRsvps, type Attendee, type Rsvp } from './attendeesData';
 import './attendees.css';
 
+const ATTENDED = [{ value: true, label: 'Yes', tone: 'green' }, { value: false, label: 'No', tone: 'grey' }] as const;
+const attendedOf = (v: boolean) => ATTENDED.find((o) => o.value === v)!;
+
+function OwnerValue({ owner }: { owner: Attendee['owner'] }) {
+  return owner
+    ? <span className="dt-person"><Avatar size={22} initials={owner.initials} color={owner.avatar_color} />{owner.display_name}</span>
+    : <span className="text-muted">—</span>;
+}
+
 const initialsOf = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
-/** Who's invited to the event and how they answered. HCPs are added in bulk from EC or the CRMs. */
+/** Who's invited to the event, how they answered, whether they came and who looks after them. HCPs are added in bulk from EC or the CRMs. */
 export function AttendeesTab({ event }: { event: { id: string; name: string } }) {
   const { me } = useAuth();
   const navigate = useNavigate();
@@ -30,10 +40,11 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
   const canAdd = canEditEvent && can(me, 'event_attendee', 'create');
   const canEdit = canEditEvent && can(me, 'event_attendee', 'edit');
   const canDelete = canEditEvent && can(me, 'event_attendee', 'delete');
+  const people = usePeople(canEdit).data;
 
-  const setRsvp = useMutation({
-    mutationFn: async ({ id, rsvp }: { id: string; rsvp: Rsvp }) => {
-      const { error } = await supabase.from('event_attendee').update({ rsvp }).eq('id', id);
+  const setField = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: { rsvp?: Rsvp; attended?: boolean; owner_id?: string } }) => {
+      const { error } = await supabase.from('event_attendee').update(patch).eq('id', id);
       if (error) throw new Error(error.message);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: attendeesKey(event.id) }),
@@ -63,7 +74,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
         </div>
       </div>
 
-      {(attendees.error || setRsvp.error) && <div className="form-error" role="alert">{(attendees.error ?? setRsvp.error)!.message}</div>}
+      {(attendees.error || setField.error) && <div className="form-error" role="alert">{(attendees.error ?? setField.error)!.message}</div>}
 
       {attendees.isLoading ? <div className="ov-empty text-muted">Loading…</div> : list.length === 0 ? (
         <div className="ov-empty">
@@ -74,7 +85,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
         <div className="table-scroll">
           <table className="agenda-table attendees-table">
             <thead>
-              <tr><th>Name</th><th>Role</th><th>Organisation</th><th>RSVP</th><th>CRM</th><th aria-label="Actions" /></tr>
+              <tr><th>Name</th><th>Organisation</th><th>RSVP</th><th>Attended</th><th>Owner</th><th>CRM</th><th aria-label="Actions" /></tr>
             </thead>
             <tbody>
               {list.map((a) => {
@@ -95,18 +106,40 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
                         </span>
                       </span>
                     </td>
-                    <td>{a.role_label ?? <span className="text-muted">—</span>}</td>
                     <td className="att-org">{a.organisation ?? <span className="text-muted">—</span>}</td>
                     <td>
                       {canEdit ? (
                         <Menu label={`RSVP for ${name}`} width={160}
-                          items={(rsvps ?? []).map((r) => ({ key: r.code, label: pill(r), text: r.label, onSelect: () => r.code !== a.rsvp && setRsvp.mutate({ id: a.id, rsvp: r.code }) }))}
+                          items={(rsvps ?? []).map((r) => ({ key: r.code, label: pill(r), text: r.label, onSelect: () => r.code !== a.rsvp && setField.mutate({ id: a.id, patch: { rsvp: r.code } }) }))}
                           trigger={(t) => (
                             <button type="button" className={`pill pill-${rsvpOf(a.rsvp)?.tone ?? 'grey'} att-rsvp`} aria-label={`RSVP for ${name}: ${rsvpOf(a.rsvp)?.label ?? a.rsvp}. Change`} {...t}>
                               {rsvpOf(a.rsvp)?.label ?? a.rsvp}<ChevronDown size={12} strokeWidth={2.6} aria-hidden />
                             </button>
                           )} />
                       ) : pill(rsvpOf(a.rsvp))}
+                    </td>
+                    <td>
+                      {canEdit ? (
+                        <Menu label={`Attended: ${name}`} width={120}
+                          items={ATTENDED.map((o) => ({ key: o.label, label: pill(o), text: o.label, onSelect: () => o.value !== a.attended && setField.mutate({ id: a.id, patch: { attended: o.value } }) }))}
+                          trigger={(t) => (
+                            <button type="button" className={`pill pill-${attendedOf(a.attended).tone} att-rsvp`} aria-label={`Attended for ${name}: ${attendedOf(a.attended).label}. Change`} {...t}>
+                              {attendedOf(a.attended).label}<ChevronDown size={12} strokeWidth={2.6} aria-hidden />
+                            </button>
+                          )} />
+                      ) : pill(attendedOf(a.attended))}
+                    </td>
+                    <td>
+                      {canEdit ? (
+                        <Menu label={`Owner of ${name}`} width={240} searchable
+                          items={(people ?? []).map((p) => ({ key: p.id, label: <span className="dt-person"><Avatar size={22} initials={p.initials} color={p.avatar_color} />{p.display_name}</span>, text: p.display_name,
+                            onSelect: () => p.id !== a.owner_id && setField.mutate({ id: a.id, patch: { owner_id: p.id } }) }))}
+                          trigger={(t) => (
+                            <button type="button" className="att-owner" aria-label={`Owner of ${name}: ${a.owner?.display_name ?? 'nobody'}. Change`} {...t}>
+                              <OwnerValue owner={a.owner} /><ChevronDown size={12} strokeWidth={2.6} aria-hidden />
+                            </button>
+                          )} />
+                      ) : <OwnerValue owner={a.owner} />}
                     </td>
                     <td>{a.crm_status === 'not_applicable' ? <span className="text-muted">—</span> : pill(crmStatuses?.find((c) => c.code === a.crm_status))}</td>
                     <td className="agenda-menu">
