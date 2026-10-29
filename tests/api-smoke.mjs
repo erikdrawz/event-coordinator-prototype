@@ -453,6 +453,24 @@ ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', 
 ok((await api(paul, `event_request?request_type=eq.tiering&coordinator_id=is.null&status=eq.review&select=id`)).data?.length === 2,
    'tiering requests wait in the unassigned requests');
 
+// Attendees: HCPs added in bulk from EC or straight from a CRM; each person once
+const addAtt = (who, people) => api(who, 'rpc/add_event_attendees', { method: 'POST', body: { p_event_id: ev.id, p_people: people } });
+const people = [{ hcp_id: holmHcp.data[0].id }, { hcp_id: holmHcp.data[0].id },
+                { crm_connection_id: karin?.crm_connection_id, external_id: karin?.external_id }];
+ok((await addAtt(lisaT, people)).status >= 400, "someone without edit access can't add attendees");
+ok((await addAtt(paul, [{ name: 'Walk-in' }])).status >= 400, 'an attendee needs an hcp_id or a CRM record');
+const addedAtt = await addAtt(paul, people);
+ok(addedAtt.status === 200 && addedAtt.data?.added === 2 && addedAtt.data?.skipped === 0, 'attendees are added from EC and from the CRM in one call');
+ok((await addAtt(paul, people)).data?.skipped === 2, 'people already attending are skipped');
+const atts = await api(paul, `event_attendee?event_id=eq.${ev.id}&select=id,hcp_id,rsvp,organisation,crm_status`);
+const holmAtt = atts.data?.find((a) => a.hcp_id === holmHcp.data[0].id);
+const karinAtt = atts.data?.find((a) => a.hcp_id === imported.data?.id);
+ok(holmAtt?.rsvp === 'invited' && holmAtt?.organisation === 'Odense University Hospital' && holmAtt?.crm_status === 'reconciled',
+   'a new attendee is invited, with their organisation, and reconciled when they are a CRM account');
+ok(karinAtt?.organisation === 'Uppsala University Hospital', 'a CRM attendee arrives with their organisation');
+ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'maybe' } })).status >= 400, 'RSVP takes only known answers');
+ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'accepted' } })).data?.[0]?.rsvp === 'accepted', 'an editor records an RSVP');
+
 // Cleanup
 await api(alex, `event_request?id=eq.${tier.data?.id}`, { method: 'DELETE' });
 await api(alex, `custom_field?id=in.(${linkF.data?.[0]?.id},${scoreF.data?.[0]?.id})`, { method: 'DELETE' });

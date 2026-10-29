@@ -14,6 +14,7 @@ import { EventDetailsTab } from './event/EventDetailsTab';
 import { OverviewTab } from './event/OverviewTab';
 import { CancelEventDialog } from './event/CancelEventDialog';
 import { TeamTab } from './event/team/TeamTab';
+import { AttendeesTab } from './event/attendees/AttendeesTab';
 import { EventAccessContext, useMyEventAccess } from './event/eventAccess';
 import type { EventStatus } from '../lib/types';
 import './event.css';
@@ -135,10 +136,10 @@ export function EventPage() {
       </section>
       <div id="event-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="event-tabpanel">
         <EventAccessContext.Provider value={{ canEdit: onTeamEdit, teamRole: myAccess.data?.team_role ?? null }}>
-        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : tab === 'team' ? <TeamTab event={e} /> : (
+        {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : tab === 'team' ? <TeamTab event={e} /> : tab === 'attendees' ? <AttendeesTab event={e} /> : (
           <section className="card empty-state">
             <div className="empty-state-title">{TABS.find((t) => t.id === tab)?.label} comes next</div>
-            This tab is being built on the same event data. Overview, Team and Event details are ready.
+            This tab is being built on the same event data. Overview, Team, Attendees and Event details are ready.
           </section>
         )}
         </EventAccessContext.Provider>
