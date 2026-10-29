@@ -111,7 +111,7 @@ export function TeamPanel({ board, canEdit }: { board: Board; canEdit: boolean }
 
       <dl className="team-legend">
         {(roles.data ?? []).map((r) => (
-          <div key={r.code}><dt>{r.label}</dt><dd>{r.description.replace(/ Approvals come later\.$/, '')}</dd></div>
+          <div key={r.code}><dt>{r.label}</dt><dd>{board.kind === 'event' ? r.description.replace(/ Approves or rejects requests\.$/, '') : r.description}</dd></div>
         ))}
       </dl>
       <p className="field-hint">{copy.others}</p>

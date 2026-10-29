@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, ChevronDown, Clock, FileText, Pencil, Send, Stethoscope, Trash2, UserRound, Users } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Clock, FileText, Pencil, Send, Stethoscope, Trash2, UserRound, Users, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { Discussion } from '../event/team/Discussion';
 import { TeamPanel } from '../event/team/TeamPanel';
 import type { Person } from '../event/team/teamData';
+import { DecideRequestDialog, type Decision } from './DecideRequestDialog';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
 import { missingForSubmit, useMyRequestAccess, useRequest, useRequestDurations, useRequestKinds } from './requestData';
@@ -32,7 +33,8 @@ const PersonValue = ({ p }: { p: Person | null }) => p
 /**
  * A request: what's asked for (an event: name, type, when; a tiering review: the expert and the
  * event they're needed for), why, its status, and the team's discussion. Drafts can be edited,
- * submitted for approval or deleted; after that the details are fixed.
+ * submitted for approval or deleted; after that the details are fixed. In review, home office or
+ * the request's approvers (never the requester) approve or reject it.
  */
 export function RequestPage() {
   const { id } = useParams();
@@ -44,7 +46,7 @@ export function RequestPage() {
   const durations = useRequestDurations();
   const kinds = useRequestKinds();
   const [editing, setEditing] = useState(false);
-  const [confirm, setConfirm] = useState<'submit' | 'delete' | null>(null);
+  const [confirm, setConfirm] = useState<'submit' | 'delete' | Decision | null>(null);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['request', id] });
@@ -73,9 +75,14 @@ export function RequestPage() {
   const isDraft = r.status === 'draft';
   const canEdit = access.data?.access === 'edit' && can(me, 'event_request', 'edit');
   const missing = missingForSubmit(r);
+  const inReview = r.status === 'review';
+  const canDecide = inReview && Boolean(access.data?.can_decide);
   const actions: MenuItem[] = canEdit && isDraft ? [
     { key: 'submit', label: 'Submit for approval', icon: <Send size={14} />, onSelect: () => setConfirm('submit') },
     ...(can(me, 'event_request', 'delete') ? [{ key: 'delete', label: 'Delete request', icon: <Trash2 size={14} />, danger: true, onSelect: () => setConfirm('delete') }] : []),
+  ] : canDecide ? [
+    { key: 'approve', label: 'Approve request', icon: <Check size={14} />, onSelect: () => setConfirm('approved') },
+    { key: 'reject', label: 'Reject request', icon: <X size={14} />, danger: true, onSelect: () => setConfirm('rejected') },
   ] : [];
   const board = { kind: 'request' as const, id: r.id };
   const durationLabel = durations.data?.find((x) => x.code === r.duration)?.label ?? null;
@@ -84,8 +91,12 @@ export function RequestPage() {
   const kindLabel = kinds.data?.find((k) => k.code === r.request_type)?.label;
   const ev = r.related_event;
   const evDate = ev?.starts_at ? formatDate(ymdInZone(ev.starts_at, ev.timezone)) : null;
-  const noActions = !canEdit ? "You can view this request; the requester and organizers act on it"
-    : isDraft ? 'No actions available' : 'Approving and rejecting come with approvals';
+  const noActions = inReview
+    ? (r.requested_by === me?.id ? 'You submitted this request, so home office or its approvers approve or reject it'
+      : 'Home office and the request\'s approvers approve or reject it')
+    : !isDraft ? `This request is ${r.status === 'approved' ? 'approved' : 'rejected'}; nothing more to do`
+      : !canEdit ? 'You can view this request; the requester and organizers act on it' : 'No actions available';
+  const decided = r.status === 'approved' || r.status === 'rejected';
 
   return (
     <main className="page">
@@ -145,11 +156,16 @@ export function RequestPage() {
               </>}
               <Row label="Business justification" wide>{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
               <Row label="Requested by"><PersonValue p={r.requester} /></Row>
+              {decided && <Row label={r.status === 'approved' ? 'Approved by' : 'Rejected by'}>
+                <PersonValue p={r.decider} />{r.decided_at && <div className="dt-sub">{formatDate(r.decided_at.slice(0, 10))}</div>}
+              </Row>}
+              {decided && r.decision_note && <Row label={r.status === 'approved' ? 'Note' : 'Reason'} wide><span className="details-text">{r.decision_note}</span></Row>}
               <Row label="Assignee">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
             </dl>
             {isDraft && canEdit && missing.length > 0 && (
               <p className="request-note">Add the {listOf(missing)} before you submit this request for approval.</p>
             )}
+            {inReview && !canDecide && <p className="request-note is-info">Waiting for approval. {noActions}.</p>}
           </section>
           <Discussion board={board} name={r.title} canModerate={canEdit && can(me, 'request_post', 'delete')} />
         </div>
@@ -171,6 +187,10 @@ export function RequestPage() {
           the team and the discussion stay open.
         </ConfirmDialog>
       ))}
+      {(confirm === 'approved' || confirm === 'rejected') && (
+        <DecideRequestDialog request={{ id: r.id, title: r.title, requester: r.requester?.display_name ?? null }} decision={confirm}
+          onDone={() => { refresh(); qc.invalidateQueries({ queryKey: ['request', id, 'access'] }); setConfirm(null); }} onClose={() => setConfirm(null)} />
+      )}
       {confirm === 'delete' && (
         <ConfirmDialog title="Delete this request?" confirmLabel="Delete request"
           pending={remove.isPending} error={remove.error?.message}

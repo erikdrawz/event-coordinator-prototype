@@ -64,7 +64,8 @@ Request list and form, submit, the approval process per event type, approval his
 - ✓ Requests list (`/requests`): status counts for incoming volume, All / My requests, search; New request
 - ✓ Request page: name, event type, date and rough duration (1–3 hours … more than 2 days), business justification, status (draft → review → approved | rejected) in the header; Actions: Submit for approval, Delete (drafts only); Team and Discussion as on events
 - ✓ Access: the request's Team decides (creator = owner); drafts are private to the team, submitted requests are visible to home office (view_all on `event_request`)
-- Next: approving and rejecting (approval steps), assigning a coordinator, an approved request creates its event
+- ✓ Approving and rejecting: a request in review gets Approve / Reject in its Actions for home office and its Approvers, never the requester; a rejection needs a reason; the decision (who, when, note) shows on the request and the requester is notified. Submitting notifies the request's approvers
+- Next: multi-step approval processes (`approval_process`), assigning a coordinator, an approved request creates its event; an approved tiering request updates the expert
 
 ### Phase 3: Experts, FMV, tiering, contracts
 Expert directory and profile, FMV rates, tier requests, contracts (service agreement / work order) with templates, **mock CRM search**, **mock contracting**, "Run checks" on speakers.
@@ -75,7 +76,7 @@ Expert directory and profile, FMV rates, tier requests, contracts (service agree
 - ✓ Contracting v1: MSA (expert level), Work Order (needs a signed MSA covering the event), Single-event Contract, Addendum. Created from the event's Experts grid (MSA from the expert page) with `create_contract`; text drafted from a template with the honorarium (prep, service, travel, total); contract page with print view, PDF, send for signature (PDF stored in the `contracts` bucket), mark as signed, cancel, delete draft
 - ✓ Admin → Contract templates: upload Markdown, preview with merge fields, event types and countries; event types list their templates
 - ✓ Template versions: each in effect from a date (scheduled, in effect, retired); a contract gets the version in effect on its event's date, so next year's templates can be prepared ahead; versions are fixed once used for a sent contract
-- ✓ Tiering requests: a second request type (expert + business justification, optionally the event); New request asks which kind; logged from the event's Experts grid for experts who aren't eligible; listed with a Type filter and in Home's unassigned requests. Approval comes with approvals
+- ✓ Tiering requests: a second request type (expert + business justification, optionally the event); New request asks which kind; logged from the event's Experts grid for experts who aren't eligible; listed with a Type filter and in Home's unassigned requests. Approved or rejected like any request
 - Next: add/edit FMV records in the UI, what an approved tiering request changes (tier, eligibility), contracts from the expert page beyond MSA (decide), a real CLM/e-signature integration (status back from the tool), PDF made on the server (edge function) so agents get it without a browser, venue contracts in the same flow
 
 ### Phase 4: Attendees & reconciliation

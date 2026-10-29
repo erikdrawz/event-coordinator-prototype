@@ -49,7 +49,7 @@ export function NotificationsMenu() {
     if (!n.read_at) markRead.mutate([n.id]);
     setOpen(false);
     if (n.record_type === 'event' && n.record_id) navigate(`/events/${n.record_id}`);
-    else if (n.record_type === 'request') navigate('/requests');
+    else if (n.record_type === 'request') navigate(n.record_id ? `/requests/${n.record_id}` : '/requests');
   }
 
   return (

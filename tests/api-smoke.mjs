@@ -431,7 +431,7 @@ const submitted = await submitReq();
 ok(submitted.status === 200 && submitted.data?.[0]?.status === 'review' && submitted.data[0].submitted_at, 'requester can submit a complete draft for approval');
 ok((await api(paul, `event_request?id=eq.${reqId}&select=id`)).data?.length === 1, 'once submitted, home office sees the request');
 ok((await saveReq(sarah, { id: reqId, title: 'Changed after submit' })).status >= 400, "a submitted request can't be changed");
-ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'PATCH', body: { status: 'approved' } })).status >= 400, "approving isn't possible yet (comes with approvals)");
+ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'PATCH', body: { status: 'approved' } })).status >= 400, "a request can't be approved by setting its status");
 ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).data?.length === 0, "a submitted request can't be deleted");
 const reqPost = await api(paul, 'request_post', { method: 'POST', body: { request_id: reqId, body: 'Smoke question from home office' } });
 ok(reqPost.status === 201 && (await api(sarah, `request_post?request_id=eq.${reqId}&select=id`)).data?.length === 1, 'home office and the requester discuss on the request board');
@@ -445,6 +445,20 @@ ok((await api(lisaT, `event_request?id=eq.${draft2.data?.id}`, { method: 'DELETE
 ok((await api(sarah, `event_request?id=eq.${draft2.data?.id}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).data?.length === 1, 'the requester can delete their draft');
 const reqAccess = await api(sarah, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: reqId } });
 ok(reqAccess.data?.access === 'edit' && reqAccess.data?.team_role === 'owner', 'my_request_access reports the requester as owner with edit access');
+// Deciding: home office or the request's approvers approve or reject a request in review, never their own
+const decide = (who, decision, note) => api(who, 'rpc/decide_request', { method: 'POST', body: { p_request_id: reqId, p_decision: decision, p_note: note } });
+ok(reqAccess.data?.can_decide === false && (await decide(sarah, 'approved')).status >= 400, "the requester can't approve their own request");
+ok((await api(paul, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: reqId } })).data?.can_decide === true, 'home office may decide a request in review');
+ok((await decide(paul, 'rejected', '  ')).status >= 400, 'rejecting needs a reason');
+ok((await decide(paul, 'maybe')).status >= 400, 'a decision is approved or rejected');
+const approved = await decide(paul, 'approved', 'Smoke: go ahead');
+const paulId = (await api(paul, 'app_user?email=eq.paul.taylor@alera.example&select=id')).data?.[0]?.id;
+ok(approved.status === 200 && approved.data?.status === 'approved' && approved.data.decided_by === paulId && approved.data.decision_note === 'Smoke: go ahead' && approved.data.decided_at,
+   'home office approves a request, with who, when and a note');
+const reqNote = await api(sarah, `notification?record_id=eq.${reqId}&kind=eq.approved&select=id,title`);
+ok(reqNote.data?.[0]?.title === 'Request approved: Smoke request', 'the requester is notified of the decision');
+ok((await decide(lisaT, 'rejected', 'Too late')).status >= 400, 'a decided request stays decided');
+ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'PATCH', body: { decision_note: 'Edited' } })).status >= 400, "a decision can't be edited");
 
 // Tiering requests: an expert and a business justification; named after the expert
 ok((await saveReq(sarah, { request_type: 'tiering', rationale: 'Needed' })).status >= 400, 'a tiering request needs an expert');
@@ -457,8 +471,10 @@ ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', 
    'a tiering request needs a business justification to be submitted');
 ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { request_type: 'event' } })).status >= 400, "a request's type can't change");
 await saveReq(sarah, { id: tier.data?.id, rationale: 'Smoke: please review her cap' });
+await api(sarah, 'request_team_member', { method: 'POST', body: { request_id: tier.data?.id, user_id: lisa.data[0].id, team_role: 'approver' } });
 ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { status: 'review' } })).data?.[0]?.status === 'review'
    && (await api(paul, `event_request?id=eq.${tier.data?.id}&select=id`)).data?.length === 1, 'a submitted tiering request reaches home office');
+ok((await api(lisaT, `notification?record_id=eq.${tier.data?.id}&kind=eq.approval_required&select=id`)).data?.length === 1, "submitting notifies the request's approvers");
 ok((await api(paul, `event_request?request_type=eq.tiering&coordinator_id=is.null&status=eq.review&select=id`)).data?.length === 2,
    'tiering requests wait in the unassigned requests');
 
@@ -488,6 +504,8 @@ await api(maria, `app_user?id=eq.${lisa.data[0].id}`, { method: 'PATCH', body: {
 await storage(alex, `contracts/${filePath}`, { method: 'DELETE' });
 await api(paul, `event?id=eq.${ev.id}`, { method: 'DELETE' });
 await api(alex, `event_request?id=eq.${reqId}`, { method: 'DELETE' });
+await api(sarah, `notification?record_id=eq.${reqId}`, { method: 'DELETE' });
+await api(lisaT, `notification?record_id=eq.${tier.data?.id}`, { method: 'DELETE' });
 await api(paul, `hcp?id=eq.${imported.data?.id}`, { method: 'DELETE' });
 await api(paul, `hco?id=eq.${karinHcp.data?.[0]?.primary_hco?.id}`, { method: 'DELETE' });
 await api(alex, `content?id=eq.${sent.data?.document_content_id}`, { method: 'DELETE' });

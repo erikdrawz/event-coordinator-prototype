@@ -7,6 +7,7 @@
   margin: 16px 0 0; padding: 10px 12px; border-radius: var(--radius-md);
   background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); font-size: var(--text-base);
 }
+.request-note.is-info { background: var(--color-surface-muted); color: var(--color-text-secondary); }
 @media (max-width: 960px) { .request-body { grid-template-columns: minmax(0, 1fr); } }
 
 .request-expert { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
