@@ -82,11 +82,11 @@ export const hours = (n: number) => n.toFixed(Math.round(n * 100) % 10 ? 2 : 1);
 
 export interface RatePolicy {
   mode: 'negotiable' | 'fixed'; default: number; min: number; max: number; currency: string;
-  /** fmv: from the expert's FMV record valid on the event's date; default: no FMV record, the tenant default applies */
-  source: 'fmv' | 'default';
+  /** fmv: from the expert's FMV record valid on the event's date; none: no FMV record, so the rate is fixed at 0 */
+  source: 'fmv' | 'none';
 }
 
-/** How one expert's rate may be set on this event (expert_rate_policy): from their FMV record, or the default without one. */
+/** How one expert's rate may be set on this event (expert_rate_policy): from their FMV record, or fixed at 0 without one. */
 export function useRatePolicy(hcpId: string | undefined, eventId: string) {
   return useQuery({
     queryKey: ['expert-rate-policy', hcpId, eventId], enabled: Boolean(hcpId), staleTime: 5 * 60_000,
@@ -110,8 +110,9 @@ export function useRatePolicies(eventId: string) {
   });
 }
 export const rateRange = (p: RatePolicy) => {
+  if (p.source === 'none') return "No FMV rate for the event's date: record one on the expert's page to set a rate";
   const range = p.mode === 'fixed' ? `Fixed at ${money(p.default, p.currency)}` : `${money(p.min, p.currency)}–${money(p.max, p.currency)}`;
-  return p.source === 'fmv' ? `FMV ${money(p.default, p.currency)}, negotiable ${range}` : `No FMV rate: default ${money(p.default, p.currency)}, ${range}`;
+  return `FMV ${money(p.default, p.currency)}, negotiable ${range}`;
 };
 export const currencySymbol = (c = 'EUR') => new Intl.NumberFormat('en-GB', { style: 'currency', currency: c }).formatToParts(0).find((x) => x.type === 'currency')?.value ?? c;
 

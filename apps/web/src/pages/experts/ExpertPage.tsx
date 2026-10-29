@@ -183,7 +183,7 @@ function FmvCard({ expert }: { expert: ExpertRow }) {
         </div>
       </div>
       {rates.length === 0 ? (
-        <div className="ov-empty"><span><strong>No FMV rate yet.</strong> Until there is one, engagements use the default: €100 per hour, negotiable between €80 and €120.</span></div>
+        <div className="ov-empty"><span><strong>No FMV rate yet.</strong> Until there is one, their rate on events is €0, so no honorarium is calculated.</span></div>
       ) : (
         <div className="table-scroll">
           <table className="agenda-table expert-table">

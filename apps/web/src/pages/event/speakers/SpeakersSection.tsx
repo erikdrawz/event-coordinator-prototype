@@ -186,7 +186,7 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
           </table>
         </div>
       )}
-      {list.length > 0 && <p className="field-hint speakers-note">Boxed values can be edited. Service hours come from the agenda. Rates default from each expert's FMV record and can be negotiated within its range (hover a rate to see it).</p>}
+      {list.length > 0 && <p className="field-hint speakers-note">Boxed values can be edited. Service hours come from the agenda. Rates default from each expert's FMV record and can be negotiated within its range (hover a rate to see it); without one the rate is €0.</p>}
 
       {removing && (
         <ConfirmDialog title="Remove expert?" confirmLabel="Remove expert" pending={remove.isPending} error={remove.error ? friendly(remove.error.message) : null}
@@ -214,6 +214,7 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
 
 const rateProblem = (v: number, p: RatePolicy) =>
   Number.isNaN(v) ? 'Enter the rate as a number'
+    : p.source === 'none' && v !== 0 ? "This expert has no FMV rate for the event's date. Record one on their expert page to set a rate"
     : p.mode === 'fixed' && v !== p.default ? `The rate is fixed at ${money(p.default, p.currency)} per hour`
       : v < p.min || v > p.max ? `The rate must be between ${money(p.min, p.currency)} and ${money(p.max, p.currency)} per hour` : null;
 
@@ -224,7 +225,10 @@ function RateCell({ value, currency, policy, onSave, onInvalid, label, disabled 
   const shown = value == null ? '' : String(value);
   const [text, setText] = useState(shown);
   useEffect(() => setText(shown), [shown]);
-  if (disabled || policy?.mode === 'fixed') return <>{value != null ? money(value, currency) : '—'}</>;
+  if (disabled || policy?.mode === 'fixed') {
+    const tip = policy?.source === 'none' ? rateRange(policy) : undefined;
+    return <span data-tip={tip} tabIndex={tip ? 0 : undefined}>{value != null ? money(value, currency) : '—'}</span>;
+  }
   const commit = () => {
     if (text.trim() === '') { setText(shown); return; }
     const v = Math.round(Number(text.replace(',', '.')) * 100) / 100;
@@ -289,7 +293,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
   const save = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('event_expert').insert({
-        event_id: eventId, hcp_id: hcpId, role, ...(rate.trim() ? { hourly_rate: Number(rate.replace(',', '.')) } : {}), prep_hours: Number(prep.replace(',', '.')) || 0, travel_hours: Number(travel.replace(',', '.')) || 0,
+        event_id: eventId, hcp_id: hcpId, role, ...(rate.trim() && policy?.source !== 'none' ? { hourly_rate: Number(rate.replace(',', '.')) } : {}), prep_hours: Number(prep.replace(',', '.')) || 0, travel_hours: Number(travel.replace(',', '.')) || 0,
       });
       if (error) throw new Error(friendly(error.message));
     },
@@ -298,7 +302,7 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
   });
   const submit = () => {
     if (!hcpId) { setError('Choose an expert'); return; }
-    const r = rate.trim() ? Number(rate.replace(',', '.')) : null;
+    const r = rate.trim() && policy?.source !== 'none' ? Number(rate.replace(',', '.')) : null;
     const bad = r != null && policy ? rateProblem(r, policy) : null;
     if (bad) { setError(bad); return; }
     setError(null); save.mutate();
@@ -326,9 +330,10 @@ function AddSpeakerRow({ eventId, taken, onSaved, onCancel }: { eventId: string;
         </td>
         <td><span className="dt-sub">Contracts follow once added</span></td>
         <td className="num">
+          {policy?.source === 'none' ? <span data-tip={rateRange(policy)} tabIndex={0}>{money(0, policy.currency)}</span> : (
           <span className="money-input" data-tip={policy ? rateRange(policy) : undefined}><span aria-hidden>{currencySymbol(policy?.currency)}</span>
             <input className="hours-input" inputMode="decimal" aria-label="Hourly rate" placeholder={policy ? String(policy.default) : ''} value={rate}
-              aria-invalid={Boolean(error && error.startsWith('The rate')) || undefined} onChange={(e) => setRate(e.target.value)} /></span>
+              aria-invalid={Boolean(error && error.startsWith('The rate')) || undefined} onChange={(e) => setRate(e.target.value)} /></span>)}
         </td>
         <td className="num"><input className="hours-input" inputMode="decimal" aria-label="Prep hours" placeholder="0.0" value={prep} onChange={(e) => setPrep(e.target.value)} /></td>
         <td className="num"><ServiceHours value={0} sessions={0} /></td>

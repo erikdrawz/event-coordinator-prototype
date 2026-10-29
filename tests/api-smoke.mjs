@@ -169,9 +169,9 @@ ok(Number(lind.service_hours) === 1, 'lengthening the session updates service ho
 await api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { service_hours: 99, prep_hours: 1.5 } });
 lind = (await expertOf()).data?.[0];
 ok(Number(lind.service_hours) === 1 && Number(lind.total_payable) === 625, 'service hours cannot be typed in; total = (prep + service + travel) × rate');
-// Negotiable rate: from the expert's FMV record valid on the event's date (€250, €200–€300 for Lind); €100 within €80–€120 without one
+// Negotiable rate: from the expert's FMV record valid on the event's date (€250, €200–€300 for Lind); fixed at €0 without one
 const policy = await api(paul, 'rpc/expert_rate_policy', { method: 'POST', body: {} });
-ok(policy.data?.source === 'default' && policy.data.default === 100 && policy.data.min === 80 && policy.data.max === 120, 'without an FMV record the rate policy is €100, negotiable €80–€120');
+ok(policy.data?.source === 'none' && policy.data.mode === 'fixed' && policy.data.default === 0 && policy.data.max === 0, 'without an FMV record the rate is fixed at €0');
 const lindPolicy = await api(paul, 'rpc/expert_rate_policy', { method: 'POST', body: { p_hcp_id: lindHcp.data[0].id, p_event_id: ev.id } });
 ok(lindPolicy.data?.source === 'fmv' && lindPolicy.data.default === 250 && lindPolicy.data.min === 200 && lindPolicy.data.max === 300, "the rate policy comes from the expert's FMV record");
 const setRate = (rate) => api(paul, `event_expert?id=eq.${lind.id}`, { method: 'PATCH', body: { hourly_rate: rate } });
@@ -390,6 +390,15 @@ ok((await crmImport(paul, karin?.crm_connection_id, karin?.external_id)).data?.i
 const lindVeeva = lindRows.find((r) => r.display_name === 'Dr Jonas Lind' && r.connection_name === 'Veeva CRM – EU');
 ok((await crmImport(paul, lindVeeva?.crm_connection_id, lindVeeva?.external_id)).data?.id === lindHcp.data[0].id,
    'the same person from another CRM (same OneKey ID) is not duplicated');
+// No FMV, no rate: Karin joins at €0 and can't be given one until an FMV rate is recorded, which then fills it in
+const karinOnEv = await api(paul, 'event_expert', { method: 'POST', body: { event_id: ev.id, hcp_id: imported.data?.id, role: 'advisor' } });
+ok(karinOnEv.status === 201 && Number(karinOnEv.data?.[0]?.hourly_rate) === 0, 'an expert without an FMV rate joins at €0');
+ok((await api(paul, `event_expert?id=eq.${karinOnEv.data?.[0]?.id}`, { method: 'PATCH', body: { hourly_rate: 150 } })).status >= 400,
+   'an expert without an FMV rate cannot be given a rate');
+await api(paul, 'fmv_rate', { method: 'POST', body: { hcp_id: imported.data?.id, rate: 180, min_rate: 150, max_rate: 210, currency: 'EUR', effective_date: '2026-01-01' } });
+const karinRate = await api(paul, `event_expert?id=eq.${karinOnEv.data?.[0]?.id}&select=hourly_rate,fmv_rate_id`);
+ok(Number(karinRate.data?.[0]?.hourly_rate) === 180 && karinRate.data[0].fmv_rate_id, 'recording an FMV rate fills in the €0 rate');
+await api(paul, `event_expert?id=eq.${karinOnEv.data?.[0]?.id}`, { method: 'DELETE' });
 
 // Cancelling: a reason is required, collaborators can't, and there's no way back
 const setStatus = (who, status, reason) => api(who, 'rpc/change_event_status', { method: 'POST', body: { p_event_id: ev.id, p_status: status, p_reason: reason } });
