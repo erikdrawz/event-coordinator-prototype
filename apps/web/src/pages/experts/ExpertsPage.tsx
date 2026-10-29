@@ -13,7 +13,7 @@ const DEFAULTS = { show: 'eligible', country: '', specialty: '', q: '' } as cons
 
 /**
  * Experts: the HCPs Event Center works with. Eligible ones by default, since those are the
- * ones you can engage; "All experts" adds those in review or not eligible. Filters live in the URL.
+ * ones you can engage; "All experts" adds those pending or not eligible. Filters live in the URL.
  */
 export function ExpertsPage() {
   const [params, setParams] = useSearchParams();

@@ -22,7 +22,7 @@ import {
   ROLES, currencySymbol, hcpSub, hours, mainContract, money, rateRange, roleLabel, useEventTieringRequests, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
 } from './speakersData';
 
-const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility in review' } as const;
+const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility pending' } as const;
 
 /** Eligibility as a small mark by the name: green check when eligible, yellow "!" otherwise; the value shows on hover or focus. */
 function EligibilityMark({ value }: { value: Expert['eligibility'] }) {

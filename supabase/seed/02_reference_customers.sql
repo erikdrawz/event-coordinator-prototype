@@ -81,7 +81,7 @@ select app.sid('hcp:' || k), app.sid('tenant:alera'), sal, fn, ln, app.sid('spec
     ('okafor',    'Dr',   'Grace',   'Okafor',    'onc',      'mgh',        'US','Boston',     'mgh.example',      'Tier 2','sfdc-us',   '003US00GO0002', null)
   ) as t(k, sal, fn, ln, sp, hco, c, city, dom, tier, crm, ext, ok);
 
--- Eligibility: who may be engaged (new experts start in review)
+-- Eligibility: who may be engaged (new experts start pending)
 update public.hcp h set eligibility = e.elig, eligibility_note = e.note
   from (values
     ('muir','eligible',null), ('griffiths','eligible',null), ('sorensen','eligible',null), ('vaaranen','eligible',null),
