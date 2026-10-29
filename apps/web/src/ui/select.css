@@ -74,7 +74,8 @@
 .ms-label { flex: 1; }
 
 /* Menu */
-.menu-option { justify-content: flex-start; gap: 8px; }
+.menu-option { justify-content: flex-start; gap: 8px; text-align: left; }   /* menus may open from right-aligned cells */
+.menu-option > svg { flex: none; }
 .menu-option:focus { outline: none; background: var(--color-surface-muted); }
 .menu-option.danger { color: var(--tone-red-fg); }
 .menu-option.disabled { color: var(--color-text-faint); cursor: default; }

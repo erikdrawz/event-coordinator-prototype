@@ -51,6 +51,7 @@ export function RequestPage() {
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['request', id] });
     qc.invalidateQueries({ queryKey: ['requests'] });
+    qc.invalidateQueries({ queryKey: ['tiering-requests'] });
     qc.invalidateQueries({ queryKey: ['home'] });
   };
   const submit = useMutation({

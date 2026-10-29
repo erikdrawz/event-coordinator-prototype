@@ -19,7 +19,7 @@ import '../../contracts/contracts.css';
 import { RequestFormModal } from '../../requests/RequestFormModal';
 import { RequestStatusPill } from '../../requests/RequestStatusPill';
 import {
-  ROLES, currencySymbol, hcpSub, hours, mainContract, money, rateRange, roleLabel, useEventTieringRequests, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
+  ROLES, currencySymbol, hcpSub, hours, isOpenRequest, mainContract, money, rateRange, roleLabel, useEventTieringRequests, useExperts, useHcps, useRatePolicies, useRatePolicy, type Expert, type ExpertRole, type RatePolicy,
 } from './speakersData';
 
 const ELIGIBILITY = { eligible: 'Eligible', ineligible: 'Not eligible', pending: 'Eligibility pending' } as const;
@@ -113,10 +113,12 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
               {list.map((x) => {
                 const { main, addenda } = mainContract(x);
                 const name = x.hcp?.display_name ?? 'Unknown HCP';
-                const tier = x.eligibility !== 'eligible' ? tieringRequests?.get(x.hcp_id) : undefined;
+                // The Contract column shows a tiering request only while it waits on a decision; the menu keeps the latest one
+                const tier = tieringRequests?.get(x.hcp_id);
+                const openTier = x.eligibility !== 'eligible' && isOpenRequest(tier) ? tier : undefined;
                 const menu = [
-                  ...(x.eligibility !== 'eligible' && tier ? [{ key: 'tiering', label: `View tiering request ${tier.request_number}`, icon: <BadgeCheck size={14} />, onSelect: () => navigate(`/requests/${tier.id}`) }]
-                    : x.eligibility !== 'eligible' && canRequestTiering ? [{ key: 'tiering', label: 'Log tiering request', icon: <BadgeCheck size={14} />, onSelect: () => setTiering(x) }] : []),
+                  ...(tier ? [{ key: 'tiering', label: `View tiering request ${tier.request_number}`, icon: <BadgeCheck size={14} />, onSelect: () => navigate(`/requests/${tier.id}`) }] : []),
+                  ...(x.eligibility !== 'eligible' && !openTier && canRequestTiering ? [{ key: 'log-tiering', label: 'Log tiering request', icon: <BadgeCheck size={14} />, onSelect: () => setTiering(x) }] : []),
                   ...(canContract && !main && x.eligibility === 'eligible' ? [{ key: 'contract', label: 'Add contract', icon: <FileSignature size={14} />, onSelect: () => setContracting({ x, addendum: false }) }] : []),
                   ...(canContract && main ? [{ key: 'addendum', label: 'Add addendum', icon: <FilePlus2 size={14} />, onSelect: () => setContracting({ x, addendum: true }) }] : []),
                   ...(canDelete ? [{ key: 'remove', label: 'Remove expert', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(x) }] : []),
@@ -144,10 +146,10 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                           <ContractStatusPill status={main.status as 'draft'} small />
                           {addenda.length > 0 && <span className="dt-sub">+{addenda.length} addend{addenda.length === 1 ? 'um' : 'a'}</span>}
                         </span>
-                      ) : tier ? (
+                      ) : openTier ? (
                         <span className="contract-cell">
-                          <Link to={`/requests/${tier.id}`} data-tip={`Tiering request ${tier.request_number}`}>View request</Link>
-                          <span className="tiering-status"><RequestStatusPill status={tier.status as 'draft'} /></span>
+                          <Link to={`/requests/${openTier.id}`} data-tip={`Tiering request ${openTier.request_number}`}>View request</Link>
+                          <span className="tiering-status"><RequestStatusPill status={openTier.status as 'draft'} /></span>
                         </span>
                       ) : canContract && x.eligibility === 'eligible'
                         ? <button type="button" className="link" onClick={() => setContracting({ x, addendum: false })}>Add contract</button>
@@ -165,7 +167,7 @@ export function SpeakersSection({ eventId, eventName }: { eventId: string; event
                     <td className="num total">{x.eligibility === 'ineligible' ? '—' : money(x.total_payable, x.currency ?? 'EUR')}</td>
                     <td className="agenda-menu">
                       {menu.length > 0 && (
-                        <Menu label={`Actions for ${name}`} width={190}
+                        <Menu label={`Actions for ${name}`} width={280}
                           items={menu}
                           trigger={(t) => <button className="icon-btn" aria-label={`Actions for ${name}`} {...t}><MoreVertical size={16} /></button>} />
                       )}

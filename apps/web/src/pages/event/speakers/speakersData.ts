@@ -16,13 +16,13 @@ export interface Expert {
   event_session_speaker: { id: string }[];
 }
 
-/** Tiering requests logged for this event's experts (not rejected), by expert. */
+/** The latest tiering request logged for each of this event's experts, by expert. */
 export function useEventTieringRequests(eventId: string) {
   return useQuery({
     queryKey: ['tiering-requests', eventId],
     queryFn: async () => {
       const { data, error } = await supabase.from('event_request').select('id,request_number,status,hcp_id')
-        .eq('request_type', 'tiering').eq('related_event_id', eventId).neq('status', 'rejected').order('created_at', { ascending: false });
+        .eq('request_type', 'tiering').eq('related_event_id', eventId).order('created_at', { ascending: false });
       if (error) throw error;
       const byHcp = new Map<string, { id: string; request_number: string; status: string }>();
       (data ?? []).forEach((r) => { if (r.hcp_id && !byHcp.has(r.hcp_id)) byHcp.set(r.hcp_id, r); });
@@ -30,6 +30,8 @@ export function useEventTieringRequests(eventId: string) {
     },
   });
 }
+/** Still waiting on a decision: draft or in review. */
+export const isOpenRequest = (r: { status: string } | undefined) => r?.status === 'draft' || r?.status === 'review';
 
 export interface HcpOption { id: string; display_name: string; city: string | null; country_code: string | null; specialty: { name: string } | null }
 

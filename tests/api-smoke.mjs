@@ -187,7 +187,6 @@ const holmHcp = await api(paul, 'hcp?last_name=eq.Holm&select=id,eligibility,eli
 const holmOnEv = await api(paul, 'event_expert', { method: 'POST', body: { event_id: ev.id, hcp_id: holmHcp.data[0].id, role: 'advisor' } });
 ok(holmHcp.data[0].eligibility === 'ineligible' && holmOnEv.data?.[0]?.eligibility === 'ineligible' && Number(holmOnEv.data[0].hourly_rate) === 250,
    "an expert joins an event with their own eligibility and FMV rate");
-await api(paul, `event_expert?id=eq.${holmOnEv.data?.[0]?.id}`, { method: 'DELETE' });
 const fmvOverlap = await api(paul, 'fmv_rate', { method: 'POST', body: { hcp_id: lindHcp.data[0].id, rate: 260, min_rate: 210, max_rate: 310, currency: 'EUR', effective_date: new Date().toISOString().slice(0, 10) } });
 ok(fmvOverlap.status >= 400, "an expert's FMV periods can't overlap");
 ok((await api(paul, 'fmv_rate', { method: 'POST', body: { hcp_id: lindHcp.data[0].id, rate: 100, min_rate: 120, max_rate: 140, currency: 'EUR', effective_date: '2040-01-01' } })).status >= 400,
@@ -196,11 +195,16 @@ ok((await api(sarah, 'expert_eligibility?select=code')).data?.length === 3 && (a
    'everyone can list eligible experts (12)');
 const holmEdit = await api(paul, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: 'pending', eligibility_note: 'Smoke test' } });
 ok(holmEdit.data?.[0]?.eligibility === 'pending', 'an Event Coordinator can edit an expert');
+const holmEvElig = async () => (await api(paul, `event_expert?id=eq.${holmOnEv.data?.[0]?.id}&select=eligibility`)).data?.[0]?.eligibility;
+ok(await holmEvElig() === 'pending', "an expert's new eligibility carries to their open engagements");
+await api(paul, `event_expert?id=eq.${holmOnEv.data?.[0]?.id}`, { method: 'PATCH', body: { eligibility: 'eligible' } });
 const sarahHcpEdit = await api(sarah, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: 'eligible' } });
 ok(Array.isArray(sarahHcpEdit.data) && sarahHcpEdit.data.length === 0, "a collaborator can't edit an expert");
 ok((await api(paul, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: 'unknown' } })).status >= 400,
    'eligibility must be one of the known values');
 await api(paul, `hcp?id=eq.${holmHcp.data[0].id}`, { method: 'PATCH', body: { eligibility: holmHcp.data[0].eligibility, eligibility_note: holmHcp.data[0].eligibility_note } });
+ok(await holmEvElig() === 'eligible', 'an engagement set differently on purpose keeps its own eligibility');
+await api(paul, `event_expert?id=eq.${holmOnEv.data?.[0]?.id}`, { method: 'DELETE' });
 await saveSession(paul, { id: sess.data.id, speakers: [{ event_expert_id: lind.id }] });
 ok((await expertOf()).data?.length === 1, 're-saving a session keeps its speakers');
 await saveSession(paul, { id: sess.data.id, speakers: [] });
