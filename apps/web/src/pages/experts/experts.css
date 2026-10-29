@@ -16,6 +16,8 @@
 .expert-link:hover { color: var(--color-accent); text-decoration: underline; }
 .agenda-table.expert-table { min-width: 540px; }
 .expert-table tr.is-past td { color: var(--color-text-muted); }
+.fmv-table .agenda-inline .di-trigger { height: 32px; width: 156px; padding: 0 8px; font-size: var(--text-md); }
+.fmv-table .money-input .hours-input.fmv-amount { width: 46px; }
 .pill.pill-sm { padding: 1px 7px; font-size: var(--text-xs); margin-left: 6px; vertical-align: 1px; }
 .inline-icon { vertical-align: -2px; margin-right: 6px; color: var(--color-text-muted); }
 

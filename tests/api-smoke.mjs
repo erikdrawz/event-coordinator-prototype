@@ -182,6 +182,8 @@ ok(Number(lind.hourly_rate) === 300 && Number(lind.total_payable) === 750, 'a ne
 await setRate(250);
 const policies = await api(paul, 'rpc/event_rate_policies', { method: 'POST', body: { p_event_id: ev.id } });
 ok(policies.data?.[lindHcp.data[0].id]?.max === 300, 'event_rate_policies gives each expert on the event their own range');
+const lindFmvDelete = await api(paul, `fmv_rate?id=eq.${lindPolicy.data?.fmv_rate_id}`, { method: 'DELETE' });
+ok(lindFmvDelete.status >= 400 && /stays on record/.test(lindFmvDelete.data?.message ?? ''), 'an FMV rate that priced an engagement cannot be deleted');
 // Experts: eligibility follows the expert onto an event; FMV periods don't overlap
 const holmHcp = await api(paul, 'hcp?last_name=eq.Holm&select=id,eligibility,eligibility_note');
 const holmOnEv = await api(paul, 'event_expert', { method: 'POST', body: { event_id: ev.id, hcp_id: holmHcp.data[0].id, role: 'advisor' } });

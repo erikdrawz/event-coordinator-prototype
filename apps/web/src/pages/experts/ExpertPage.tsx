@@ -10,12 +10,13 @@ import { StatusPill } from '../../components/StatusPill';
 import { formatDate } from '../../ui/DateInput';
 import { money, roleLabel } from '../event/speakers/speakersData';
 import { EligibilityPill } from './EligibilityPill';
+import { FmvCard } from './FmvCard';
 import { ExpertFormModal } from './ExpertFormModal';
 import { ContractStatusPill } from '../contracts/ContractStatusPill';
 import { NewContractModal } from '../contracts/NewContractModal';
 import { useExpertContracts, useTypeLabel } from '../contracts/contractsData';
 import '../contracts/contracts.css';
-import { fmvState, initialsOf, useEngagements, useExpert, type Engagement, type ExpertRow } from './expertsData';
+import { initialsOf, useEngagements, useExpert, type Engagement, type ExpertRow } from './expertsData';
 import '../event.css';
 import './experts.css';
 
@@ -29,8 +30,6 @@ function relative(iso: string) {
   const d = daysUntil(iso);
   return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d === -1 ? 'Yesterday' : d > 0 ? `In ${d} days` : `${-d} days ago`;
 }
-
-const FMV_STATE = { current: { label: 'Current', tone: 'green' }, upcoming: { label: 'Upcoming', tone: 'blue' }, expired: { label: 'Expired', tone: 'grey' } } as const;
 
 /**
  * One expert: who they are, whether they can be engaged, their FMV rates and the events they
@@ -79,7 +78,7 @@ export function ExpertPage() {
       <div className="expert-body">
         <div className="expert-main">
           <EngagementsCard list={list} loading={engagements.isLoading} error={engagements.error} />
-          <FmvCard expert={x} />
+          <FmvCard expert={x} canEdit={can(me, 'fmv_rate', 'edit') && can(me, 'fmv_rate', 'create')} />
           <ContractsCard expert={x} canCreate={can(me, 'contract', 'create') && can(me, 'hcp', 'edit')} />
         </div>
         <DetailsCard expert={x} />
@@ -168,45 +167,6 @@ function ContractsCard({ expert: x, canCreate }: { expert: ExpertRow; canCreate:
         </div>
       )}
       {adding && <NewContractModal target={{ kind: 'msa', hcpId: x.id, name: x.display_name }} onClose={() => setAdding(false)} />}
-    </section>
-  );
-}
-
-function FmvCard({ expert }: { expert: ExpertRow }) {
-  const rates = expert.fmv_rate;
-  return (
-    <section className="card ov-card" aria-labelledby="fmv-title">
-      <div className="ov-head">
-        <div className="ov-title-row">
-          <h2 id="fmv-title" className="ov-title">FMV rates</h2>
-          <span className="card-sub">Hourly; new engagements default to the rate valid on the event's date</span>
-        </div>
-      </div>
-      {rates.length === 0 ? (
-        <div className="ov-empty"><span><strong>No FMV rate yet.</strong> Until there is one, their rate on events is €0, so no honorarium is calculated.</span></div>
-      ) : (
-        <div className="table-scroll">
-          <table className="agenda-table expert-table">
-            <thead>
-              <tr><th>Effective date</th><th>Expiration date</th><th className="num">Rate</th><th className="num">Min rate</th><th className="num">Max rate</th></tr>
-            </thead>
-            <tbody>
-              {rates.map((f) => {
-                const st = FMV_STATE[fmvState(f)];
-                return (
-                  <tr key={f.id} className={st.label === 'Expired' ? 'is-past' : undefined}>
-                    <td className="dt-nowrap">{formatDate(f.effective_date)} <span className={`pill pill-${st.tone} pill-sm`}>{st.label}</span></td>
-                    <td className="dt-nowrap">{f.expiration_date ? formatDate(f.expiration_date) : <span className="text-muted">Until replaced</span>}</td>
-                    <td className="num"><strong>{money(f.rate, f.currency)}</strong></td>
-                    <td className="num">{money(f.min_rate, f.currency)}</td>
-                    <td className="num">{money(f.max_rate, f.currency)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
     </section>
   );
 }
