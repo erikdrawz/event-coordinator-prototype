@@ -141,7 +141,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
           </Field>
         </FormSection>
         <FormSection title="Event details">
-          <Field label="Custom fields" wide hint="Shown on the Event details tab and in the event form, in the order the fields were created.">
+          <Field label="Custom fields" wide hint="Shown on the event's Details tab and in the event form, in the order the fields were created.">
             {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Custom fields" value={chosenFields} onChange={setFieldIds}
               disabled={!canFields || fields.isLoading} placeholder="No custom fields" maxChips={10}
               options={(fields.data ?? []).filter((f) => (f.is_active || chosenFields.includes(f.id)) && !allTypes.includes(f)).map((f) => ({ value: f.id, label: f.label }))} />}
