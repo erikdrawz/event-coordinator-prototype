@@ -199,6 +199,45 @@ insert into public.approval_action (tenant_id, approval_id, step_id, step_name, 
   (app.sid('tenant:alera'), app.sid('appr:q4-planning'), app.sid('aps:request-1'), 'HQ Events review', app.sid('user:paul'), null, null, null);
 
 -- ---------------------------------------------------------------------
+-- Attendees (before the experts, who'd otherwise join as attendees automatically)
+-- ---------------------------------------------------------------------
+insert into public.event_attendee (id, tenant_id, event_id, attendee_kind, hcp_id, user_id, organisation, role_label, rsvp,
+                                   attended, crm_status, crm_connection_id, crm_external_id)
+select app.sid('att:' || e || ':' || coalesce(h, u)), app.sid('tenant:alera'), app.sid('event:' || e),
+       case when h is not null then 'hcp' else 'user' end,
+       case when h is not null then app.sid('hcp:' || h) end,
+       case when u is not null then app.sid('user:' || u) end,
+       org, role, rsvp, coalesce(attended, false),
+       case when u is not null then 'not_applicable' else crm end,
+       case when h is not null and crm = 'reconciled' then (select p.crm_connection_id from public.hcp p where p.id = app.sid('hcp:' || h)) end,
+       case when h is not null and crm = 'reconciled' then (select p.crm_external_id from public.hcp p where p.id = app.sid('hcp:' || h)) end
+  from (values
+    ('sma-board','muir',null,'Aarhus University Hospital','Chair','accepted',null,'reconciled'),
+    ('sma-board','griffiths',null,'Rigshospitalet','Speaker','accepted',null,'reconciled'),
+    ('sma-board','holm',null,'Odense University Hospital','Advisor','declined',null,'reconciled'),
+    ('sma-board','lind',null,'Aalborg University Hospital','Advisor','accepted',null,'reconciled'),
+    ('sma-board','sorensen',null,'Herlev Hospital','Advisor','invited',null,'pending'),
+    ('sma-board',null,'sarah','Alera Pharma','Medical lead','accepted',null,null),
+    ('sma-board',null,'paul','Alera Pharma','Organiser','accepted',null,null),
+    ('neuro-meet','solberg',null,'Oslo University Hospital','Speaker','accepted',null,'reconciled'),
+    ('neuro-meet','lind',null,'Aalborg University Hospital','Speaker','tentative',null,'reconciled'),
+    ('neuro-meet',null,'lisa','Alera Pharma','Organiser','accepted',null,null),
+    ('bioforum','eriksson',null,'Karolinska University Hospital','Chair','accepted',null,'reconciled'),
+    ('bioforum','vaaranen',null,'Helsinki University Hospital','Speaker','accepted',null,'reconciled'),
+    ('bioforum','huesh',null,'Massachusetts General Hospital','Speaker','invited',null,'pending'),
+    ('derm-roundtable','vogel',null,'UKE Hamburg','Chair','accepted',true,'reconciled'),
+    ('derm-roundtable','brandt',null,'UKE Hamburg','Advisor','accepted',true,'reconciled'),
+    ('derm-roundtable',null,'paul','Alera Pharma','Organiser','accepted',true,null),
+    -- Enough events on one expert for the expert page's "View all"
+    ('haem-board','lind',null,'Aalborg University Hospital','Advisor','accepted',true,'reconciled'),
+    ('derm-roundtable','lind',null,'Aalborg University Hospital',null,'declined',null,'reconciled'),
+    ('cardio-workshop','lind',null,'Aalborg University Hospital',null,'invited',null,'reconciled'),
+    ('immuno-webinar','lind',null,'Aalborg University Hospital',null,'declined',null,'reconciled'),
+    ('bioforum','lind',null,'Aalborg University Hospital',null,'invited',null,'reconciled'),
+    ('sma-symposium','lind',null,'Aalborg University Hospital',null,'accepted',null,'reconciled')
+  ) as t(e, h, u, org, role, rsvp, attended, crm);
+
+-- ---------------------------------------------------------------------
 -- Experts (honorarium grid) and agenda
 -- ---------------------------------------------------------------------
 -- Service hours aren't seeded: they come from the agenda below. Rates default from each
@@ -257,45 +296,6 @@ select app.sid('tenant:alera'), app.sid('event:' || e), app.sid('session:' || e 
     ('derm-roundtable',1,'vogel',null,null,1), ('derm-roundtable',2,'vogel',null,50,1), ('derm-roundtable',2,'brandt',null,55,2),
     ('derm-roundtable',3,'vogel',null,null,1)
   ) as t(e, n, h, u, m, srt);
-
--- ---------------------------------------------------------------------
--- Attendees
--- ---------------------------------------------------------------------
-insert into public.event_attendee (id, tenant_id, event_id, attendee_kind, hcp_id, user_id, organisation, role_label, rsvp,
-                                   attended, crm_status, crm_connection_id, crm_external_id)
-select app.sid('att:' || e || ':' || coalesce(h, u)), app.sid('tenant:alera'), app.sid('event:' || e),
-       case when h is not null then 'hcp' else 'user' end,
-       case when h is not null then app.sid('hcp:' || h) end,
-       case when u is not null then app.sid('user:' || u) end,
-       org, role, rsvp, coalesce(attended, false),
-       case when u is not null then 'not_applicable' else crm end,
-       case when h is not null and crm = 'reconciled' then (select p.crm_connection_id from public.hcp p where p.id = app.sid('hcp:' || h)) end,
-       case when h is not null and crm = 'reconciled' then (select p.crm_external_id from public.hcp p where p.id = app.sid('hcp:' || h)) end
-  from (values
-    ('sma-board','muir',null,'Aarhus University Hospital','Chair','accepted',null,'reconciled'),
-    ('sma-board','griffiths',null,'Rigshospitalet','Speaker','accepted',null,'reconciled'),
-    ('sma-board','holm',null,'Odense University Hospital','Advisor','declined',null,'reconciled'),
-    ('sma-board','lind',null,'Aalborg University Hospital','Advisor','accepted',null,'reconciled'),
-    ('sma-board','sorensen',null,'Herlev Hospital','Advisor','invited',null,'pending'),
-    ('sma-board',null,'sarah','Alera Pharma','Medical lead','accepted',null,null),
-    ('sma-board',null,'paul','Alera Pharma','Organiser','accepted',null,null),
-    ('neuro-meet','solberg',null,'Oslo University Hospital','Speaker','accepted',null,'reconciled'),
-    ('neuro-meet','lind',null,'Aalborg University Hospital','Speaker','tentative',null,'reconciled'),
-    ('neuro-meet',null,'lisa','Alera Pharma','Organiser','accepted',null,null),
-    ('bioforum','eriksson',null,'Karolinska University Hospital','Chair','accepted',null,'reconciled'),
-    ('bioforum','vaaranen',null,'Helsinki University Hospital','Speaker','accepted',null,'reconciled'),
-    ('bioforum','huesh',null,'Massachusetts General Hospital','Speaker','invited',null,'pending'),
-    ('derm-roundtable','vogel',null,'UKE Hamburg','Chair','accepted',true,'reconciled'),
-    ('derm-roundtable','brandt',null,'UKE Hamburg','Advisor','accepted',true,'reconciled'),
-    ('derm-roundtable',null,'paul','Alera Pharma','Organiser','accepted',true,null),
-    -- Enough events on one expert for the expert page's "View all"
-    ('haem-board','lind',null,'Aalborg University Hospital','Advisor','accepted',true,'reconciled'),
-    ('derm-roundtable','lind',null,'Aalborg University Hospital',null,'declined',null,'reconciled'),
-    ('cardio-workshop','lind',null,'Aalborg University Hospital',null,'invited',null,'reconciled'),
-    ('immuno-webinar','lind',null,'Aalborg University Hospital',null,'declined',null,'reconciled'),
-    ('bioforum','lind',null,'Aalborg University Hospital',null,'invited',null,'reconciled'),
-    ('sma-symposium','lind',null,'Aalborg University Hospital',null,'accepted',null,'reconciled')
-  ) as t(e, h, u, org, role, rsvp, attended, crm);
 
 -- ---------------------------------------------------------------------
 -- Content: decks and documents

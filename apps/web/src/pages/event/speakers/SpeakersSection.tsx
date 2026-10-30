@@ -244,6 +244,7 @@ export function SpeakersSection({ eventId, eventName, timezone }: { eventId: str
           {removing.length === 1 ? removing[0].hcp?.display_name : plural(removing.length)} will be removed from this event's experts
           {sessionsOf(removing) ? ` and from ${sessionsOf(removing)} agenda session${sessionsOf(removing) === 1 ? '' : 's'}` : ''}.
           {removing.some((x) => x.contract.some((c) => c.status === 'draft')) && ' Draft contracts are deleted with them.'}
+          {' '}They stay on the attendee list, so their attendance and spend are kept.
           {removing.length > 1 && removing.some(keepsWithoutSessions) && ` ${removing.filter(keepsWithoutSessions).length} with a contract out for signature or signed will stay.`}
         </ConfirmDialog>
       )}

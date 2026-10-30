@@ -27,6 +27,8 @@ const plural = (n: number) => `${n} attendee${n === 1 ? '' : 's'}`;
  * added in bulk from EC or the CRMs. Clicking a row opens the attendee in a side panel with every field;
  * ticking rows offers bulk changes.
  */
+const EXPERT_STAYS = 'Experts stay on the attendee list. Remove them from the event\'s experts first.';
+
 export function AttendeesTab({ event }: { event: { id: string; name: string } }) {
   const { me } = useAuth();
   const navigate = useNavigate();
@@ -72,6 +74,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
 
   const accepted = list.filter((a) => a.rsvp === 'accepted').length;
   const ticked = list.filter((a) => selection.has(a.id));
+  const tickedOff = ticked.filter((a) => a.type !== 'expert');
   const bulkButton = (label: string) => (t: object) => <button type="button" className="btn btn-sm" {...t}>{label}<ChevronDown size={14} aria-hidden /></button>;
 
   return (
@@ -85,7 +88,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
               items={ATTENDED.map((o) => ({ key: o.label, label: pill(o), text: o.label, onSelect: () => setMany({ attended: o.value }) }))} trigger={bulkButton('Attended')} />
             <PeopleMenu label="Set the owner of the selected attendees" people={people} onPick={(p) => setMany({ owner_id: p.id })} trigger={bulkButton('Owner')} />
           </>}
-          {canDelete && <button type="button" className="btn btn-sm btn-danger-outline" onClick={() => setRemoving(ticked)}><Trash2 size={14} />Remove</button>}
+          {canDelete && <button type="button" className="btn btn-sm btn-danger-outline" disabled={!tickedOff.length} title={tickedOff.length ? undefined : EXPERT_STAYS} onClick={() => setRemoving(tickedOff)}><Trash2 size={14} />Remove</button>}
         </BulkBar>
       ) : (
         <div className="ov-head">
@@ -122,7 +125,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
                 const menu = [
                   { key: 'details', label: 'Show details', icon: <PanelRight size={14} />, onSelect: () => setOpenId(a.id) },
                   ...(a.hcp_id ? [{ key: 'profile', label: 'View expert profile', icon: <UserRound size={14} />, onSelect: () => navigate(`/experts/${a.hcp_id}`) }] : []),
-                  ...(canDelete ? [{ key: 'remove', label: 'Remove attendee', icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving([a]) }] : []),
+                  ...(canDelete ? [{ key: 'remove', label: 'Remove attendee', icon: <Trash2 size={14} />, danger: true, disabled: a.type === 'expert', onSelect: () => setRemoving([a]) }] : []),
                 ];
                 const cls = ['row-openable', a.id === openId && 'is-open', selection.has(a.id) && 'is-selected'].filter(Boolean).join(' ');
                 return (
@@ -168,8 +171,8 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
           onConfirm={() => remove.mutate(removing)} onCancel={() => { setRemoving(null); remove.reset(); }}>
           {removing.length === 1
             ? <>Remove {attendeeName(removing[0])} from this event's attendees?</>
-            : <>Remove {plural(removing.length)} from this event's attendees?</>}{' '}
-          Their expert records and any engagement on this event stay as they are.
+            : <>Remove {plural(removing.length)} from this event's attendees?</>}
+          {ticked.length > removing.length && removing.every((a) => selection.has(a.id)) && ` ${ticked.length - removing.length} who ${ticked.length - removing.length === 1 ? 'is an expert stays' : 'are experts stay'} on the list.`}
         </ConfirmDialog>
       )}
     </section>

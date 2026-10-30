@@ -404,7 +404,17 @@ ok((await api(paul, `event_expert?id=eq.${karinOnEv.data?.[0]?.id}`, { method: '
 await api(paul, 'fmv_rate', { method: 'POST', body: { hcp_id: imported.data?.id, rate: 180, min_rate: 150, max_rate: 210, currency: 'EUR', effective_date: '2026-01-01' } });
 const karinRate = await api(paul, `event_expert?id=eq.${karinOnEv.data?.[0]?.id}&select=hourly_rate,fmv_rate_id`);
 ok(Number(karinRate.data?.[0]?.hourly_rate) === 180 && karinRate.data[0].fmv_rate_id, 'recording an FMV rate fills in the €0 rate');
+// Every expert is an attendee: adding one adds their row, which stays until they've left the experts
+const karinRow = () => api(paul, `event_attendee?event_id=eq.${ev.id}&hcp_id=eq.${imported.data?.id}&select=id,rsvp,organisation,crm_status,owner_id`);
+const karinAuto = (await karinRow()).data?.[0];
+ok(karinAuto?.rsvp === 'invited' && karinAuto?.organisation === 'Uppsala University Hospital' && karinAuto?.crm_status === 'reconciled' && karinAuto?.owner_id === me.data.id,
+   'an expert joins the attendees, invited, with their organisation, owned by whoever added them');
+const keepExpert = await api(paul, `event_attendee?id=eq.${karinAuto?.id}`, { method: 'DELETE' });
+ok(keepExpert.status >= 400 && /experts first/.test(keepExpert.data?.message ?? ''), "an attendee can't be removed while they're an expert");
 await api(paul, `event_expert?id=eq.${karinOnEv.data?.[0]?.id}`, { method: 'DELETE' });
+ok((await karinRow()).data?.length === 1, 'someone removed from the experts stays an attendee');
+ok((await api(paul, `event_attendee?id=eq.${karinAuto?.id}`, { method: 'DELETE' })).status < 300 && (await karinRow()).data?.length === 0, 'an attendee who is no longer an expert can be removed');
+await api(paul, `event_attendee?event_id=eq.${ev.id}&hcp_id=eq.${holmHcp.data[0].id}`, { method: 'DELETE' });
 
 // Cancelling: a reason is required, collaborators can't, and there's no way back
 const setStatus = (who, status, reason) => api(who, 'rpc/change_event_status', { method: 'POST', body: { p_event_id: ev.id, p_status: status, p_reason: reason } });
@@ -512,6 +522,10 @@ const bothAtt = `event_attendee?id=in.(${holmAtt?.id},${karinAtt?.id})`;
 ok((await api(paul, bothAtt, { method: 'PATCH', body: { rsvp: 'tentative', attended: false } })).data?.length === 2, 'an editor changes several attendees in one call');
 ok((await api(lisaT, bothAtt, { method: 'PATCH', body: { rsvp: 'declined' } })).data?.length === 0
    && (await api(paul, `${bothAtt}&select=rsvp`)).data?.every((a) => a.rsvp === 'tentative'), "a bulk change skips attendees the caller can't edit");
+const holmBack = await api(paul, 'event_expert', { method: 'POST', body: { event_id: ev.id, hcp_id: holmHcp.data[0].id, role: 'advisor' } });
+const holmNow = await api(paul, `event_attendee?event_id=eq.${ev.id}&hcp_id=eq.${holmHcp.data[0].id}&select=id,rsvp`);
+ok(holmBack.status === 201 && holmNow.data?.length === 1 && holmNow.data[0].id === holmAtt?.id && holmNow.data[0].rsvp === 'tentative', 'an attendee who becomes an expert keeps their row and RSVP');
+await api(paul, `event_expert?id=eq.${holmBack.data?.[0]?.id}`, { method: 'DELETE' });
 
 // Spend: what was paid and who received it; an even split adds up to the cent; ToV reports HCP shares
 ok((await api(lisaT, 'event_spend', { method: 'POST', body: { event_id: ev.id, spend_type: 'meals', spend_date: '2026-12-01', description: 'Smoke dinner', amount: 100 } })).status >= 400,

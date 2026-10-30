@@ -24,7 +24,7 @@ export function AttendeePanel({ a, rsvps, crmStatuses, people, canEdit, canDelet
       title={name} subtitle={<>{ATTENDEE_TYPE_LABEL[a.type]}{attendeeSub(a) && <> · {attendeeSub(a)}</>}</>}
       footer={<>
         {a.hcp_id ? <Link to={`/experts/${a.hcp_id}`} className="btn btn-sm"><UserRound size={14} />View expert profile</Link> : <span />}
-        {canDelete && <button type="button" className="btn btn-sm btn-danger-outline" onClick={onRemove}><Trash2 size={14} />Remove attendee</button>}
+        {canDelete && <button type="button" className="btn btn-sm btn-danger-outline" disabled={a.type === 'expert'} title={a.type === 'expert' ? 'Remove them from the event\'s experts first' : undefined} onClick={onRemove}><Trash2 size={14} />Remove attendee</button>}
       </>}>
       <PanelSection title="Attendance">
         <PanelField label="RSVP"><RsvpControl name={name} value={a.rsvp} rsvps={rsvps} canEdit={canEdit} onChange={(rsvp) => onChange({ rsvp })} /></PanelField>
