@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import type { EventStatus, Tone } from '../../lib/types';
+import type { Rsvp } from '../event/attendees/attendeesData';
 
 export type Eligibility = 'eligible' | 'pending' | 'ineligible';
 
@@ -20,13 +21,14 @@ export interface ExpertRow {
   primary_hco: { name: string; city: string | null; address: string | null } | null;
   crm_connection: { name: string } | null;
   fmv_rate: FmvRate[];
-  /** Engagements on events I can see */
-  event_expert: { count: number }[];
+  /** On events I can see */
+  event_expert: { event_id: string }[];
+  event_attendee: { event_id: string }[];
 }
 
 const EXPERT_SELECT = 'id,display_name,salutation,first_name,last_name,specialty_id,primary_hco_id,country_code,city,email,tier,status,eligibility,eligibility_note,source,crm_external_id,onekey_id,' +
   'specialty(name),country(name),primary_hco:hco(name,city,address),crm_connection(name),' +
-  'fmv_rate(id,effective_date,expiration_date,rate,min_rate,max_rate,currency),event_expert(count)';
+  'fmv_rate(id,effective_date,expiration_date,rate,min_rate,max_rate,currency),event_expert(event_id),event_attendee(event_id)';
 
 /** numeric columns arrive as strings; normalise once */
 const normalise = (x: ExpertRow): ExpertRow => ({
@@ -86,25 +88,45 @@ export function useExpertFormOptions() {
   });
 }
 
+/** One event the expert is part of: as an expert (speaker, chair, …) or simply attending. */
 export interface Engagement {
-  id: string; role: string; eligibility: Eligibility; hourly_rate: number | null; currency: string | null; total_payable: number;
+  id: string; type: 'expert' | 'attendee'; role: string | null; eligibility: Eligibility | null;
+  hourly_rate: number | null; currency: string | null; total_payable: number | null; rsvp: Rsvp | null; attended: boolean;
   event: { id: string; name: string; status: EventStatus; starts_at: string | null; timezone: string; city: string | null;
            event_type: { name: string } | null; country: { name: string } | null } | null;
 }
 
-/** The events the expert was or will be part of (only events I can see). Newest first. */
+/** How many events the expert is part of, in either way. */
+export const engagementCount = (x: ExpertRow) => new Set([...x.event_expert, ...x.event_attendee].map((e) => e.event_id)).size;
+
+const ENGAGEMENT_EVENT = 'event(id,name,status,starts_at,timezone,city,event_type(name),country(name))';
+
+/**
+ * The events the expert was or will be part of (only events I can see), newest first. One row per
+ * event: someone on the event's Experts list counts as an expert, even if they're also an attendee.
+ */
 export function useEngagements(hcpId: string | undefined) {
   return useQuery({
     queryKey: ['expert', hcpId, 'engagements'],
     enabled: Boolean(hcpId),
     queryFn: async () => {
-      const { data, error } = await supabase.from('event_expert')
-        .select('id,role,eligibility,hourly_rate,currency,total_payable,event(id,name,status,starts_at,timezone,city,event_type(name),country(name))')
-        .eq('hcp_id', hcpId!);
-      if (error) throw error;
-      return (data as unknown as Engagement[])
-        .map((x) => ({ ...x, total_payable: Number(x.total_payable), hourly_rate: x.hourly_rate == null ? null : Number(x.hourly_rate) }))
-        .sort((a, b) => (b.event?.starts_at ?? '').localeCompare(a.event?.starts_at ?? ''));
+      const [experts, attendees] = await Promise.all([
+        supabase.from('event_expert').select(`id,role,eligibility,hourly_rate,currency,total_payable,${ENGAGEMENT_EVENT}`).eq('hcp_id', hcpId!),
+        supabase.from('event_attendee').select(`id,rsvp,attended,${ENGAGEMENT_EVENT}`).eq('hcp_id', hcpId!),
+      ]);
+      if (experts.error) throw experts.error;
+      if (attendees.error) throw attendees.error;
+      type AttendeeRow = Pick<Engagement, 'id' | 'attended' | 'event'> & { rsvp: Rsvp };
+      type ExpertEngagement = Pick<Engagement, 'id' | 'role' | 'eligibility' | 'hourly_rate' | 'currency' | 'total_payable' | 'event'>;
+      const attending = new Map((attendees.data as unknown as AttendeeRow[]).map((a) => [a.event?.id, a]));
+      const asExpert: Engagement[] = (experts.data as unknown as ExpertEngagement[]).map((x) => {
+        const a = attending.get(x.event?.id);
+        attending.delete(x.event?.id);
+        return { ...x, type: 'expert', total_payable: Number(x.total_payable), hourly_rate: x.hourly_rate == null ? null : Number(x.hourly_rate), rsvp: a?.rsvp ?? null, attended: a?.attended ?? false };
+      });
+      const asAttendee: Engagement[] = [...attending.values()].map((a) => ({
+        ...a, type: 'attendee', role: null, eligibility: null, hourly_rate: null, currency: null, total_payable: null }));
+      return [...asExpert, ...asAttendee].sort((a, b) => (b.event?.starts_at ?? '').localeCompare(a.event?.starts_at ?? ''));
     },
   });
 }

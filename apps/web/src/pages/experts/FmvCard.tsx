@@ -4,6 +4,7 @@ import { Check, MoreVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DateInput, formatDate } from '../../ui/DateInput';
 import { Menu } from '../../ui/Menu';
+import { RELATED_LIMIT, ViewAll } from '../../ui/RelatedList';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { currencySymbol, money } from '../event/speakers/speakersData';
 import { fmvState, type ExpertRow, type FmvRate } from './expertsData';
@@ -62,8 +63,11 @@ function FmvRow({ initial, currency, saving, onSave, onCancel }: {
   );
 }
 
-/** The expert's FMV rates by period; people who can edit experts add, change and delete them inline. */
-export function FmvCard({ expert, canEdit }: { expert: ExpertRow; canEdit: boolean }) {
+/**
+ * The expert's FMV rates by period; people who can edit experts add, change and delete them inline.
+ * On the expert page it shows the newest ones; `full` is the page with all of them.
+ */
+export function FmvCard({ expert, canEdit, full }: { expert: ExpertRow; canEdit: boolean; full?: boolean }) {
   const qc = useQueryClient();
   const rates = expert.fmv_rate;
   const currency = rates[0]?.currency ?? 'EUR';
@@ -105,10 +109,10 @@ export function FmvCard({ expert, canEdit }: { expert: ExpertRow; canEdit: boole
   const showTable = rates.length > 0 || editing === 'new';
 
   return (
-    <section className="card ov-card" aria-labelledby="fmv-title">
+    <section className="card ov-card" aria-label="FMV rates">
       <div className="ov-head">
         <div className="ov-title-row">
-          <h2 id="fmv-title" className="ov-title">FMV rates</h2>
+          {!full && <h2 id="fmv-title" className="ov-title">FMV rates</h2>}
           <span className="card-sub">Hourly; new engagements default to the rate valid on the event's date</span>
         </div>
         {canEdit && editing === null && (
@@ -125,7 +129,7 @@ export function FmvCard({ expert, canEdit }: { expert: ExpertRow; canEdit: boole
             </thead>
             <tbody>
               {editing === 'new' && <FmvRow currency={currency} saving={save.isPending} onSave={submit(null)} onCancel={cancel} />}
-              {rates.map((f) => {
+              {(full ? rates : rates.slice(0, RELATED_LIMIT)).map((f) => {
                 if (editing === f.id) return <FmvRow key={f.id} initial={f} currency={f.currency} saving={save.isPending} onSave={submit(f.id)} onCancel={cancel} />;
                 const st = FMV_STATE[fmvState(f)];
                 return (
@@ -154,6 +158,7 @@ export function FmvCard({ expert, canEdit }: { expert: ExpertRow; canEdit: boole
           </table>
         </div>
       )}
+      {!full && <ViewAll to={`/experts/${expert.id}/fmv-rates`} total={rates.length} />}
       {error && <div className="form-error" role="alert">{error}</div>}
       {editing !== null && <p className="field-hint">The range fills in 20% either side of the rate when left empty. Enter saves, Esc cancels.</p>}
 

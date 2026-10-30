@@ -1,0 +1,5 @@
+/* Related lists: the last few rows on a record, and the page with all of them */
+.rl-foot { margin-top: 10px; }
+.rl-all { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-base); font-weight: 600; text-decoration: none; }
+.rl-crumbs { margin-bottom: 10px; }
+.rl-crumb { display: inline-flex; gap: 6px; }

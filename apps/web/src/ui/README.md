@@ -28,6 +28,19 @@ const { rows, sort, setSort } = useTableSort(filteredRows, columns, { columnId: 
 - `DataTable` renders rows in the order given. `useTableSort` sorts in the browser; empty values always sort last. For lists too big to load whole, keep the `sort` state and pass it to the query instead.
 - Cell helpers: `.dt-primary` (main link), `.dt-sub` (second line), `.dt-person` (avatar + name), `.dt-nowrap`.
 
+### Related lists (`RelatedList.tsx`)
+The pattern for every list that hangs off a record (an expert's rates, contracts and engagements): the record shows the newest `RELATED_LIMIT` (5) rows, and "View all" opens the full list on a page of its own.
+
+```tsx
+<RelatedTable label="Contracts" columns={columns} rows={list} rowKey={(c) => c.id} />
+<ViewAll to={`/experts/${id}/contracts`} total={list.length} />   // only shows above the limit
+```
+
+- `RelatedTable`: the compact table, taking the same `Column<T>[]` as `DataTable`, so the card and the full list can't drift apart. Pass rows newest first.
+- `ViewAll`: the link to the full list, with the total.
+- `RelatedPage`: the full list's page, with breadcrumbs back to the record, title and count. Inside it, use `Toolbar` + `DataTable`.
+- A list with inline editing (FMV rates) slices its own rows to `RELATED_LIMIT` and uses `ViewAll` and `RelatedPage` the same way.
+
 ### Toolbar (`Toolbar.tsx`)
 The controls above a list.
 

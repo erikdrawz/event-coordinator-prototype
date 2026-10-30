@@ -4,17 +4,14 @@ import { Building2, MapPin, Plus, Stethoscope } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
 import { avatarColorFor } from '../../lib/avatar';
-import { daysUntil, ymdInZone } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
-import { StatusPill } from '../../components/StatusPill';
-import { formatDate } from '../../ui/DateInput';
-import { money, roleLabel } from '../event/speakers/speakersData';
+import { RelatedTable, ViewAll } from '../../ui/RelatedList';
 import { EligibilityPill } from './EligibilityPill';
 import { FmvCard } from './FmvCard';
 import { ExpertFormModal } from './ExpertFormModal';
-import { ContractStatusPill } from '../contracts/ContractStatusPill';
+import { useContractColumns, useEngagementColumns } from './expertColumns';
 import { NewContractModal } from '../contracts/NewContractModal';
-import { useExpertContracts, useTypeLabel } from '../contracts/contractsData';
+import { useExpertContracts } from '../contracts/contractsData';
 import '../contracts/contracts.css';
 import { initialsOf, useEngagements, useExpert, type Engagement, type ExpertRow } from './expertsData';
 import '../event.css';
@@ -26,14 +23,10 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   return <div className="details-row"><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
-function relative(iso: string) {
-  const d = daysUntil(iso);
-  return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d === -1 ? 'Yesterday' : d > 0 ? `In ${d} days` : `${-d} days ago`;
-}
-
 /**
- * One expert: who they are, whether they can be engaged, their FMV rates and the events they
- * were or will be part of, and their contracts.
+ * One expert: who they are, whether they can be engaged, their FMV rates, contracts and the events
+ * they were or will be part of (as an expert or an attendee). Each list shows the newest few and
+ * links to its full page.
  */
 export function ExpertPage() {
   const { id } = useParams();
@@ -77,9 +70,9 @@ export function ExpertPage() {
 
       <div className="expert-body">
         <div className="expert-main">
-          <EngagementsCard list={list} loading={engagements.isLoading} error={engagements.error} />
           <FmvCard expert={x} canEdit={can(me, 'fmv_rate', 'edit') && can(me, 'fmv_rate', 'create')} />
           <ContractsCard expert={x} canCreate={can(me, 'contract', 'create') && can(me, 'hcp', 'edit')} />
+          <EngagementsCard expertId={x.id} list={list} loading={engagements.isLoading} error={engagements.error} />
         </div>
         <DetailsCard expert={x} />
       </div>
@@ -88,7 +81,8 @@ export function ExpertPage() {
   );
 }
 
-function EngagementsCard({ list, loading, error }: { list: Engagement[]; loading: boolean; error: Error | null }) {
+function EngagementsCard({ expertId, list, loading, error }: { expertId: string; list: Engagement[]; loading: boolean; error: Error | null }) {
+  const columns = useEngagementColumns();
   return (
     <section className="card ov-card" aria-labelledby="engagements-title">
       <div className="ov-head">
@@ -99,40 +93,18 @@ function EngagementsCard({ list, loading, error }: { list: Engagement[]; loading
       </div>
       {error && <div className="form-error" role="alert">{error.message}</div>}
       {loading ? <div className="ov-empty text-muted">Loading…</div> : list.length === 0 ? (
-        <div className="ov-empty"><span><strong>No engagements yet.</strong> Events this expert is added to appear here.</span></div>
-      ) : (
-        <div className="table-scroll">
-          <table className="agenda-table expert-table">
-            <thead>
-              <tr><th>Event</th><th>Date</th><th>Role</th><th>Status</th><th className="num">Rate / h</th><th className="num">Honorarium</th></tr>
-            </thead>
-            <tbody>
-              {list.map((e) => (
-                <tr key={e.id}>
-                  <td>
-                    {e.event ? <Link to={`/events/${e.event.id}`} className="agenda-title expert-link">{e.event.name}</Link> : empty}
-                    <div className="dt-sub">{[e.event?.event_type?.name, e.event?.city, e.event?.country?.name].filter(Boolean).join(' · ')}</div>
-                  </td>
-                  <td className="dt-nowrap">
-                    {e.event?.starts_at ? <>{formatDate(ymdInZone(e.event.starts_at, e.event.timezone))}<div className="dt-sub">{relative(e.event.starts_at)}</div></> : <span className="text-muted">Not scheduled</span>}
-                  </td>
-                  <td>{roleLabel(e.role)}</td>
-                  <td>{e.event && <StatusPill status={e.event.status} />}</td>
-                  <td className="num">{e.hourly_rate != null ? money(e.hourly_rate, e.currency ?? 'EUR') : empty}</td>
-                  <td className="num">{e.eligibility === 'ineligible' ? <span className="text-muted" data-tip="Not eligible on this event" tabIndex={0}>—</span> : money(e.total_payable, e.currency ?? 'EUR')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        <div className="ov-empty"><span><strong>No engagements yet.</strong> Events this expert speaks at or attends appear here.</span></div>
+      ) : <>
+        <RelatedTable label="Engagements" columns={columns} rows={list} rowKey={(e) => e.id} className="expert-table" />
+        <ViewAll to={`/experts/${expertId}/engagements`} total={list.length} />
+      </>}
     </section>
   );
 }
 
 function ContractsCard({ expert: x, canCreate }: { expert: ExpertRow; canCreate: boolean }) {
   const { data, isLoading, error } = useExpertContracts(x.id);
-  const typeLabel = useTypeLabel();
+  const columns = useContractColumns();
   const [adding, setAdding] = useState(false);
   const list = data ?? [];
   return (
@@ -147,25 +119,11 @@ function ContractsCard({ expert: x, canCreate }: { expert: ExpertRow; canCreate:
       {error && <div className="form-error" role="alert">{error.message}</div>}
       {isLoading ? <div className="ov-empty text-muted">Loading…</div> : list.length === 0 ? (
         <div className="ov-empty"><span><strong>No contracts yet.</strong> A Master Service Agreement is added here; Work Orders and Single-event Contracts are created from the Experts section of an event.</span></div>
-      ) : (
-        <div className="table-scroll">
-          <table className="agenda-table expert-table">
-            <thead><tr><th>Contract</th><th>Type</th><th>Status</th><th>Term</th><th>Event</th><th>Related</th></tr></thead>
-            <tbody>
-              {list.map((c) => (
-                <tr key={c.id} className={c.status === 'cancelled' ? 'is-past' : undefined}>
-                  <td className="dt-nowrap"><Link to={`/contracts/${c.id}`} className="agenda-title expert-link">{c.contract_number}</Link></td>
-                  <td>{typeLabel(c.contract_type)}</td>
-                  <td><ContractStatusPill status={c.status} /></td>
-                  <td className="dt-nowrap">{c.start_date ? <>{formatDate(c.start_date)}{c.end_date && c.end_date !== c.start_date && <div className="dt-sub">to {formatDate(c.end_date)}</div>}</> : empty}</td>
-                  <td>{c.event ? <Link to={`/events/${c.event.id}`} className="expert-link">{c.event.name}</Link> : empty}</td>
-                  <td>{c.parent ? <Link to={`/contracts/${c.parent.id}`} className="expert-link">{c.parent.contract_number}</Link> : empty}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      ) : <>
+        <RelatedTable label="Contracts" columns={columns} rows={list} rowKey={(c) => c.id} className="expert-table"
+          rowClass={(c) => (c.status === 'cancelled' ? 'is-past' : undefined)} />
+        <ViewAll to={`/experts/${x.id}/contracts`} total={list.length} />
+      </>}
       {adding && <NewContractModal target={{ kind: 'msa', hcpId: x.id, name: x.display_name }} onClose={() => setAdding(false)} />}
     </section>
   );

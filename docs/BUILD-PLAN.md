@@ -69,8 +69,8 @@ Request list and form, submit, the approval process per event type, approval his
 
 ### Phase 3: Experts, FMV, tiering, contracts
 Expert directory and profile, FMV rates, tier requests, contracts (service agreement / work order) with templates, **mock CRM search**, **mock contracting**, "Run checks" on speakers.
-- ✓ Experts list (`/experts`): Eligible / All experts, search, country and specialty; eligibility, organisation, tier, current FMV rate, engagements
-- ✓ Expert page: eligibility (with the reason), engagements (events past and upcoming), FMV rates (effective, expiration, rate, min, max), details; Contracts is a placeholder
+- ✓ Experts list (`/experts`): Eligible / All experts, search, country and specialty; eligibility, organisation, tier, current FMV rate, engagements (events as expert or attendee)
+- ✓ Expert page: eligibility (with the reason), FMV rates (effective, expiration, rate, min, max), contracts, engagements (events past and upcoming, as expert or attendee), details. Each list shows the newest 5, with View all opening its full page
 - ✓ Edit expert (profiles that can edit `hcp`): name, title, email, specialty, tier, organisation, city, country, OneKey ID, eligibility and reason. Changes stay in EC; CRM write-back comes later
 - ✓ Rates on events come from the expert's FMV record valid on the event's date (default and negotiable range)
 - ✓ Contracting v1: MSA (expert level), Work Order (needs a signed MSA covering the event), Single-event Contract, Addendum. Created from the event's Experts grid (MSA from the expert page) with `create_contract`; text drafted from a template with the honorarium (prep, service, travel, total); contract page with print view, PDF, send for signature (PDF stored in the `contracts` bucket), mark as signed, cancel, delete draft

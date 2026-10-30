@@ -12,6 +12,7 @@ import { RequestsPage } from './pages/requests/RequestsPage';
 import { RequestPage } from './pages/requests/RequestPage';
 import { ExpertsPage } from './pages/experts/ExpertsPage';
 import { ExpertPage } from './pages/experts/ExpertPage';
+import { ExpertContractsPage, ExpertEngagementsPage, ExpertFmvPage } from './pages/experts/ExpertListPages';
 import { ContractPage } from './pages/contracts/ContractPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { EventTypesAdmin } from './pages/admin/EventTypesAdmin';
@@ -49,6 +50,9 @@ export function App() {
         <Route path="requests/:id" element={<RequestPage />} />
         <Route path="experts" element={<ExpertsPage />} />
         <Route path="experts/:id" element={<ExpertPage />} />
+        <Route path="experts/:id/engagements" element={<ExpertEngagementsPage />} />
+        <Route path="experts/:id/contracts" element={<ExpertContractsPage />} />
+        <Route path="experts/:id/fmv-rates" element={<ExpertFmvPage />} />
         <Route path="contracts/:id" element={<ContractPage />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="event-types" replace />} />

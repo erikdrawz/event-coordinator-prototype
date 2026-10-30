@@ -287,7 +287,14 @@ select app.sid('att:' || e || ':' || coalesce(h, u)), app.sid('tenant:alera'), a
     ('bioforum','huesh',null,'Massachusetts General Hospital','Speaker','invited',null,'pending'),
     ('derm-roundtable','vogel',null,'UKE Hamburg','Chair','accepted',true,'reconciled'),
     ('derm-roundtable','brandt',null,'UKE Hamburg','Advisor','accepted',true,'reconciled'),
-    ('derm-roundtable',null,'paul','Alera Pharma','Organiser','accepted',true,null)
+    ('derm-roundtable',null,'paul','Alera Pharma','Organiser','accepted',true,null),
+    -- Enough events on one expert for the expert page's "View all"
+    ('haem-board','lind',null,'Aalborg University Hospital','Advisor','accepted',true,'reconciled'),
+    ('derm-roundtable','lind',null,'Aalborg University Hospital',null,'declined',null,'reconciled'),
+    ('cardio-workshop','lind',null,'Aalborg University Hospital',null,'invited',null,'reconciled'),
+    ('immuno-webinar','lind',null,'Aalborg University Hospital',null,'declined',null,'reconciled'),
+    ('bioforum','lind',null,'Aalborg University Hospital',null,'invited',null,'reconciled'),
+    ('sma-symposium','lind',null,'Aalborg University Hospital',null,'accepted',null,'reconciled')
   ) as t(e, h, u, org, role, rsvp, attended, crm);
 
 -- ---------------------------------------------------------------------

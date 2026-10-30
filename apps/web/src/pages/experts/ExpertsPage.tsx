@@ -6,7 +6,7 @@ import { DataTable, useTableSort, type Column } from '../../ui/DataTable';
 import { ClearFilters, FilterSelect, SearchInput, Segmented, Toolbar } from '../../ui/Toolbar';
 import { money } from '../event/speakers/speakersData';
 import { EligibilityPill } from './EligibilityPill';
-import { fmvOn, initialsOf, useEligibilities, useExpertDirectory, type ExpertRow } from './expertsData';
+import { engagementCount, fmvOn, initialsOf, useEligibilities, useExpertDirectory, type ExpertRow } from './expertsData';
 
 type Show = 'eligible' | 'all';
 const DEFAULTS = { show: 'eligible', country: '', specialty: '', q: '' } as const;
@@ -73,8 +73,8 @@ export function ExpertsPage() {
       },
     },
     {
-      id: 'engagements', header: 'Engagements', width: '12%', align: 'right', sortValue: (x) => x.event_expert[0]?.count ?? 0,
-      cell: (x) => x.event_expert[0]?.count || <span className="text-muted">0</span>,
+      id: 'engagements', header: 'Engagements', width: '12%', align: 'right', sortValue: engagementCount,
+      cell: (x) => engagementCount(x) || <span className="text-muted">0</span>,
     },
   ], [eligibilities]);
 
