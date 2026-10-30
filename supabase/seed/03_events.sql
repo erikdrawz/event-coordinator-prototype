@@ -316,19 +316,19 @@ select app.sid('content:' || k), app.sid('tenant:alera'), title, kind, fname, mi
     ('bio-registries', 'Rare disease registries across the Nordics',      'presentation','Nordic registries - draft.pptx',                      'application/vnd.openxmlformats-officedocument.presentationml.presentation', 6100000, 'emma','vaaranen', 6)
   ) as t(k, title, kind, fname, mime, size, own, hcp, age_d);
 
-insert into public.event_content (id, tenant_id, event_id, content_id, usage, category, session_id, review_status, created_at)
+insert into public.event_content (id, tenant_id, event_id, content_id, usage, category, session_id, review_status, description, dms_reference, created_at)
 select app.sid('ec:' || e || ':' || c), app.sid('tenant:alera'), app.sid('event:' || e), app.sid('content:' || c), usage, cat,
-       case when s is not null then app.sid('session:' || e || ':' || s) end, rs, now() - make_interval(days => age_d)
+       case when s is not null then app.sid('session:' || e || ':' || s) end, rs, descr, dms, now() - make_interval(days => age_d)
   from (values
-    ('sma-board','sma-landscape','presentation','Presentation',3,'approved',2),
-    ('sma-board','sma-registry','presentation','Presentation',5,'review',1),
-    ('sma-board','sma-chair','presentation','Presentation',2,'rejected',5),
-    ('sma-board','sma-venue','document','Contract',null,null,2),
-    ('sma-board','sma-agenda','document','Agenda',null,null,4),
-    ('sma-board','sma-agreements','document','Compliance',null,null,8),
-    ('sma-board','sma-budget','document','Finance',null,null,16),
-    ('bioforum','bio-registries','presentation','Presentation',1,'draft',6)
-  ) as t(e, c, usage, cat, s, rs, age_d);
+    ('sma-board','sma-landscape','presentation',null,3,'approved','Dr Richard Griffiths','VV-26-48213',2),
+    ('sma-board','sma-registry','presentation',null,5,'pending','Dr Alison Muir and Dr Richard Griffiths','VV-26-51877',1),
+    ('sma-board','sma-chair','presentation',null,2,'draft','Dr Alison Muir, chair',null,5),
+    ('sma-board','sma-venue','document','contract',null,null,null,null,2),
+    ('sma-board','sma-agenda','document','agenda',null,null,null,null,4),
+    ('sma-board','sma-agreements','document','compliance',null,null,null,null,8),
+    ('sma-board','sma-budget','document','finance',null,null,null,null,16),
+    ('bioforum','bio-registries','presentation',null,1,'draft','Prof Anni Vaaranen',null,6)
+  ) as t(e, c, usage, cat, s, rs, descr, dms, age_d);
 
 -- ---------------------------------------------------------------------
 -- Contracting: templates (Markdown with merge fields), MSAs, Work Orders

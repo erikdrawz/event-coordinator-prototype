@@ -579,6 +579,75 @@ const amEv = await api(daniel, 'rpc/create_event', { method: 'POST', body: { p: 
 const amExpert = await api(daniel, 'event_expert', { method: 'POST', body: { event_id: amEv.data?.id, hcp_id: lindHcp.data[0].id, role: 'speaker' } });
 ok(amEv.status === 200 && amExpert.status === 201, 'an Account Manager creates an event and adds an expert to it');
 
+// The Library: managed by Admins and Business Admins; event type and country decide who can use an item
+const eventId = async (name) => (await api(maria, `event?name=eq.${encodeURIComponent(name)}&select=id`)).data?.[0]?.id;
+const smaId = await eventId('SMA Board'), dermId = await eventId('Derm Roundtable');
+const libOptions = async (id, who = paul) => (await api(who, 'rpc/event_library_options', { method: 'POST', body: { p_event_id: id } })).data ?? [];
+const itemTitles = (list) => list.map((c) => c.title);
+const smaOptions = await libOptions(smaId);
+ok(itemTitles(smaOptions).includes('Telia: Nordic registry data') && !itemTitles(smaOptions).includes('Dermalux: Überblick für Fachkreise'), 'a Library item limited to countries shows only for those countries');
+ok(itemTitles(await libOptions(dermId)).includes('Dermalux: Überblick für Fachkreise'), "a Library item shows for an event of its type in its country");
+ok(!itemTitles(await libOptions(dermId)).includes('Dermalux launch deck 2025'), "an inactive Library item isn't offered");
+ok(!itemTitles(await libOptions(dermId)).includes('SMA disease overview'), "a Library item isn't offered to event types it isn't linked to");
+ok((await libOptions(smaId, sarah)).length === 0 || (await api(sarah, `event?id=eq.${smaId}&select=id`)).data?.length === 1, 'Library options follow access to the event');
+const libraryRow = { title: 'Smoke deck', content_kind: 'presentation', is_library: true, file_name: 'smoke.pptx', storage_path: 'demo/smoke.pptx' };
+ok((await api(paul, 'content', { method: 'POST', body: libraryRow })).status >= 400, "a coordinator can't add to the Library");
+const smokeItem = await api(maria, 'content', { method: 'POST', body: libraryRow });
+ok(smokeItem.status === 201, 'a Business Admin adds to the Library');
+const smokeItemId = smokeItem.data?.[0]?.id;
+const advisory = (await api(maria, 'event_type?name=eq.Advisory%20board&select=id')).data?.[0]?.id ?? (await api(maria, `event?id=eq.${smaId}&select=event_type_id`)).data?.[0]?.event_type_id;
+ok((await api(paul, `content?id=eq.${smokeItemId}`, { method: 'PATCH', body: { title: 'Changed' } })).data?.length === 0, "a coordinator can't change a Library item");
+ok(!itemTitles(await libOptions(smaId)).includes('Smoke deck'), "a new Library item isn't offered until it's linked to an event type");
+ok((await api(paul, 'event_type_content', { method: 'POST', body: { event_type_id: advisory, content_id: smokeItemId } })).status >= 400, "a coordinator can't link Library items to event types");
+await api(maria, 'event_type_content', { method: 'POST', body: { event_type_id: advisory, content_id: smokeItemId } });
+ok(itemTitles(await libOptions(smaId)).includes('Smoke deck'), 'linking a Library item offers it to events of that type');
+
+// Event content: from the Library it's approved as it is; bespoke goes Draft → Pending → Approved
+const fromLibrary = await api(paul, 'event_content', { method: 'POST', body: { event_id: smaId, content_id: smokeItemId, usage: 'presentation', review_status: 'draft' } });
+ok(fromLibrary.status === 201 && fromLibrary.data?.[0]?.review_status === 'approved', 'content from the Library is approved as it is');
+ok((await api(paul, 'event_content', { method: 'POST', body: { event_id: dermId, content_id: smokeItemId, usage: 'presentation' } })).status >= 400, "a Library item can't go on an event it isn't available for");
+ok((await api(sarah, 'event_content', { method: 'POST', body: { event_id: smaId, content_id: (await api(maria, `content?title=eq.Telia:%20Nordic%20registry%20data&select=id`)).data?.[0]?.id, usage: 'presentation' } })).status >= 400, "someone without edit access can't add content");
+const setContent = (who, id, status) => api(who, 'rpc/set_event_content_status', { method: 'POST', body: { p_id: id, p_status: status } });
+ok((await setContent(paul, fromLibrary.data?.[0]?.id, 'draft')).status >= 400, "a Library item's status doesn't change");
+ok((await api(maria, `content?id=eq.${smokeItemId}`, { method: 'DELETE' })).status >= 400, "a Library item used on an event can't be deleted");
+const contentPath = `${smaId}/${crypto.randomUUID()}/smoke.pdf`;
+ok((await storage(sarah, `content/${contentPath}`, { method: 'POST', body: pdf, type: 'application/pdf' })).status >= 400, "someone without edit access can't upload to the event");
+ok((await storage(paul, `content/${contentPath}`, { method: 'POST', body: pdf, type: 'application/pdf' })).ok, 'an editor uploads a file to the event');
+ok((await storage(paul, `content/library/${me.data.tenant.id}/x/smoke.pdf`, { method: 'POST', body: pdf, type: 'application/pdf' })).status >= 400, "a coordinator can't upload to the Library");
+const libraryPath = `library/${me.data.tenant.id}/${crypto.randomUUID()}/smoke.pdf`;
+ok((await storage(maria, `content/${libraryPath}`, { method: 'POST', body: pdf, type: 'application/pdf' })).ok, 'a Business Admin uploads to the Library');
+ok((await storage(daniel, `content/${libraryPath}`)).ok, 'everyone can read a Library file');
+const addFile = (who, usage, path, extra = {}) => api(who, 'rpc/add_event_file', { method: 'POST', body: { p_event_id: smaId, p_usage: usage, p_title: 'Smoke file', p_description: 'Dr Someone', p_category: null, p_file_name: 'smoke.pdf', p_mime_type: 'application/pdf', p_size_bytes: pdf.length, p_storage_path: path, ...extra } });
+ok((await addFile(paul, 'presentation', `${dermId}/x/smoke.pdf`)).status >= 400, "a file has to be in the event's folder");
+ok((await addFile(sarah, 'presentation', contentPath)).status >= 400, "someone without edit access can't add a file");
+const bespokeId = (await addFile(paul, 'presentation', contentPath)).data;
+const bespoke = async () => (await api(paul, `event_content?id=eq.${bespokeId}&select=*,content(id,title,is_library)`)).data?.[0];
+ok((await bespoke())?.review_status === 'draft' && (await bespoke())?.description === 'Dr Someone', 'bespoke content starts as a draft');
+ok((await api(paul, `event_content?id=eq.${bespokeId}`, { method: 'PATCH', body: { review_status: 'approved' } })).status >= 400, "the status can't be set directly");
+ok((await setContent(paul, bespokeId, 'approved')).status >= 400, "a draft can't jump to approved");
+ok((await setContent(sarah, bespokeId, 'pending')).status >= 400, "someone without edit access can't submit content");
+const contentSubmitted = await setContent(paul, bespokeId, 'pending');
+ok(contentSubmitted.data?.review_status === 'pending' && /^VV-/.test(contentSubmitted.data?.dms_reference ?? '') && contentSubmitted.data?.submitted_by === me.data.id, 'submitting makes it pending, with a document-system reference');
+ok((await setContent(paul, bespokeId, 'draft')).data?.dms_reference === null, 'pending content can go back to draft');
+await setContent(paul, bespokeId, 'pending');
+ok((await setContent(paul, bespokeId, 'approved')).data?.decided_by === me.data.id, 'pending content can be approved');
+ok((await setContent(paul, bespokeId, 'draft')).status >= 400, "approved content doesn't go back");
+const docPath = `${smaId}/${crypto.randomUUID()}/note.pdf`;
+await storage(paul, `content/${docPath}`, { method: 'POST', body: pdf, type: 'application/pdf' });
+const docId = (await addFile(paul, 'document', docPath, { p_category: 'finance' })).data;
+const doc = (await api(paul, `event_content?id=eq.${docId}&select=review_status,category,content_id`)).data?.[0];
+ok(doc?.review_status === null && doc?.category === 'finance', "documents have a category and no approval");
+ok((await setContent(paul, docId, 'pending')).status >= 400, "documents don't go through approval");
+const bespokeContent = (await bespoke())?.content?.id;
+for (const id of [bespokeId, docId]) await api(paul, `event_content?id=eq.${id}`, { method: 'DELETE' });
+ok((await api(paul, `content?id=eq.${bespokeContent}&select=id`)).data?.length === 0, 'removing bespoke content deletes its record');
+await api(paul, `event_content?id=eq.${fromLibrary.data?.[0]?.id}`, { method: 'DELETE' });
+ok((await api(paul, `content?id=eq.${smokeItemId}&select=id`)).data?.length === 1, 'removing a Library item from an event leaves it in the Library');
+await storage(paul, `content/${contentPath}`, { method: 'DELETE' });
+await storage(paul, `content/${docPath}`, { method: 'DELETE' });
+await storage(maria, `content/${libraryPath}`, { method: 'DELETE' });
+await api(maria, `content?id=eq.${smokeItemId}`, { method: 'DELETE' });
+
 // Cleanup
 await api(daniel, `event_request?id=eq.${amReq.data?.id}`, { method: 'DELETE' });
 await api(alex, `event?id=eq.${amEv.data?.id}`, { method: 'DELETE' });

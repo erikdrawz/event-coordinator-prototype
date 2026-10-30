@@ -1,0 +1,14 @@
+/* Event content and documents */
+.agenda-table.content-table { min-width: 640px; }
+.content-name { display: inline-flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.content-name > svg { flex: none; margin-top: 2px; color: var(--color-text-muted); }
+.content-table .as-button { padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--color-text); text-align: left; cursor: pointer; }
+.content-table .as-button:hover { color: var(--color-accent); text-decoration: underline; }
+.content-table .input { height: 32px; width: 100%; font-size: var(--text-md); }
+.content-table .input.content-desc { margin-top: 6px; }
+.content-file { margin-left: 8px; font-size: var(--text-sm); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.content-codes { font-variant-numeric: tabular-nums; }
+.content-actions { white-space: nowrap; text-align: right; }
+.content-actions > * { vertical-align: middle; }
+.content-actions .btn { margin-left: 6px; }
+.content-added { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: var(--text-sm); font-weight: 600; color: var(--tone-green-fg); }

@@ -18,7 +18,7 @@ select app.sid('tenant:alera'), tbl, app.sid(rec), app.sid('event:sma-board'), a
     ('event_expert', 'expert:sma-board:holm',      'update', 'agent-compliance', 'paul', '{"eligibility":{"from":"pending","to":"ineligible"},"check_status":{"from":"pending","to":"failed"},"check_notes":{"from":null,"to":"Annual engagement cap reached for Denmark (6 of 6)."}}', 3*24),
     ('event_expert', 'expert:sma-board:griffiths', 'update', 'agent-compliance', 'paul', '{"check_status":{"from":"pending","to":"passed"},"check_notes":{"from":null,"to":"Within annual cap (2 of 6 engagements). FMV rate matches Tier 1 national."}}', 2*24),
     ('event',        'event:sma-board',            'update', 'paul',             null,   '{"status":{"from":"review","to":"contract"}}', 24),
-    ('event_content','ec:sma-board:sma-registry',       'update', 'sarah',            null,   '{"review_status":{"from":"draft","to":"review"}}', 75)
+    ('event_content','ec:sma-board:sma-registry',       'update', 'sarah',            null,   '{"review_status":{"from":"draft","to":"pending"}}', 75)
   ) as t(tbl, rec, act, actor, obo, chg, h);
 
 drop function if exists app.seed_at(int, text, text);

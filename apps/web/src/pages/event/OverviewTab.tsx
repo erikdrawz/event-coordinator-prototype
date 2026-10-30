@@ -1,4 +1,5 @@
 import { AgendaSection } from './agenda/AgendaSection';
+import { ContentSection } from './content/ContentSection';
 import { SpeakersSection } from './speakers/SpeakersSection';
 
 interface EventLite { id: string; name: string; timezone: string; starts_at: string | null; ends_at: string | null }
@@ -9,9 +10,7 @@ export function OverviewTab({ event }: { event: EventLite }) {
     <div className="overview">
       <AgendaSection event={event} />
       <SpeakersSection eventId={event.id} eventName={event.name} timezone={event.timezone} />
-      <section className="card ov-card ov-coming">
-        <div className="ov-title-row"><h2 className="ov-title">Content</h2><span className="card-sub">Coming next: presentations and their review status</span></div>
-      </section>
+      <ContentSection eventId={event.id} />
     </div>
   );
 }
