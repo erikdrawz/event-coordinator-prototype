@@ -58,7 +58,7 @@ function countdown(iso: string | null): string | null {
 }
 
 const TABS = [
-  { id: 'overview', label: 'Overview' }, { id: 'team', label: 'Team' }, { id: 'attendees', label: 'Attendees' }, { id: 'spend', label: 'Spend' },
+  { id: 'overview', label: 'Overview' }, { id: 'team', label: 'Collaboration' }, { id: 'attendees', label: 'Attendees' }, { id: 'spend', label: 'Spend' },
   { id: 'documents', label: 'Documents' }, { id: 'details', label: 'Event details' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
