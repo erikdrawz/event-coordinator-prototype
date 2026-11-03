@@ -31,3 +31,34 @@ select app.sid('tenant:alera'), app.sid('etype:' || ty), app.sid('library:' || k
 insert into public.event_content (id, tenant_id, event_id, content_id, usage, review_status, description, created_at)
 values (app.sid('ec:sma-board:library:compliance'), app.sid('tenant:alera'), app.sid('event:sma-board'), app.sid('library:compliance'),
         'presentation', 'approved', 'Opens the meeting; Sarah Mitchell', now() - interval '3 days');
+
+-- Agenda templates: approved fillable PDFs (fictional), each field mapped to event data.
+-- The Nordic one only allows its approved session titles; the UK one lets any title through.
+insert into public.content (id, tenant_id, title, description, content_kind, file_name, mime_type, size_bytes, storage_path,
+                            owner_user_id, is_library, is_active, country_codes, template_fields, created_at, updated_at)
+select app.sid('library:' || k), app.sid('tenant:alera'), title, descr, 'template', fname, 'application/pdf', size, 'demo/' || fname,
+       app.sid('user:maria'), true, true, ccs::char(2)[],
+       jsonb_build_object(
+         'Meeting title', jsonb_build_object('source', 'event.name'),
+         'Date', jsonb_build_object('source', 'event.date'),
+         'Time', jsonb_build_object('source', 'event.time'),
+         'Venue', jsonb_build_object('source', 'event.venue'),
+         'Venue address', jsonb_build_object('source', 'event.address'),
+         'Chair', jsonb_build_object('source', 'chair.name'),
+         'Contact name', jsonb_build_object('source', 'contact.name'),
+         'Contact email', jsonb_build_object('source', 'contact.email'),
+         'Contact number', jsonb_build_object('source', 'ask', 'label', 'Contact number'))
+       || (select jsonb_object_agg(f || ' ' || r, jsonb_build_object('source', s, 'row', r))
+             from generate_series(1, rows) r,
+                  (values ('Time', 'session.time'), ('Session', 'session.title'), ('Speaker', 'session.speakers')) m(f, s)),
+       now() - make_interval(days => age_d), now() - make_interval(days => age_d)
+  from (values
+    ('agenda-nordic', 'Advisory board invitation (Nordics)', 'Approved invitation and agenda for Telia advisory boards. Session titles from the approved list only.',
+     'Alera advisory board invitation Nordics.pdf', 29829, '{DK,SE,NO,FI}', 8, 20),
+    ('agenda-uk',     'Meeting invitation (UK)',             'Approved promotional meeting invitation for UK healthcare professionals.',
+     'Alera meeting invitation UK.pdf',             26634, '{GB}',          7, 40)
+  ) as t(k, title, descr, fname, size, ccs, rows, age_d);
+
+insert into public.event_type_content (tenant_id, event_type_id, content_id)
+select app.sid('tenant:alera'), app.sid('etype:' || ty), app.sid('library:' || k)
+  from (values ('agenda-nordic','advisory'), ('agenda-uk','seminar'), ('agenda-uk','symposium'), ('agenda-uk','advisory')) as t(k, ty);

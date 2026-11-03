@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useEventAccess } from '../eventAccess';
 import { useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus } from 'lucide-react';
+import { FileText, Pencil, Plus } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { can } from '../../../lib/permissions';
 import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
 import { AgendaEditor } from './AgendaEditor';
+import { BrandedAgendaDialog, useAgendaTemplates } from './BrandedAgendaDialog';
 import { AgendaDays, agendaDays, dayLabel } from './AgendaDays';
 import {
   fetchSessions, initials, localParts, minutesBetween, sessionsKey, speakerName, toDraft, useSessions, type DraftSession,
@@ -28,6 +29,8 @@ export function AgendaSection({ event }: { event: EventLite }) {
   const [editing, setEditing] = useState<{ rows: DraftSession[]; version: string; addFirst: boolean } | null>(null);
   const [opening, setOpening] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [branding, setBranding] = useState(false);
+  const templates = useAgendaTemplates(event.id);
   const tz = event.timezone;
   const canEdit = can(me, 'event_session', 'edit') && canEditEvent;
   const canAdd = can(me, 'event_session', 'create') && canEditEvent;
@@ -73,6 +76,12 @@ export function AgendaSection({ event }: { event: EventLite }) {
         </div>
         <div className="ov-actions">
           <AgendaDays days={days} current={current} onPick={setDay} />
+          {total > 0 && Boolean(templates.data?.length) && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setBranding(true)}
+              data-tip="Fill an approved invitation template with this agenda, to share with experts">
+              <FileText size={14} />Branded agenda
+            </button>
+          )}
           {canEdit && total > 0 && (
             <button type="button" className="btn btn-outline btn-sm" onClick={() => startEditing(false)} disabled={opening}>
               <Pencil size={14} />Edit agenda
@@ -122,6 +131,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
           </table>
         </div>
       )}
+      {branding && templates.data && <BrandedAgendaDialog eventId={event.id} templates={templates.data} canSave={canEditEvent} onClose={() => setBranding(false)} />}
     </section>
   );
 }

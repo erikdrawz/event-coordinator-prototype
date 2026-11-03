@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import type { TemplateFields } from './agendaTemplate';
 
 export type ContentStatus = 'draft' | 'pending' | 'approved';
 export interface ContentFile { title: string; file_name: string | null; mime_type: string | null; size_bytes: number | null; storage_path: string | null; is_library: boolean }
@@ -9,7 +10,11 @@ export interface EventFile {
   content: ContentFile & { owner: { display_name: string } | null };
 }
 /** A Library item: the fields events and Admin both use. */
-export interface LibraryItem extends ContentFile { id: string; description: string | null; is_active: boolean; country_codes: string[] | null }
+export interface LibraryItem extends ContentFile {
+  id: string; description: string | null; is_active: boolean; country_codes: string[] | null;
+  /** 'presentation', or 'template' for an agenda template (with its field mapping). */
+  content_kind: string; template_fields: TemplateFields | null;
+}
 interface Lookup { code: string; label: string; tone?: string; sort: number }
 
 export const contentKey = (eventId: string) => ['event', eventId, 'content'];
@@ -79,6 +84,18 @@ export async function openFile(f: { storage_path: string | null; file_name: stri
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 600, { download: f.file_name ?? true });
   if (error) throw new Error(error.message);
   window.open(data.signedUrl, '_blank', 'noopener');
+}
+
+/** A stored file's contents, e.g. an agenda template to fill in. */
+export async function fileBytes(path: string): Promise<ArrayBuffer> {
+  if (path.startsWith('demo/')) {
+    const res = await fetch(`/demo-content/${encodeURIComponent(path.slice(5))}`);
+    if (!res.ok) throw new Error("The template file couldn't be loaded");
+    return res.arrayBuffer();
+  }
+  const { data, error } = await supabase.storage.from(BUCKET).download(path);
+  if (error) throw new Error(error.message);
+  return data.arrayBuffer();
 }
 
 /** Uploads a file to the event and records it. */

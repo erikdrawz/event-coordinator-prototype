@@ -1,0 +1,14 @@
+/* Branded agenda dialog */
+.ba-template { padding: 8px 0 0; font-weight: 600; }
+.ba-loading { padding: 18px 0 4px; }
+.ba-agenda-wrap { grid-column: 1 / -1; min-width: 0; }
+.ba-agenda { width: 100%; min-width: 620px; border-collapse: collapse; }
+.ba-agenda th { padding: 0 6px 6px; text-align: left; font-size: var(--text-sm); color: var(--color-text-muted); font-weight: 600; }
+.ba-agenda td { padding: 3px 6px; vertical-align: top; }
+.ba-agenda .ba-time { width: 90px; }
+.ba-agenda .ba-speakers { width: 32%; }
+.ba-agenda .input, .ba-agenda .sel-trigger { height: 34px; font-size: var(--text-md); }
+.ba-agenda tr.is-spare .input, .ba-agenda tr.is-spare .sel-trigger { background: var(--color-surface-muted); }
+.ba-flag { margin-top: 3px; font-size: var(--text-sm); font-weight: 600; color: var(--tone-red-fg); }
+.ba-note { margin: 0 0 10px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); font-size: var(--text-sm); }
+.ba-done { color: var(--tone-green-fg); font-weight: 600; }

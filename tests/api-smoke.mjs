@@ -648,6 +648,25 @@ await storage(paul, `content/${docPath}`, { method: 'DELETE' });
 await storage(maria, `content/${libraryPath}`, { method: 'DELETE' });
 await api(maria, `content?id=eq.${smokeItemId}`, { method: 'DELETE' });
 
+// Agenda templates: Library items of kind template, offered by event type and country, never event content
+const agendaTemplates = async (id, who = paul) => (await api(who, 'rpc/event_agenda_templates', { method: 'POST', body: { p_event_id: id } })).data ?? [];
+const smaTemplates = await agendaTemplates(smaId);
+ok(itemTitles(smaTemplates).includes('Advisory board invitation (Nordics)') && !itemTitles(smaTemplates).includes('Meeting invitation (UK)'), 'agenda templates are offered by event type and country');
+ok(smaTemplates.every((t) => t.content_kind === 'template' && t.template_fields?.Date?.source === 'event.date'), 'an agenda template comes with what fills its fields');
+ok(!(await libOptions(smaId)).some((c) => c.content_kind === 'template'), "agenda templates aren't offered as content");
+const nordicTemplateId = smaTemplates[0]?.id;
+ok((await api(paul, 'event_content', { method: 'POST', body: { event_id: smaId, content_id: nordicTemplateId, usage: 'presentation' } })).status >= 400, "an agenda template can't be added as event content");
+ok((await api(paul, `content?id=eq.${nordicTemplateId}`, { method: 'PATCH', body: { template_fields: {} } })).data?.length === 0, "a coordinator can't change a template's fields");
+const tmplRow = { title: 'Smoke template', content_kind: 'template', is_library: true, file_name: 'smoke.pdf', storage_path: 'demo/smoke.pdf' };
+ok((await api(maria, 'content', { method: 'POST', body: { ...tmplRow, template_fields: { Date: { source: 'event.when' } } } })).status >= 400, 'a template field needs a known source');
+ok((await api(maria, 'content', { method: 'POST', body: { ...tmplRow, template_fields: { 'Time 1': { source: 'session.time' } } } })).status >= 400, 'a session field needs its agenda row');
+ok((await api(maria, 'content', { method: 'POST', body: { ...tmplRow, template_fields: { Phone: { source: 'ask' } } } })).status >= 400, 'an asked field needs a question');
+ok((await api(maria, 'content', { method: 'POST', body: { ...tmplRow, is_library: false } })).status >= 400, 'agenda templates live in the Library');
+ok((await api(maria, 'content', { method: 'POST', body: { ...libraryRow, template_fields: { Date: { source: 'event.date' } } } })).status >= 400, 'only templates have field mappings');
+const smokeTemplate = await api(maria, 'content', { method: 'POST', body: { ...tmplRow, template_fields: { Date: { source: 'event.date' }, 'Time 1': { source: 'session.time', row: 1 }, Phone: { source: 'ask', label: 'Contact number' } } } });
+ok(smokeTemplate.status === 201, 'a Business Admin adds an agenda template with its fields mapped');
+await api(maria, `content?id=eq.${smokeTemplate.data?.[0]?.id}`, { method: 'DELETE' });
+
 // Cleanup
 await api(daniel, `event_request?id=eq.${amReq.data?.id}`, { method: 'DELETE' });
 await api(alex, `event?id=eq.${amEv.data?.id}`, { method: 'DELETE' });
