@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreVertical, SmilePlus, Trash2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
@@ -7,42 +7,120 @@ import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
-import { boardTables, postTime, postsKey, usePosts, type Board, type Person, type Post, type Thread } from './teamData';
+import { boardTables, mentionsIn, postTime, postsKey, usePosts, useTeam, useTeamRoles, type Board, type Person, type Post, type Thread } from './teamData';
 
 const EMOJI = ['👍', '🎉', '👀', '❤️', '✅', '⚠️'];
 const SHOWN_REPLIES = 2;
+
+/** Someone who can be mentioned, with what they do on the team. */
+type Mentionable = Person & { note: string | null };
 
 const PersonAvatar = ({ p, size }: { p: Person | null; size: number }) => (
   <Avatar size={size} initials={p?.initials} color={p?.avatar_color ?? avatarColorFor(p?.display_name ?? '?')} isAgent={p?.user_type === 'agent'} title={p?.display_name} />
 );
 
-/** Grows with its text; Cmd/Ctrl+Enter sends. */
-function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCancel, pending }: {
-  placeholder: string; note?: string; submitLabel: string; autoFocus?: boolean; pending?: boolean;
-  onSubmit: (body: string) => Promise<unknown>; onCancel?: () => void;
+/** The "@name" being typed just before the caret, if any: where its @ is and what follows it. */
+function mentionAt(text: string, caret: number) {
+  const m = /(?:^|\s)@([\p{L}'.-]*(?: [\p{L}'.-]*)?)$/u.exec(text.slice(0, caret));
+  return m ? { start: caret - m[1].length - 1, query: m[1].toLowerCase() } : null;
+}
+
+/**
+ * Grows with its text; Cmd/Ctrl+Enter sends. Typing @ lists the people who can be mentioned;
+ * picking one writes "@Their Name", and the post mentions everyone named that way.
+ */
+function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCancel, pending, people }: {
+  placeholder: string; note?: string; submitLabel: string; autoFocus?: boolean; pending?: boolean; people: Mentionable[];
+  onSubmit: (body: string, mentions: string[]) => Promise<unknown>; onCancel?: () => void;
 }) {
   const [body, setBody] = useState('');
+  const [typing, setTyping] = useState<{ start: number; query: string } | null>(null);
+  const [active, setActive] = useState(0);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const listId = useId();
+  // Where the caret goes once a picked name is in the text
+  const caret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && caret.current !== null) { el.setSelectionRange(caret.current, caret.current); fit(el); caret.current = null; }
+  }, [body]);
+  const matches = typing ? people.filter((p) => {
+    const name = p.display_name.toLowerCase();
+    return name.startsWith(typing.query) || name.split(/\s+/).some((w) => w.startsWith(typing.query));
+  }).slice(0, 6) : [];
+  const open = matches.length > 0;
+
+  const fit = (el: HTMLTextAreaElement) => { el.style.height = ''; el.style.height = `${el.scrollHeight}px`; };
+  const track = (el: HTMLTextAreaElement) => {
+    const next = el.selectionStart === el.selectionEnd ? mentionAt(el.value, el.selectionStart) : null;
+    if (next?.start !== typing?.start || next?.query !== typing?.query) setActive(0);
+    setTyping(next);
+  };
+  const pick = (p: Person) => {
+    const el = ref.current;
+    if (!el || !typing) return;
+    const before = `${body.slice(0, typing.start)}@${p.display_name} `;
+    caret.current = before.length;
+    setBody(before + body.slice(el.selectionStart).replace(/^ /, ''));
+    setTyping(null);
+  };
   const send = async () => {
     if (!body.trim() || pending) return;
-    await onSubmit(body.trim());
-    setBody('');
+    await onSubmit(body.trim(), mentionsIn(body, people));
+    setBody(''); setTyping(null);
     if (ref.current) ref.current.style.height = '';
   };
   return (
     <div className="composer">
       <textarea ref={ref} className="composer-input" rows={1} value={body} placeholder={placeholder} aria-label={placeholder} autoFocus={autoFocus}
-        onChange={(e) => { setBody(e.target.value); e.target.style.height = ''; e.target.style.height = `${e.target.scrollHeight}px`; }}
+        role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={open ? listId : undefined}
+        aria-activedescendant={open ? `${listId}-${active}` : undefined}
+        onChange={(e) => { setBody(e.target.value); fit(e.target); track(e.target); }}
+        onSelect={(e) => track(e.currentTarget)} onBlur={() => setTyping(null)}
         onKeyDown={(e) => {
+          if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault(); setActive((i) => (i + (e.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length); return;
+          }
+          if (open && (e.key === 'Enter' || e.key === 'Tab') && !e.metaKey && !e.ctrlKey) { e.preventDefault(); pick(matches[active] ?? matches[0]); return; }
+          if (open && e.key === 'Escape') { e.preventDefault(); setTyping(null); return; }
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); }
           if (e.key === 'Escape' && onCancel) { e.preventDefault(); onCancel(); }
         }} />
+      {open && (
+        <ul id={listId} className="mention-list" role="listbox" aria-label="People to mention">
+          {matches.map((p, i) => (
+            <li key={p.id} id={`${listId}-${i}`} role="option" aria-selected={i === active} className={`mention-option${i === active ? ' active' : ''}`}
+              onMouseDown={(e) => { e.preventDefault(); pick(p); }} onMouseEnter={() => setActive(i)}>
+              <PersonAvatar p={p} size={22} />
+              <span className="mention-name">{p.display_name}</span>
+              {p.note && <span className="mention-meta">{p.note}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="composer-foot">
         <span className="composer-note">{note}</span>
         {onCancel && <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
         <button type="button" className="btn btn-primary btn-sm" disabled={!body.trim() || pending} onClick={() => void send()}>{submitLabel}</button>
       </div>
     </div>
+  );
+}
+
+/** Post text with its mentions highlighted (yours more strongly). */
+function PostBody({ p, names, meId }: { p: Post; names: Map<string, string>; meId?: string }) {
+  const tags = p.mentions.map((id) => ({ id, tag: `@${names.get(id) ?? ''}` })).filter((t) => t.tag.length > 1)
+    .sort((a, b) => b.tag.length - a.tag.length);
+  if (!tags.length) return <p className="post-body">{p.body}</p>;
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = p.body.split(new RegExp(`(${tags.map((t) => esc(t.tag)).join('|')})(?![\\p{L}\\p{N}])`, 'giu'));
+  return (
+    <p className="post-body">
+      {parts.map((part, i) => {
+        const t = i % 2 ? tags.find((x) => x.tag.toLowerCase() === part.toLowerCase()) : undefined;
+        return t ? <span key={i} className={`mention${t.id === meId ? ' mention-me' : ''}`}>{part}</span> : part;
+      })}
+    </p>
   );
 }
 
@@ -55,14 +133,22 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
   const qc = useQueryClient();
   const t = boardTables(board);
   const posts = usePosts(board);
+  const team = useTeam(board);
+  const roles = useTeamRoles();
+  // Anyone on the team can be mentioned (they can read the board); mentions of people who left still show by name
+  const members = useMemo(() => (team.data ?? []).map((m) => m.user).filter((u): u is Person => Boolean(u)), [team.data]);
+  const mentionable = useMemo(() => (team.data ?? []).flatMap((m): Mentionable[] => m.user && m.user.id !== me?.id && m.user.user_type === 'human'
+    ? [{ ...m.user, note: m.role_label ?? roles.data?.find((r) => r.code === m.team_role)?.label ?? null }] : [])
+    .sort((a, b) => a.display_name.localeCompare(b.display_name)), [team.data, roles.data, me?.id]);
+  const names = useMemo(() => new Map(members.map((u) => [u.id, u.display_name])), [members]);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Post | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: postsKey(board) });
 
   const post = useMutation({
-    mutationFn: async ({ body, parent_id }: { body: string; parent_id?: string }) => {
-      const { error } = await supabase.from(t.post).insert({ [t.key]: board.id, body, parent_id: parent_id ?? null });
+    mutationFn: async ({ body, mentions, parent_id }: { body: string; mentions: string[]; parent_id?: string }) => {
+      const { error } = await supabase.from(t.post).insert({ [t.key]: board.id, body, mentions, parent_id: parent_id ?? null });
       if (error) throw new Error(error.message);
     },
     onSuccess: (_, v) => { refresh(); if (v.parent_id) { setReplyTo(null); setExpanded((s) => new Set(s).add(v.parent_id!)); } },
@@ -128,7 +214,7 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
             <span className="post-when">{postTime(t.created_at)}</span>
             {postActions(t)}
           </div>
-          <p className="post-body">{t.body}</p>
+          <PostBody p={t} names={names} meId={me?.id} />
           <div className="post-foot">
             {reactions(t)}
             <button type="button" className="link post-reply" onClick={() => setReplyTo(replyTo === t.id ? null : t.id)}>Reply</button>
@@ -149,14 +235,14 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
                       <span className="post-when">{postTime(r.created_at)}</span>
                       {postActions(r)}
                     </div>
-                    <p className="post-body">{r.body}</p>
+                    <PostBody p={r} names={names} meId={me?.id} />
                     {r.reactions.length > 0 && reactions(r, true)}
                   </div>
                 </div>
               ))}
               {replyTo === t.id && (
                 <Composer placeholder={`Reply to ${t.author?.display_name?.split(' ')[0] ?? 'the post'}…`} submitLabel="Reply" autoFocus pending={post.isPending}
-                  onSubmit={(body) => post.mutateAsync({ body, parent_id: t.id })} onCancel={() => setReplyTo(null)} />
+                  people={mentionable} onSubmit={(body, mentions) => post.mutateAsync({ body, mentions, parent_id: t.id })} onCancel={() => setReplyTo(null)} />
               )}
             </div>
           )}
@@ -173,8 +259,8 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
       </div>
       <div className="post post-new">
         <Avatar size={34} initials={me?.initials} color={me?.avatar_color ?? avatarColorFor(me?.display_name ?? '?')} />
-        <Composer placeholder="Post an update or ask the team…" note={`Everyone on the ${name} team can read this`} submitLabel="Post"
-          pending={post.isPending} onSubmit={(body) => post.mutateAsync({ body })} />
+        <Composer placeholder="Post an update or ask the team…" note={`Everyone on the ${name} team can read this. Type @ to mention someone.`} submitLabel="Post"
+          pending={post.isPending} people={mentionable} onSubmit={(body, mentions) => post.mutateAsync({ body, mentions })} />
       </div>
       {error && <div className="form-error" role="alert">{error.message}</div>}
       {posts.isLoading ? <div className="ov-empty text-muted">Loading…</div>

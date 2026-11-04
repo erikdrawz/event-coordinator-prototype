@@ -64,6 +64,7 @@ Each phase ends in something demoable.
 Request list and form, submit, the approval process per event type, approval history, an approved request creates its event, notifications.
 - ✓ Requests list (`/requests`): status counts for incoming volume, All / My requests, search; New request
 - ✓ Request page: name, event type, date and rough duration (1–3 hours … more than 2 days), business justification, status (draft → review → approved | rejected) in the header; Actions: Submit for approval, Delete (drafts only); Team and Discussion as on events
+- ✓ @mentions on event and request boards: type @ to pick someone on the team; they get a Mention notification that opens the board
 - ✓ Access: the request's Team decides (creator = owner); drafts are private to the team, submitted requests are visible to home office (view_all on `event_request`)
 - ✓ Approving and rejecting: a request in review gets Approve / Reject in its Actions for home office and its Approvers, never the requester; a rejection needs a reason; the decision (who, when, note) shows on the request and the requester is notified. Submitting notifies the request's approvers
 - Next: multi-step approval processes (`approval_process`), assigning a coordinator, an approved request creates its event; an approved tiering request updates the expert

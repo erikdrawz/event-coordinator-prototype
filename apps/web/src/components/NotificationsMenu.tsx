@@ -48,7 +48,8 @@ export function NotificationsMenu() {
   function openNotification(n: AppNotification) {
     if (!n.read_at) markRead.mutate([n.id]);
     setOpen(false);
-    if (n.record_type === 'event' && n.record_id) navigate(`/events/${n.record_id}`);
+    // A mention opens the board it was made on (the event's Collaboration tab)
+    if (n.record_type === 'event' && n.record_id) navigate(`/events/${n.record_id}${n.kind === 'mention' ? '?tab=team' : ''}`);
     else if (n.record_type === 'request') navigate(n.record_id ? `/requests/${n.record_id}` : '/requests');
   }
 

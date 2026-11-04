@@ -339,6 +339,19 @@ await api(paul, 'event_team_member', { method: 'POST', body: { event_id: ev.id, 
 const post = await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Smoke test post' } });
 ok(post.status === 201 && post.data[0].author_id !== null, 'a viewer on the team can post to the board');
 
+// @mentions: only people on the team, each notified once; mentioning yourself doesn't notify you
+const mentionsOf = async (who, recordId) => (await api(who, `notification?kind=eq.mention&record_id=eq.${recordId}&select=id,title,body,record_type`)).data ?? [];
+const mPost = await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: '@Paul Taylor can you check the venue?', mentions: [me.data.id, me.data.id] } });
+const paulMentions = await mentionsOf(paul, ev.id);
+ok(mPost.status === 201 && mPost.data[0].mentions.length === 1 && paulMentions.length === 1 && paulMentions[0].title === 'Sarah Mitchell'
+   && paulMentions[0].record_type === 'event' && paulMentions[0].body.includes('can you check the venue'), 'a mention on the event board notifies the person mentioned, once');
+const lisaId = (await api(paul, 'app_user?email=eq.lisa.anderson@alera.example&select=id')).data[0].id;
+const offTeam = await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: '@Lisa Anderson have a look', mentions: [lisaId] } });
+ok(offTeam.status >= 400 && /isn't on the team/.test(offTeam.data?.message ?? ''), "people off the team can't be mentioned");
+await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Note to self', mentions: [sarahMe.data.id] } });
+ok((await mentionsOf(sarah, ev.id)).length === 0, "mentioning yourself doesn't notify you");
+await api(paul, `notification?kind=eq.mention&record_id=eq.${ev.id}`, { method: 'DELETE' });
+
 // The Team decides access: off the team you don't see the event; viewers see it; organizers edit it
 const lisaMe = await api(lisaT, 'rpc/me', { method: 'POST', body: {} });
 const lisaSees = async () => (await api(lisaT, `event?id=eq.${ev.id}&select=id`)).data?.length === 1;
@@ -449,8 +462,10 @@ ok((await api(paul, `event_request?id=eq.${reqId}&select=id`)).data?.length === 
 ok((await saveReq(sarah, { id: reqId, title: 'Changed after submit' })).status >= 400, "a submitted request can't be changed");
 ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'PATCH', body: { status: 'approved' } })).status >= 400, "a request can't be approved by setting its status");
 ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).data?.length === 0, "a submitted request can't be deleted");
-const reqPost = await api(paul, 'request_post', { method: 'POST', body: { request_id: reqId, body: 'Smoke question from home office' } });
+const reqPost = await api(paul, 'request_post', { method: 'POST', body: { request_id: reqId, body: 'Smoke question from home office for @Sarah Mitchell', mentions: [sarahMe.data.id] } });
 ok(reqPost.status === 201 && (await api(sarah, `request_post?request_id=eq.${reqId}&select=id`)).data?.length === 1, 'home office and the requester discuss on the request board');
+ok((await mentionsOf(sarah, reqId))[0]?.record_type === 'request', 'a mention on the request board notifies the requester');
+await api(sarah, `notification?kind=eq.mention&record_id=eq.${reqId}`, { method: 'DELETE' });
 ok((await api(lisaT, `request_post?request_id=eq.${reqId}&select=id`)).data?.length === 1 && (await api(sarah, `request_team_member?request_id=eq.${reqId}&user_id=eq.${sarahMe.data.id}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).status >= 400,
    "the requester can't be removed from the team");
 const draft2 = await saveReq(sarah, { title: 'Smoke draft', event_type_id: types.data[0].id });

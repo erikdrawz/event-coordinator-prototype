@@ -591,6 +591,9 @@ select app.sid('post:' || k), app.sid('tenant:alera'), app.sid('event:' || e),
     ('derm-1', 'derm-roundtable', null, 'lisa','All invoices from Hotel Atlantic are in. Closeout report is the last open item.', 100)
   ) as t(k, e, parent, a, body, h);
 
+-- Mentions notify through a trigger, so the demo's mention notification comes from a real post
+update public.event_post set mentions = array[app.sid('user:paul')] where id = app.sid('post:bio-1');
+
 insert into public.event_post_reaction (post_id, user_id, emoji, tenant_id, event_id)
 select app.sid('post:' || p), app.sid('user:' || u), em, app.sid('tenant:alera'), app.sid('event:' || e)
   from (values
@@ -619,7 +622,6 @@ select app.sid('task:' || k), app.sid('tenant:alera'), app.sid('event:' || e), t
 -- ---------------------------------------------------------------------
 insert into public.notification (tenant_id, user_id, kind, title, body, record_type, record_id, read_at, created_at) values
   (app.sid('tenant:alera'), app.sid('user:paul'), 'approval_required', 'Oncology Advisory Board Q3', 'submitted for your approval by Michael Chen', 'request', app.sid('req:onc-ab-q3'), null, now() - interval '2 hours'),
-  (app.sid('tenant:alera'), app.sid('user:paul'), 'mention',           'Sarah Mitchell',             'mentioned you in the BioForum discussion',     'event',   app.sid('event:bioforum'), null, now() - interval '3 hours'),
   (app.sid('tenant:alera'), app.sid('user:paul'), 'new_request',       'Respiratory Conference Barcelona', 'is waiting for an owner',            'request', app.sid('req:resp-barcelona'), null, now() - interval '5 hours'),
   (app.sid('tenant:alera'), app.sid('user:paul'), 'approved',          'SMA Board',                  'moved to Contract — approvals complete',       'event',   app.sid('event:sma-board'), now() - interval '20 hours', now() - interval '1 day'),
   (app.sid('tenant:alera'), app.sid('user:paul'), 'task_assigned',     'Countersign Marriott venue contract', 'assigned to you on SMA Board',        'event',   app.sid('event:sma-board'), now() - interval '1 day', now() - interval '25 hours');

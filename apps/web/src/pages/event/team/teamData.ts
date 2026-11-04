@@ -9,6 +9,8 @@ export interface TeamMember { id: string; user_id: string; team_role: string; ro
 export interface Reaction { emoji: string; user_id: string }
 export interface Post {
   id: string; parent_id: string | null; body: string; created_at: string; author_id: string;
+  /** People the post @mentions (on the team when it was posted). */
+  mentions: string[];
   author: Person | null; reactions: Reaction[];
 }
 export interface Thread extends Post { replies: Post[] }
@@ -72,7 +74,7 @@ export function usePosts(board: Board) {
     queryKey: postsKey(board),
     queryFn: async () => {
       const { data, error } = await supabase.from(t.post)
-        .select(`id,parent_id,body,created_at,author_id,author:app_user!${t.post}_author_id_fkey(${PERSON}),reactions:${t.reaction}(emoji,user_id)`)
+        .select(`id,parent_id,body,created_at,author_id,mentions,author:app_user!${t.post}_author_id_fkey(${PERSON}),reactions:${t.reaction}(emoji,user_id)`)
         .eq(t.key, board.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -93,4 +95,16 @@ export function postTime(iso: string, now = new Date()) {
   if (diff === 0) return `Today, ${time}`;
   if (diff === 1) return `Yesterday, ${time}`;
   return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace('Sept', 'Sep')}, ${time}`;
+}
+
+/** The people a post's text mentions: "@Display Name" for anyone in the list, in any case. */
+export function mentionsIn(body: string, people: Person[]) {
+  const text = body.toLowerCase();
+  return people.filter((p) => {
+    const tag = `@${p.display_name.toLowerCase()}`;
+    let i = text.indexOf(tag);
+    // Not the start of a longer name ("@Ann" in "@Anna")
+    while (i >= 0 && /[\p{L}\p{N}]/u.test(text[i + tag.length] ?? '')) i = text.indexOf(tag, i + 1);
+    return i >= 0;
+  }).map((p) => p.id);
 }
