@@ -15,7 +15,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 | Table | P0 | Key fields | Notes |
 |---|---|---|---|
-| `tenant` | ✓ | name, slug, brand_name, brand_color | "Alera Pharma" seeded |
+| `tenant` | ✓ | name, slug, brand_name, brand_color, show_profile_badge | "Alera Pharma" seeded |
 | `app_user` | ✓ | user_type (human/agent), auth_user_id → auth.users, first/last/display name, email, title, initials, avatar_color, profile_id, owner_user_id (agents), status, last_login_at | ERD "User". Agents are first-class users |
 | `profile` | ✓ | name, description, is_admin | ERD "Profile": System Admin, Event Coordinator, Collaborator, Agent |
 | `permission` | ✓ | profile_id, object_name, can_read/create/edit/delete, view_all, modify_all | ERD "Permission": Salesforce-style object permissions |

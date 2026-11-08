@@ -35,6 +35,11 @@
   border: 0; background: transparent; padding: 3px 10px 3px 3px; border-radius: var(--radius-pill); cursor: pointer; color: var(--color-text);
 }
 .user-chip:hover, .user-chip[aria-expanded='true'] { background: var(--color-bg); }
+/* The signed-in person's profile, when the tenant shows it */
+.profile-badge {
+  padding: 2px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); background: var(--color-surface-muted);
+  font-size: var(--text-xs); font-weight: 700; color: var(--color-text-secondary); white-space: nowrap;
+}
 
 /* ---------- Dropdown menus ---------- */
 .menu-anchor { position: relative; }
@@ -167,7 +172,7 @@ body { overflow-x: hidden; }
 @media (max-width: 760px) {
   :root { --page-gutter: 16px; }
   .topnav { gap: 12px; }
-  .brand-divider, .brand-product, .user-chip-name { display: none; }
+  .brand-divider, .brand-product, .user-chip-name, .profile-badge { display: none; }
   .brand-name { font-size: var(--text-lg); white-space: nowrap; }
   .navlinks { font-size: var(--text-md); overflow-x: auto; min-width: 0; scrollbar-width: none; }
   .nav-tools { margin-left: 0; gap: 4px; }

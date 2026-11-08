@@ -8,8 +8,9 @@ create or replace function app.sid(p_key text) returns uuid
 language sql immutable as $$ select md5(p_key)::uuid $$;
 comment on function app.sid(text) is 'Deterministic UUID from a key — used by demo seeds and scripts.';
 
-insert into public.tenant (id, name, slug, brand_name, brand_color)
-values (app.sid('tenant:alera'), 'Alera Pharma', 'alera', 'Alera Pharma', '#b42318');
+-- Demos switch between people, so the top bar shows whose rights are in play
+insert into public.tenant (id, name, slug, brand_name, brand_color, show_profile_badge)
+values (app.sid('tenant:alera'), 'Alera Pharma', 'alera', 'Alera Pharma', '#b42318', true);
 
 insert into public.profile (id, tenant_id, name, description, is_admin, can_access_admin) values
   (app.sid('profile:admin'),       app.sid('tenant:alera'), 'System Admin',      'Full access, manages configuration and users', true,  true),

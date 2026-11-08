@@ -17,6 +17,7 @@ export function UserMenu() {
       <button className="user-chip" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <Avatar initials={me.initials} color={me.avatar_color} />
         <span className="user-chip-name">{me.first_name ?? me.display_name}</span>
+        {me.tenant.show_profile_badge && <span className="profile-badge" title="Your profile: what you can see and change">{me.profile.name}</span>}
       </button>
       {open && (
         <div className="menu" style={{ width: 280 }}>

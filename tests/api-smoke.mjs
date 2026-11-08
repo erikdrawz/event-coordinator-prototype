@@ -721,6 +721,18 @@ const smokeTemplate = await api(maria, 'content', { method: 'POST', body: { ...t
 ok(smokeTemplate.status === 201, 'a Business Admin adds an agenda template with its fields mapped');
 await api(maria, `content?id=eq.${smokeTemplate.data?.[0]?.id}`, { method: 'DELETE' });
 
+// Tenant settings: System Admins switch the profile badge; me() reports it
+const badgeOf = async (who) => (await api(who, 'rpc/me', { method: 'POST', body: {} })).data?.tenant;
+const tenantNow = await badgeOf(paul);
+const setBadge = (who, v) => api(who, `tenant?id=eq.${tenantNow?.id}`, { method: 'PATCH', body: { show_profile_badge: v } });
+ok(typeof tenantNow?.show_profile_badge === 'boolean', "me() says whether to show people's profile");
+ok((await setBadge(maria, !tenantNow?.show_profile_badge)).data?.length === 0 && (await setBadge(paul, !tenantNow?.show_profile_badge)).data?.length === 0,
+   "only System Admins change the organisation's settings");
+ok((await setBadge(alex, !tenantNow?.show_profile_badge)).data?.[0]?.show_profile_badge === !tenantNow?.show_profile_badge
+   && (await badgeOf(paul))?.show_profile_badge === !tenantNow?.show_profile_badge, 'a System Admin switches the profile badge for everyone');
+await setBadge(alex, tenantNow?.show_profile_badge);
+ok((await api(alex, `tenant?id=eq.${tenantNow?.id}`, { method: 'PATCH', body: { name: 'Renamed' } })).status >= 400, "the organisation's name isn't a setting");
+
 // Cleanup
 await api(daniel, `event_request?id=eq.${amReq.data?.id}`, { method: 'DELETE' });
 await api(alex, `event?id=eq.${amEv.data?.id}`, { method: 'DELETE' });
