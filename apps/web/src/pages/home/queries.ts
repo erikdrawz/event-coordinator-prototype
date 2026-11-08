@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import type { EventStatus } from '../../lib/types';
 
@@ -9,8 +9,8 @@ interface Person { id: string; display_name: string; initials: string | null; av
 const PERSON = 'id,display_name,initials,avatar_color,user_type';
 
 export interface AgendaEvent {
-  id: string; name: string; status: EventStatus; starts_at: string; timezone: string;
-  city: string | null; country_code: string | null;
+  id: string; name: string; status: EventStatus; starts_at: string; ends_at: string | null; timezone: string;
+  city: string | null; country_code: string | null; venue_name: string | null;
   event_type: { name: string } | null;
   owner: Pick<Person, 'display_name'> | null;
   /** Only the current user's team row, if any. */
@@ -27,7 +27,7 @@ const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); retur
 async function fetchEvents(meId: string, scope: Scope, from: Date, to: Date, ascending: boolean, withCancelled = true) {
   const team = scope === 'mine' ? 'event_team_member!inner(team_role)' : 'event_team_member(team_role)';
   let q = supabase.from('event')
-    .select(`id,name,status,starts_at,timezone,city,country_code,event_type(name),owner:app_user!event_owner_id_fkey(display_name),${team}`)
+    .select(`id,name,status,starts_at,ends_at,timezone,city,country_code,venue_name,event_type(name),owner:app_user!event_owner_id_fkey(display_name),${team}`)
     .eq('event_team_member.user_id', meId)
     .gte('starts_at', from.toISOString())
     .lt('starts_at', to.toISOString())
@@ -52,13 +52,29 @@ export function useAgenda(meId: string | undefined, scope: Scope, when: When) {
   });
 }
 
-/** Events in the visible calendar grid. */
-export function useCalendarEvents(meId: string | undefined, scope: Scope, from: Date, to: Date) {
-  return useQuery({
-    queryKey: ['home', 'calendar', meId, scope, from.toISOString()],
-    enabled: Boolean(meId),
-    queryFn: () => fetchEvents(meId!, scope, from, to, true),
-  });
+/** The days a month view shows: from the Sunday on or before the 1st, whole weeks. */
+export function monthGrid(month: Date) {
+  const start = new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay());
+  const weeks = Math.ceil((month.getDay() + new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()) / 7);
+  return { start, weeks, end: new Date(start.getFullYear(), start.getMonth(), start.getDate() + weeks * 7) };
+}
+
+/**
+ * Events in a month's grid. Starts a week early so events that began before the grid but run into
+ * it show, and pads a day after so events near midnight in other zones land.
+ */
+export const calendarQuery = (meId: string, scope: Scope, month: Date) => ({
+  queryKey: ['home', 'calendar', meId, scope, month.getFullYear(), month.getMonth()],
+  queryFn: () => {
+    const { start, end } = monthGrid(month);
+    return fetchEvents(meId, scope, new Date(start.getTime() - 7 * DAY), new Date(end.getTime() + DAY), true);
+  },
+  staleTime: 60_000,
+});
+
+/** Events in the visible month. While another month loads, the previous one stays on screen. */
+export function useCalendarEvents(meId: string | undefined, scope: Scope, month: Date) {
+  return useQuery({ ...calendarQuery(meId ?? '', scope, month), enabled: Boolean(meId), placeholderData: keepPreviousData });
 }
 
 export interface PendingApproval {
