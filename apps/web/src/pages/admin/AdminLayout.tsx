@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, NavLink, Outlet } from 'react-router-dom';
-import { Boxes, CalendarCog, FlaskConical, KeyRound, Library, Mail, Plug, Settings, ShieldCheck, SlidersHorizontal, Users, Workflow, type LucideIcon } from 'lucide-react';
+import { Boxes, CalendarCog, FlaskConical, KeyRound, Library, Mail, Plug, Settings, ShieldCheck, SlidersHorizontal, Users, UsersRound, Workflow, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { can, seesAll } from '../../lib/permissions';
 import type { Me } from '../../lib/types';
@@ -29,6 +29,7 @@ const GROUPS: { title: string; sections: Section[] }[] = [
   ] },
   { title: 'Users & permissions', sections: [
     { to: 'users', label: 'Users', icon: Users, show: (me) => can(me, 'app_user', 'edit') },
+    { label: 'Groups', icon: UsersRound, show: admin },
     { label: 'Permissions', icon: KeyRound, show: admin },
   ] },
   { title: 'Logs', sections: [
