@@ -10,6 +10,7 @@ export interface Expert {
   eligibility: 'eligible' | 'ineligible' | 'pending'; check_status: 'passed' | 'pending' | 'failed'; check_notes: string | null;
   hourly_rate: number | null; currency: string | null;
   prep_hours: number; service_hours: number; travel_hours: number; total_payable: number;
+  custom_fields: Record<string, unknown>;
   hcp: { display_name: string; city: string | null; specialty: { name: string } | null;
          /** The expert's own eligibility, which this engagement started from */
          eligibility: 'eligible' | 'ineligible' | 'pending'; eligibility_note: string | null; tier: string | null } | null;
@@ -47,7 +48,7 @@ export function useExperts(eventId: string) {
     queryKey: expertsKey(eventId),
     queryFn: async () => {
       const { data, error } = await supabase.from('event_expert')
-        .select('id,hcp_id,role,created_at,eligibility,check_status,check_notes,hourly_rate,currency,prep_hours,service_hours,travel_hours,total_payable,' +
+        .select('id,hcp_id,role,created_at,eligibility,check_status,check_notes,hourly_rate,currency,prep_hours,service_hours,travel_hours,total_payable,custom_fields,' +
                 'hcp(display_name,city,specialty(name),eligibility,eligibility_note,tier),contract!contract_event_expert_id_fkey(id,contract_number,contract_type,status,parent_contract_id),' +
                 'event_session_speaker(id,minutes,event_session(id,title,starts_at,ends_at))')
         .eq('event_id', eventId)

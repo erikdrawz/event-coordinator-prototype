@@ -1,0 +1,5 @@
+/* Custom fields in a SidePanel: values, or inputs while editing */
+.cf-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cf-panel-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 8px; }
+.cf-panel-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.cf-panel-form > * { grid-column: auto; }

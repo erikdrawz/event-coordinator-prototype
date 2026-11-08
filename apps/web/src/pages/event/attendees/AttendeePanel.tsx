@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabase';
+import { CustomFieldsPanel, useEventTypeOf } from '../../../components/CustomFields';
 import { Trash2, UserRound } from 'lucide-react';
 import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
@@ -6,18 +9,25 @@ import { PanelField, PanelSection, SidePanel } from '../../../ui/SidePanel';
 import { formatDate } from '../../../ui/DateInput';
 import type { Person } from '../team/teamData';
 import { AttendedControl, CrmPill, OwnerControl, RsvpControl, TextFieldControl } from './attendeeControls';
-import { ATTENDEE_TYPE_LABEL, attendeeName, type Attendee, type AttendeeCrmStatus, type AttendeePatch, type Lookup, type Rsvp } from './attendeesData';
+import { ATTENDEE_TYPE_LABEL, attendeeName, attendeesKey, type Attendee, type AttendeeCrmStatus, type AttendeePatch, type Lookup, type Rsvp } from './attendeesData';
 
 export const initialsOf = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 export const attendeeSub = (a: Attendee) => (a.hcp ? [a.hcp.specialty?.name, a.hcp.city].filter(Boolean).join(' · ') : a.user ? 'Colleague' : 'Guest');
 
 /** Everything about one attendee, editable in place for people who can edit the event. */
-export function AttendeePanel({ a, rsvps, crmStatuses, people, canEdit, canDelete, onChange, onRemove, onClose }: {
-  a: Attendee; rsvps: Lookup<Rsvp>[] | undefined; crmStatuses: Lookup<AttendeeCrmStatus>[] | undefined; people: Person[] | undefined;
+export function AttendeePanel({ eventId, a, rsvps, crmStatuses, people, canEdit, canDelete, onChange, onRemove, onClose }: {
+  eventId: string; a: Attendee; rsvps: Lookup<Rsvp>[] | undefined; crmStatuses: Lookup<AttendeeCrmStatus>[] | undefined; people: Person[] | undefined;
   canEdit: boolean; canDelete: boolean; onChange: (patch: AttendeePatch) => void; onRemove: () => void; onClose: () => void;
 }) {
   const name = attendeeName(a);
   const when = (iso: string) => formatDate(iso.slice(0, 10));
+  const qc = useQueryClient();
+  const typeId = useEventTypeOf(eventId);
+  const saveCustom = async (custom_fields: Record<string, unknown>) => {
+    const { error } = await supabase.from('event_attendee').update({ custom_fields }).eq('id', a.id);
+    if (error) throw new Error(error.message);
+    await qc.invalidateQueries({ queryKey: attendeesKey(eventId) });
+  };
   return (
     <SidePanel recordKey={a.id} onClose={onClose}
       leading={<Avatar size={40} initials={a.user?.initials ?? initialsOf(name)} color={a.user?.avatar_color ?? avatarColorFor(name)} />}
@@ -47,6 +57,7 @@ export function AttendeePanel({ a, rsvps, crmStatuses, people, canEdit, canDelet
           <PanelField label="CRM ID">{a.crm_external_id ?? <span className="text-muted">—</span>}</PanelField>
         </PanelSection>
       )}
+      {typeId.isSuccess && <CustomFieldsPanel object="event_attendee" typeId={typeId.data} values={a.custom_fields} canEdit={canEdit} onSave={saveCustom} />}
       <PanelSection title="Record">
         <PanelField label="Added">{when(a.created_at)}{a.creator && <> by {a.creator.display_name}</>}</PanelField>
         <PanelField label="Last changed">{when(a.updated_at)}</PanelField>

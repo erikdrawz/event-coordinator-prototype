@@ -52,7 +52,7 @@ export interface UserRow {
 
 export type CustomFieldType = 'text' | 'long_text' | 'number' | 'currency' | 'date' | 'checkbox' | 'picklist' | 'multi_picklist' | 'lookup_user' | 'url';
 export interface CustomFieldRow {
-  id: string; api_name: string; label: string; field_type: CustomFieldType; help_text: string | null;
+  id: string; object_name: string; api_name: string; label: string; field_type: CustomFieldType; help_text: string | null;
   options: { value: string; label: string }[]; decimals: number | null; is_required: boolean; is_active: boolean; created_at: string;
   custom_field_layout: { event_type_id: string | null }[];
 }
@@ -105,12 +105,23 @@ export function useMergeFields() {
   });
 }
 /** Event custom fields, oldest first (the order they're shown in). */
-export function useCustomFields() {
+/** Custom fields, all objects or one (e.g. the event's, for Event types). */
+export function useCustomFields(object?: string) {
   return useQuery({
     queryKey: [ADMIN_KEY, 'custom-fields'],
     queryFn: () => rows<CustomFieldRow>(supabase.from('custom_field')
-      .select('id,api_name,label,field_type,help_text,options,decimals,is_required,is_active,created_at,custom_field_layout(event_type_id)')
-      .eq('object_name', 'event').order('created_at')),
+      .select('id,object_name,api_name,label,field_type,help_text,options,decimals,is_required,is_active,created_at,custom_field_layout(event_type_id)')
+      .order('created_at')),
+    select: object ? (fs: CustomFieldRow[]) => fs.filter((f) => f.object_name === object) : undefined,
+  });
+}
+
+export interface CustomFieldObject { code: string; label: string; by_event_type: boolean }
+/** The objects custom fields can extend, and whether their fields follow event types. */
+export function useCustomFieldObjects() {
+  return useQuery({
+    queryKey: [ADMIN_KEY, 'custom-field-objects'], staleTime: Infinity,
+    queryFn: () => rows<CustomFieldObject>(supabase.from('custom_field_object').select('code,label,by_event_type').order('sort')),
   });
 }
 export function useProfiles() {

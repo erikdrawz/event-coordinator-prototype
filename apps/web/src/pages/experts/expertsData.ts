@@ -16,6 +16,7 @@ export interface ExpertRow {
   specialty_id: string | null; primary_hco_id: string | null; country_code: string | null; city: string | null; email: string | null; tier: string | null; status: string;
   eligibility: Eligibility; eligibility_note: string | null;
   source: string; crm_external_id: string | null; onekey_id: string | null;
+  custom_fields: Record<string, unknown>;
   specialty: { name: string } | null;
   country: { name: string } | null;
   primary_hco: { name: string; city: string | null; address: string | null } | null;
@@ -26,7 +27,7 @@ export interface ExpertRow {
   event_attendee: { event_id: string }[];
 }
 
-const EXPERT_SELECT = 'id,display_name,salutation,first_name,last_name,specialty_id,primary_hco_id,country_code,city,email,tier,status,eligibility,eligibility_note,source,crm_external_id,onekey_id,' +
+const EXPERT_SELECT = 'id,display_name,salutation,first_name,last_name,specialty_id,primary_hco_id,country_code,city,email,tier,status,eligibility,eligibility_note,source,crm_external_id,onekey_id,custom_fields,' +
   'specialty(name),country(name),primary_hco:hco(name,city,address),crm_connection(name),' +
   'fmv_rate(id,effective_date,expiration_date,rate,min_rate,max_rate,currency),event_expert(event_id),event_attendee(event_id)';
 

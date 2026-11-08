@@ -1,3 +1,4 @@
+import { useCustomRows } from '../../components/CustomFields';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Building2, MapPin, Plus, Stethoscope } from 'lucide-react';
@@ -130,6 +131,7 @@ function ContractsCard({ expert: x, canCreate }: { expert: ExpertRow; canCreate:
 }
 
 function DetailsCard({ expert: x }: { expert: ExpertRow }) {
+  const custom = useCustomRows('hcp', null, x.custom_fields);
   const address = [x.primary_hco?.address, x.primary_hco?.city ?? x.city].filter(Boolean).join(', ');
   return (
     <section className="card details-card expert-details" aria-labelledby="expert-details-title">
@@ -144,6 +146,7 @@ function DetailsCard({ expert: x }: { expert: ExpertRow }) {
         <Row label="Country">{x.country?.name ?? empty}</Row>
         <Row label="OneKey ID">{x.onekey_id ?? empty}</Row>
         <Row label="CRM record">{x.crm_connection ? <>{x.crm_connection.name}<div className="dt-sub">{x.crm_external_id}</div></> : <span className="text-muted">Not linked</span>}</Row>
+        {custom.map((c) => <Row key={c.def.id} label={c.def.label}>{c.value}</Row>)}
       </dl>
     </section>
   );

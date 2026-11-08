@@ -232,7 +232,7 @@ export function SpeakersSection({ eventId, eventName, timezone }: { eventId: str
       {list.length > 0 && <p className="field-hint speakers-note">Boxed values can be edited. Service hours come from the agenda. Rates default from each expert's FMV record and can be negotiated within its range (hover a rate to see it); without one the rate is €0. Click a row for every detail{canSelect ? '; tick rows to change several at once' : ''}.</p>}
 
       {open && (
-        <ExpertPanel x={open} timezone={timezone} policy={policies?.[open.hcp_id]} tier={tieringRequests?.get(open.hcp_id)}
+        <ExpertPanel eventId={eventId} x={open} timezone={timezone} policy={policies?.[open.hcp_id]} tier={tieringRequests?.get(open.hcp_id)}
           canEdit={canEdit} canContract={canContract} canDelete={canDelete} canRequestTiering={canRequestTiering}
           onChange={setOne(open.id)} onInvalid={setCellError} onContract={(addendum) => setContracting({ x: open, addendum })}
           onTiering={() => setTiering(open)} onRemove={() => setRemoving([open])} onClose={() => setOpenId(null)} />

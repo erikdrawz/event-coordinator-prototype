@@ -22,6 +22,7 @@ export interface Attendee {
   type: AttendeeType;
   crm_external_id: string | null; crm_connection: { name: string } | null;
   created_at: string; updated_at: string; creator: { display_name: string } | null;
+  custom_fields: Record<string, unknown>;
 }
 
 /** One person to add: an HCP in EC, or a CRM record that is copied into EC on the way. */
@@ -41,7 +42,7 @@ export function useAttendees(eventId: string) {
       if (experts.error) throw experts.error;
       const onExperts = new Set((experts.data ?? []).map((x) => x.hcp_id as string));
       const { data, error } = await supabase.from('event_attendee')
-        .select('id,attendee_kind,hcp_id,user_id,display_name,organisation,role_label,rsvp,attended,crm_status,owner_id,' +
+        .select('id,attendee_kind,hcp_id,user_id,display_name,organisation,role_label,rsvp,attended,crm_status,owner_id,custom_fields,' +
                 'owner:app_user!event_attendee_owner_id_fkey(id,display_name,initials,avatar_color),' +
                 'crm_external_id,crm_connection(name),created_at,updated_at,creator:app_user!event_attendee_created_by_fkey(display_name),' +
                 'hcp(display_name,last_name,city,specialty(name)),user:app_user!event_attendee_user_id_fkey(display_name,last_name,initials,avatar_color)')

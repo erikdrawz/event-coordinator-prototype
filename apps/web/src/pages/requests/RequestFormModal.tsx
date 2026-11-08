@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { ymdInZone } from '../../lib/format';
 import { Modal } from '../../ui/Modal';
+import { CustomFieldInputs, customPayload, fieldsFor, useCustomFieldDefs, type CustomValues } from '../../components/CustomFields';
 import { Field, FormSection } from '../../ui/Form';
 import { Select } from '../../ui/Select';
 import { DateInput, formatDate } from '../../ui/DateInput';
@@ -14,6 +15,7 @@ import '../contracts/contracts.css';
 interface FormState {
   request_type: RequestKind; title: string; event_type_id: string; event_date: string; duration: string; rationale: string;
   hcp_id: string; related_event_id: string;
+  custom: CustomValues;
 }
 
 /** A tiering request logged from an event: the expert and the event are given. */
@@ -32,6 +34,7 @@ export function RequestFormModal({ request, tiering, onClose }: { request?: Requ
     title: request?.title ?? '', event_type_id: request?.event_type_id ?? '', event_date: request?.event_date ?? '',
     duration: request?.duration ?? '', rationale: request?.rationale ?? '',
     hcp_id: request?.hcp_id ?? tiering?.hcp.id ?? '', related_event_id: request?.related_event_id ?? tiering?.event.id ?? '',
+    custom: { ...request?.custom_fields },
   }), [request, tiering]);
   const [f, setF] = useState(initial);
   const isTiering = f.request_type === 'tiering';
@@ -41,6 +44,9 @@ export function RequestFormModal({ request, tiering, onClose }: { request?: Requ
   const eligibilities = useEligibilities();
   const events = useRequestEvents(isTiering && !tiering);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const customDefs = useCustomFieldDefs('event_request');
+  // Custom fields for the chosen event type; a tiering request has none, so only all-type fields
+  const shownCustom = fieldsFor(customDefs.data, isTiering ? null : f.event_type_id || null);
   const formRef = useRef<HTMLFormElement>(null);
   const dirty = JSON.stringify(f) !== JSON.stringify(initial);
 
@@ -55,7 +61,7 @@ export function RequestFormModal({ request, tiering, onClose }: { request?: Requ
         ? { hcp_id: f.hcp_id, related_event_id: f.related_event_id, rationale: f.rationale.trim() }
         : { title: f.title.trim(), event_type_id: f.event_type_id, event_date: f.event_date, duration: f.duration, rationale: f.rationale.trim() };
       const { data, error } = await supabase.rpc('save_request', {
-        p: { ...(request ? { id: request.id } : { request_type: f.request_type }), ...fields },
+        p: { ...(request ? { id: request.id } : { request_type: f.request_type }), ...fields, custom_fields: customPayload(shownCustom, f.custom) },
       });
       if (error) throw new Error(error.message);
       return data as { id: string };
@@ -162,6 +168,11 @@ export function RequestFormModal({ request, tiering, onClose }: { request?: Requ
               onChange={(e) => set('rationale', e.target.value)} />}
           </Field>
         </FormSection>
+        {shownCustom.length > 0 && (
+          <FormSection title="Additional details">
+            <CustomFieldInputs shown={shownCustom} values={f.custom} onChange={(v) => set('custom', v)} />
+          </FormSection>
+        )}
       </form>
     </Modal>
   );

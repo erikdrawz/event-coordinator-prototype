@@ -566,6 +566,29 @@ const karinAtt = atts.data?.find((a) => a.hcp_id === imported.data?.id);
 ok(holmAtt?.rsvp === 'invited' && holmAtt?.organisation === 'Odense University Hospital' && holmAtt?.crm_status === 'reconciled',
    'a new attendee is invited, with their organisation, and reconciled when they are a CRM account');
 ok(karinAtt?.organisation === 'Uppsala University Hospital', 'a CRM attendee arrives with their organisation');
+
+// Custom fields on other objects: attendees (by the event's type), experts everywhere, requests until submitted
+const cfOn = (object_name, api_name, extra = {}) => api(alex, 'custom_field', { method: 'POST', body: { object_name, api_name, label: api_name, field_type: 'picklist',
+  options: [{ value: 'veg', label: 'Vegetarian' }, { value: 'none', label: 'None' }], ...extra } });
+ok((await cfOn('venue', 'smoke_x__c')).status >= 400, 'custom fields go on the listed objects only');
+ok((await cfOn('event_attendee', 'smoke_req__c', { is_required: true })).status >= 400, 'only event and request fields can be required');
+const dietF = (await cfOn('event_attendee', 'smoke_diet__c')).data?.[0];
+await api(alex, 'custom_field_layout', { method: 'POST', body: { custom_field_id: dietF?.id, event_type_id: null } });
+const setDiet = (v) => api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { custom_fields: { smoke_diet__c: v } } });
+ok((await setDiet('steak')).status >= 400, "an attendee's custom field takes only its options");
+ok((await setDiet('veg')).data?.[0]?.custom_fields?.smoke_diet__c === 'veg', 'an editor fills in a custom field on an attendee');
+const hcpF = (await cfOn('hcp', 'smoke_pref__c')).data?.[0];
+const hcpLayouts = (await api(alex, `custom_field_layout?custom_field_id=eq.${hcpF?.id}&select=event_type_id`)).data ?? [];
+ok(hcpLayouts.length === 1 && hcpLayouts[0].event_type_id === null
+   && (await api(alex, 'custom_field_layout', { method: 'POST', body: { custom_field_id: hcpF?.id, event_type_id: types.data[0].id } })).status >= 400,
+   'expert fields apply to every event type');
+const reqF = (await cfOn('event_request', 'smoke_budget__c')).data?.[0];
+await api(alex, 'custom_field_layout', { method: 'POST', body: { custom_field_id: reqF?.id, event_type_id: null } });
+const cfDraft = await saveReq(sarah, { title: 'Smoke custom draft', event_type_id: types.data[0].id, custom_fields: { smoke_budget__c: 'none' } });
+ok(cfDraft.data?.custom_fields?.smoke_budget__c === 'none', 'a request takes its custom fields in save_request');
+await api(sarah, `event_request?id=eq.${cfDraft.data?.id}`, { method: 'DELETE' });
+ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'PATCH', body: { custom_fields: { smoke_budget__c: 'veg' } } })).status >= 400,
+   "a submitted request's custom fields are fixed");
 ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'maybe' } })).status >= 400, 'RSVP takes only known answers');
 ok((await api(paul, `event_attendee?id=eq.${holmAtt?.id}`, { method: 'PATCH', body: { rsvp: 'accepted' } })).data?.[0]?.rsvp === 'accepted', 'an editor records an RSVP');
 ok(holmAtt?.attended === false && holmAtt?.owner_id === me.data.id, 'an attendee starts as not attended, owned by whoever added them');
@@ -754,6 +777,8 @@ await api(paul, `hcp?id=eq.${imported.data?.id}`, { method: 'DELETE' });
 await api(paul, `hco?id=eq.${karinHcp.data?.[0]?.primary_hco?.id}`, { method: 'DELETE' });
 await api(alex, `content?id=eq.${sent.data?.document_content_id}`, { method: 'DELETE' });
 await api(paul, `event_expert?id=eq.${holm.data[0].id}`, { method: 'PATCH', body: { check_status: 'pending', check_notes: null } });
+
+await api(alex, `custom_field?id=in.(${dietF?.id},${hcpF?.id},${reqF?.id})`, { method: 'DELETE' });
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);

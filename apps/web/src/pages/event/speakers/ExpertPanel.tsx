@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabase';
+import { CustomFieldsPanel, useEventTypeOf } from '../../../components/CustomFields';
 import { BadgeCheck, FilePlus2, FileSignature, Trash2, UserRound } from 'lucide-react';
 import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
@@ -9,7 +12,7 @@ import { useTypeLabel } from '../../contracts/contractsData';
 import { RequestStatusPill } from '../../requests/RequestStatusPill';
 import { EligibilityPill } from '../../experts/EligibilityPill';
 import { HoursCell, RateCell } from './speakerCells';
-import { ROLES, hcpSub, hours, mainContract, money, rateRange, roleLabel, type Expert, type ExpertRole, type RatePolicy } from './speakersData';
+import { ROLES, expertsKey, hcpSub, hours, mainContract, money, rateRange, roleLabel, type Expert, type ExpertRole, type RatePolicy } from './speakersData';
 
 const CHECK = { passed: { label: 'Passed', tone: 'green' }, pending: { label: 'Pending', tone: 'yellow' }, failed: { label: 'Failed', tone: 'red' } } as const;
 export const expertInitials = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -17,11 +20,18 @@ export const expertInitials = (n: string) => n.replace(/^(Dr|Prof)\.?\s+/i, '').
 type Patch = Partial<Pick<Expert, 'prep_hours' | 'travel_hours' | 'hourly_rate' | 'role'>>;
 
 /** Everything about one expert on this event: engagement, honorarium, sessions, contracts and tiering. */
-export function ExpertPanel({ x, timezone, policy, tier, canEdit, canContract, canDelete, canRequestTiering, onChange, onInvalid, onContract, onTiering, onRemove, onClose }: {
-  x: Expert; timezone: string; policy: RatePolicy | undefined; tier: { id: string; request_number: string; status: string } | undefined;
+export function ExpertPanel({ eventId, x, timezone, policy, tier, canEdit, canContract, canDelete, canRequestTiering, onChange, onInvalid, onContract, onTiering, onRemove, onClose }: {
+  eventId: string; x: Expert; timezone: string; policy: RatePolicy | undefined; tier: { id: string; request_number: string; status: string } | undefined;
   canEdit: boolean; canContract: boolean; canDelete: boolean; canRequestTiering: boolean;
   onChange: (patch: Patch) => void; onInvalid: (m: string) => void; onContract: (addendum: boolean) => void; onTiering: () => void; onRemove: () => void; onClose: () => void;
 }) {
+  const qc = useQueryClient();
+  const typeId = useEventTypeOf(eventId);
+  const saveCustom = async (custom_fields: Record<string, unknown>) => {
+    const { error } = await supabase.from('event_expert').update({ custom_fields }).eq('id', x.id);
+    if (error) throw new Error(error.message);
+    await qc.invalidateQueries({ queryKey: expertsKey(eventId) });
+  };
   const typeLabel = useTypeLabel();
   const name = x.hcp?.display_name ?? 'Unknown HCP';
   const { main } = mainContract(x);
@@ -67,6 +77,7 @@ export function ExpertPanel({ x, timezone, policy, tier, canEdit, canContract, c
         <PanelField label="Total"><strong>{x.eligibility === 'ineligible' ? '—' : money(x.total_payable, x.currency ?? 'EUR')}</strong></PanelField>
       </PanelSection>
 
+      {typeId.isSuccess && <CustomFieldsPanel object="event_expert" typeId={typeId.data} values={x.custom_fields} canEdit={canEdit} onSave={saveCustom} />}
       <PanelSection title={`Sessions (${sessions.length})`}>
         {sessions.length === 0 ? <p className="text-muted sp-empty">Not on the agenda. Added straight to the Experts list.</p> : sessions.map((s) => (
           <PanelField key={s.id} label={time(s.event_session!.starts_at)}>

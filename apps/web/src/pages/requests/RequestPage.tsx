@@ -17,6 +17,7 @@ import type { Person } from '../event/team/teamData';
 import { DecideRequestDialog, type Decision } from './DecideRequestDialog';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
+import { useCustomRows } from '../../components/CustomFields';
 import { ViaEmail } from '../../ui/ViaEmail';
 import { missingForSubmit, useMyRequestAccess, useRequest, useRequestDurations, useRequestKinds } from './requestData';
 import '../event.css';
@@ -70,6 +71,9 @@ export function RequestPage() {
     },
     onSuccess: () => { qc.removeQueries({ queryKey: ['request', id] }); qc.invalidateQueries({ queryKey: ['requests'] }); qc.invalidateQueries({ queryKey: ['home'] }); navigate('/requests'); },
   });
+
+  // Hooks run before the early returns; with no request yet there are simply no rows
+  const custom = useCustomRows('event_request', r?.request_type === 'tiering' ? null : r?.event_type_id ?? null, r?.custom_fields);
 
   if (isLoading) return <main className="page"><div className="empty-state">Loading…</div></main>;
   if (!r) return <main className="page"><div className="card empty-state"><div className="empty-state-title">Request not found</div>It may have been deleted, or you don't have access.</div></main>;
@@ -163,6 +167,7 @@ export function RequestPage() {
                 {r.decided_at && <div className="dt-sub">{formatDate(r.decided_at.slice(0, 10))}</div>}
               </Row>}
               {decided && r.decision_note && <Row label={r.status === 'approved' ? 'Note' : 'Reason'} wide><span className="details-text">{r.decision_note}</span></Row>}
+              {custom.map((c) => <Row key={c.def.id} label={c.def.label} wide={c.def.field_type === 'long_text'}>{c.value}</Row>)}
               <Row label="Assignee">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>
             </dl>
             {isDraft && canEdit && missing.length > 0 && (

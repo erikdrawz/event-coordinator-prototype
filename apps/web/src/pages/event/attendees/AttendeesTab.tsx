@@ -161,7 +161,7 @@ export function AttendeesTab({ event }: { event: { id: string; name: string } })
       {list.length > 0 && <p className="field-hint att-hint">Click a row for every detail{canSelect ? '; tick rows to change several at once' : ''}.</p>}
 
       {open && (
-        <AttendeePanel a={open} rsvps={rsvps} crmStatuses={crmStatuses} people={people} canEdit={canEdit} canDelete={canDelete}
+        <AttendeePanel eventId={event.id} a={open} rsvps={rsvps} crmStatuses={crmStatuses} people={people} canEdit={canEdit} canDelete={canDelete}
           onChange={setOne(open.id)} onRemove={() => setRemoving([open])} onClose={() => setOpenId(null)} />
       )}
       {adding && <AddAttendeesModal event={event} attending={list} onClose={() => setAdding(false)} />}

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { Modal } from '../../ui/Modal';
+import { CustomFieldInputs, customPayload, fieldsFor, useCustomFieldDefs, type CustomValues } from '../../components/CustomFields';
 import { Field, FormSection } from '../../ui/Form';
 import { Select } from '../../ui/Select';
 import { useCountries } from '../admin/adminData';
@@ -11,6 +12,7 @@ interface FormState {
   salutation: string; first_name: string; last_name: string; email: string;
   specialty_id: string; tier: string; primary_hco_id: string; city: string; country_code: string;
   eligibility: string; eligibility_note: string; onekey_id: string;
+  custom: CustomValues;
 }
 
 const TIERS = ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'].map((t) => ({ value: t, label: t }));
@@ -26,9 +28,12 @@ export function ExpertFormModal({ expert: x, onClose }: { expert: ExpertRow; onC
     salutation: x.salutation ?? '', first_name: x.first_name, last_name: x.last_name, email: x.email ?? '',
     specialty_id: x.specialty_id ?? '', tier: x.tier ?? '', primary_hco_id: x.primary_hco_id ?? '', city: x.city ?? '',
     country_code: x.country_code ?? '', eligibility: x.eligibility, eligibility_note: x.eligibility_note ?? '', onekey_id: x.onekey_id ?? '',
+    custom: { ...x.custom_fields },
   }), [x]);
   const [f, setF] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const customDefs = useCustomFieldDefs('hcp');
+  const shownCustom = fieldsFor(customDefs.data, null);
   const formRef = useRef<HTMLFormElement>(null);
   const dirty = JSON.stringify(f) !== JSON.stringify(initial);
 
@@ -44,6 +49,7 @@ export function ExpertFormModal({ expert: x, onClose }: { expert: ExpertRow; onC
         salutation: blank(f.salutation), first_name: f.first_name.trim(), last_name: f.last_name.trim(), email: blank(f.email),
         specialty_id: f.specialty_id || null, tier: f.tier || null, primary_hco_id: f.primary_hco_id || null, city: blank(f.city),
         country_code: f.country_code || null, eligibility: f.eligibility, eligibility_note: blank(f.eligibility_note), onekey_id: blank(f.onekey_id),
+        custom_fields: customPayload(shownCustom, f.custom),
       }).eq('id', x.id).select('id').single();
       if (error) throw new Error(error.code === 'PGRST116' ? "You don't have permission to edit this expert." : error.message);
     },
@@ -133,6 +139,11 @@ export function ExpertFormModal({ expert: x, onClose }: { expert: ExpertRow; onC
               onChange={(e) => set('eligibility_note', e.target.value)} />}
           </Field>
         </FormSection>
+        {shownCustom.length > 0 && (
+          <FormSection title="Additional details">
+            <CustomFieldInputs shown={shownCustom} values={f.custom} onChange={(v) => set('custom', v)} />
+          </FormSection>
+        )}
       </form>
     </Modal>
   );

@@ -21,7 +21,7 @@ function Codes({ values, all, allLabel }: { values: string[]; all?: boolean; all
 export function EventTypesAdmin() {
   const { me } = useAuth();
   const types = useEventTypes();
-  const fields = useCustomFields();
+  const fields = useCustomFields('event');
   const templates = useContractTemplates();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<EventTypeRow | 'new' | null>(null);
@@ -66,7 +66,7 @@ function EventTypeEditor({ type, onClose }: { type: EventTypeRow | null; onClose
   const { me } = useAuth();
   const qc = useQueryClient();
   const countries = useCountries();
-  const fields = useCustomFields();
+  const fields = useCustomFields('event');
   const templates = useContractTemplates();
   const beforeTemplates = type?.event_type_contract_template.map((l) => l.contract_template_id) ?? [];
   const [tplIds, setTplIds] = useState(beforeTemplates);
