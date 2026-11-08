@@ -8,9 +8,11 @@
   padding: 0 10px 8px; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--color-text-muted);
 }
-.admin-nav-sub {
-  padding: 18px 10px 6px; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--color-text-faint);
+.admin-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.admin-nav-group + .admin-nav-group { margin-top: 16px; }
+.admin-nav-later {
+  margin-left: auto; padding: 1px 6px; border-radius: var(--radius-pill); background: var(--color-surface-sunken);
+  font-size: var(--text-xs); font-weight: 600; color: var(--color-text-faint);
 }
 .admin-nav-link {
   display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-md);
@@ -48,8 +50,9 @@
 
 @media (max-width: 900px) {
   .admin { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .admin-nav { position: static; flex-direction: row; flex-wrap: wrap; }
-  .admin-nav-title, .admin-nav-sub, .admin-nav-link.disabled { display: none; }
+  .admin-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: 2px; }
+  .admin-nav-group { display: contents; }
+  .admin-nav-title, .admin-nav-link.disabled { display: none; }
 }
 
 /* Custom fields */

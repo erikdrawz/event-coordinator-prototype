@@ -124,11 +124,14 @@ select tenant_id, profile_id, o, can_read, can_create, can_edit, can_delete, vie
   from public.permission, unnest(array['event_spend', 'event_spend_attribution']) o
  where object_name = 'event_attendee';
 
--- Contract templates are configuration like event types: the same rights
+-- Contract templates live in the Content Library: everyone reads what they read of event types;
+-- admin-area profiles (System and Business Admins) manage them
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
-select tenant_id, profile_id, o, can_read, can_create, can_edit, can_delete, view_all, modify_all
-  from public.permission, unnest(array['contract_template', 'contract_template_version', 'event_type_contract_template']) o
- where object_name = 'event_type';
+select x.tenant_id, x.profile_id, o, x.can_read, p.can_access_admin, p.can_access_admin, p.can_access_admin, x.view_all, x.modify_all
+  from public.permission x
+  join public.profile p on p.id = x.profile_id
+ cross join unnest(array['contract_template', 'contract_template_version', 'event_type_contract_template']) o
+ where x.object_name = 'event_type';
 
 -- The Library: everyone reads what they read of event types; admin-area profiles manage it
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)

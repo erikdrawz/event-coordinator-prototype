@@ -269,6 +269,9 @@ await api(paul, `contract?id=in.(${lindMsa.data?.id},${msaSpoof.data?.[0]?.id})`
 const tplType = (await api(paul, 'event_type?name=eq.Advisory%20board&select=id')).data?.[0]?.id;
 ok((await api(paul, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'msa' } })).status >= 400,
    "a coordinator can't add contract templates");
+const bizTpl = await api(maria, 'contract_template', { method: 'POST', body: { name: 'Smoke BA template', contract_type: 'msa', is_active: false } });
+ok(bizTpl.status === 201 && (await api(maria, `contract_template?id=eq.${bizTpl.data?.[0]?.id}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).data?.length === 1,
+   'a Business Admin manages contract templates with the Content library');
 // Template versions: numbered, checked, in effect from their date
 const smokeTpl = (await api(alex, 'contract_template', { method: 'POST', body: { name: 'Smoke template', contract_type: 'msa' } })).data?.[0];
 const nextYear = `${new Date().getFullYear() + 1}-01-01`;

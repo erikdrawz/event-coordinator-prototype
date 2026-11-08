@@ -1,12 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, Lock, Pencil, Plus, Settings2, Trash2, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
-import { DataTable, useTableSort, type Column } from '../../ui/DataTable';
-import { SearchInput, Toolbar } from '../../ui/Toolbar';
 import { Modal } from '../../ui/Modal';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { CheckboxField, Field, FormSection } from '../../ui/Form';
@@ -24,7 +22,7 @@ import {
 } from './adminData';
 
 const EXPERT_TYPES = ['msa', 'work_order', 'event_contract', 'addendum'];
-const forEvents = (type: string) => type !== 'msa';
+export const forEvents = (type: string) => type !== 'msa';
 const isoDay = (d: Date) => d.toLocaleDateString('en-CA');
 const nextNewYear = () => `${new Date().getFullYear() + 1}-01-01`;
 const STATE: Record<VersionState, { label: string; tone: string }> = {
@@ -32,55 +30,14 @@ const STATE: Record<VersionState, { label: string; tone: string }> = {
 };
 
 /** Contract templates: what each is for, and which version is in effect now or scheduled. */
-export function ContractTemplatesAdmin() {
-  const { me } = useAuth();
-  const navigate = useNavigate();
-  const templates = useContractTemplates();
-  const types = useEventTypes();
-  const typeLabel = useTypeLabel();
-  const [q, setQ] = useState('');
-  const [adding, setAdding] = useState(false);
-
-  const columns = useMemo<Column<ContractTemplateRow>[]>(() => [
-    { id: 'name', header: 'Template', width: '24%', sortValue: (t) => t.name,
-      cell: (t) => <><Link to={t.id} className="dt-primary">{t.name}</Link><div className="dt-sub">{typeLabel(t.contract_type)}</div></> },
-    { id: 'version', header: 'Version', width: '22%',
-      cell: (t) => {
-        const states = versionStates(t.contract_template_version);
-        const current = t.contract_template_version.find((v) => states.get(v.id)?.state === 'current');
-        const next = [...t.contract_template_version].reverse().find((v) => states.get(v.id)?.state === 'scheduled');
-        return <>
-          {current ? <>v{current.version} <span className="dt-sub">since {formatDate(current.effective_from)}</span></> : <span className="admin-all">None in effect yet</span>}
-          {next && <div className="dt-sub version-next"><span className="pill pill-blue pill-sm">Scheduled</span> v{next.version} from {formatDate(next.effective_from)}</div>}
-        </>;
-      } },
-    { id: 'types', header: 'Event types', width: '26%',
-      cell: (t) => {
-        if (!forEvents(t.contract_type)) return <span className="admin-all">Expert level, no event</span>;
-        const names = (types.data ?? []).filter((e) => t.event_type_contract_template.some((l) => l.event_type_id === e.id)).map((e) => e.name);
-        return <span className={names.length ? 'dt-sub' : 'admin-all'}>{names.length ? names.join(', ') : 'Not used by any event type yet'}</span>;
-      } },
-    { id: 'countries', header: 'Countries', width: '16%', cell: (t) => <Countries t={t} /> },
-    { id: 'active', header: 'Status', width: '12%', sortValue: (t) => (t.is_active ? 0 : 1),
-      cell: (t) => <span className={`pill ${t.is_active ? 'pill-green' : 'pill-grey'}`}>{t.is_active ? 'Active' : 'Inactive'}</span> },
-  ], [types.data, typeLabel]);
-
-  const filtered = useMemo(() => templates.data?.filter((t) => !q || t.name.toLowerCase().includes(q.toLowerCase())), [templates.data, q]);
-  const { rows, sort, setSort } = useTableSort(filtered, columns, { columnId: 'name', dir: 'asc' });
-
-  return (
-    <AdminPage title="Contract templates" sub="The documents contracts are drafted from. Each template has versions; a contract gets the one in effect on its event's date."
-      action={can(me, 'contract_template', 'create') && <button className="btn btn-primary" onClick={() => setAdding(true)}><Upload size={15} strokeWidth={2.4} />Upload template</button>}
-      readOnlyNote={!can(me, 'contract_template', 'edit') && 'Contract templates are managed by System Admins, like event types.'}>
-      <Toolbar label="Filter contract templates"><SearchInput value={q} onChange={setQ} placeholder="Search templates" /></Toolbar>
-      <DataTable label="Contract templates" columns={columns} rows={rows} rowKey={(t) => t.id} sort={sort} onSortChange={setSort}
-        loading={templates.isLoading} error={templates.error} empty="No contract templates yet." />
-      {adding && <SettingsModal template={null} onClose={(id) => { setAdding(false); if (id) navigate(id); }} />}
-    </AdminPage>
-  );
+/** Old links to /admin/contract-templates/:id, from before templates moved into the Content library. */
+export function ContractTemplateRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/admin/library/contract-templates/${id}`} replace />;
 }
 
-function Countries({ t }: { t: ContractTemplateRow }) {
+/** Where a contract template applies; event-level ones default to their event types' countries. */
+export function Countries({ t }: { t: ContractTemplateRow }) {
   return t.country_codes?.length
     ? <span className="admin-codes">{t.country_codes.map((c) => <span key={c} className="admin-code">{c}</span>)}</span>
     : <span className="admin-all">{forEvents(t.contract_type) ? "All of the event type's" : 'All'}</span>;
@@ -108,7 +65,7 @@ export function ContractTemplatePage() {
   });
 
   if (templates.isLoading) return <div className="empty-state">Loading…</div>;
-  if (!t) return <div className="card empty-state"><div className="empty-state-title">Template not found</div><Link to="/admin/contract-templates">Back to contract templates</Link></div>;
+  if (!t) return <div className="card empty-state"><div className="empty-state-title">Template not found</div><Link to="/admin/library?type=contract">Back to the Content library</Link></div>;
 
   const versions = t.contract_template_version;
   const states = versionStates(versions);
@@ -119,7 +76,7 @@ export function ContractTemplatePage() {
 
   return (
     <>
-      <nav className="crumbs"><Link to="/admin/contract-templates">Contract templates</Link><span>/</span><span>{t.name}</span></nav>
+      <nav className="crumbs"><Link to="/admin/library?type=contract">Content library</Link><span>/</span><span>{t.name}</span></nav>
       <AdminPage title={t.name} sub={`${versions.length} version${versions.length === 1 ? '' : 's'}`}
         action={<div className="event-actions">
           <button className="btn" onClick={() => setSettings(true)}><Settings2 size={15} />Settings</button>
@@ -237,7 +194,7 @@ function BodyEditor({ body, setBody, fileName, setFileName, error, disabled, onN
 const scrollToError = (form: string) => setTimeout(() => document.querySelector(`#${form} .form-error`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 0);
 
 /** A template's settings; a new template also gets its first version here. */
-function SettingsModal({ template: t, onClose }: { template: ContractTemplateRow | null; onClose: (newId?: string) => void }) {
+export function SettingsModal({ template: t, onClose }: { template: ContractTemplateRow | null; onClose: (newId?: string) => void }) {
   const { me } = useAuth();
   const qc = useQueryClient();
   const contractTypes = useContractTypes();

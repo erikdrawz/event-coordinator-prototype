@@ -14,7 +14,7 @@ import { ExpertsPage } from './pages/experts/ExpertsPage';
 import { ExpertPage } from './pages/experts/ExpertPage';
 import { ExpertContractsPage, ExpertEngagementsPage, ExpertFmvPage } from './pages/experts/ExpertListPages';
 import { ContractPage } from './pages/contracts/ContractPage';
-import { AdminLayout } from './pages/admin/AdminLayout';
+import { AdminIndex, AdminLayout } from './pages/admin/AdminLayout';
 import { EventTypesAdmin } from './pages/admin/EventTypesAdmin';
 import { ProductsAdmin, TherapeuticAreasAdmin } from './pages/admin/MasterDataAdmin';
 import { LibraryAdmin } from './pages/admin/LibraryAdmin';
@@ -22,7 +22,7 @@ import { EmailsAdmin } from './pages/admin/EmailsAdmin';
 import { SettingsAdmin } from './pages/admin/SettingsAdmin';
 import { UsersAdmin } from './pages/admin/UsersAdmin';
 import { CustomFieldsAdmin } from './pages/admin/CustomFieldsAdmin';
-import { ContractTemplatePage, ContractTemplatesAdmin } from './pages/admin/ContractTemplatesAdmin';
+import { ContractTemplatePage, ContractTemplateRedirect } from './pages/admin/ContractTemplatesAdmin';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, me, loading } = useAuth();
@@ -58,14 +58,15 @@ export function App() {
         <Route path="experts/:id/fmv-rates" element={<ExpertFmvPage />} />
         <Route path="contracts/:id" element={<ContractPage />} />
         <Route path="admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="event-types" replace />} />
+          <Route index element={<AdminIndex />} />
           <Route path="event-types" element={<EventTypesAdmin />} />
           <Route path="products" element={<ProductsAdmin />} />
           <Route path="therapeutic-areas" element={<TherapeuticAreasAdmin />} />
           <Route path="custom-fields" element={<CustomFieldsAdmin />} />
-          <Route path="contract-templates" element={<ContractTemplatesAdmin />} />
-          <Route path="contract-templates/:id" element={<ContractTemplatePage />} />
           <Route path="library" element={<LibraryAdmin />} />
+          <Route path="library/contract-templates/:id" element={<ContractTemplatePage />} />
+          <Route path="contract-templates" element={<Navigate to="/admin/library?type=contract" replace />} />
+          <Route path="contract-templates/:id" element={<ContractTemplateRedirect />} />
           <Route path="users" element={<UsersAdmin />} />
           <Route path="emails" element={<EmailsAdmin />} />
           <Route path="settings" element={<SettingsAdmin />} />
