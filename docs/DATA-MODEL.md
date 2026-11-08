@@ -93,6 +93,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 | `request_post` / `request_post_reaction` | ✓ | request_id, author_id, body, parent_id, mentions / post_id, user_id, emoji | **New**: the request team's discussion board |
 | `event_task` | ✓ | event_id, title, assignee_id, due_date, done_at, source_post_id | ERD "Event Task": also feeds Home "Needs my action" |
 | `notification` | ✓ | user_id, kind, title, body, record_type, record_id, read_at | Bell + Home |
+| `email_message` | ✓ | direction (outbound/inbound), kind (`email_kind`), status (`email_status`), user_id, from/to/reply_to, subject, body, record_type/id, post_id, reply_token, in_reply_to, status_note | **New**: emails EC sends (mentions, approval requests) and replies it receives; posts carry `channel` and requests `decided_via` (`message_channel`: app, email) |
 
 ## 7. Approvals (config vs runtime split)
 

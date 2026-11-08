@@ -18,6 +18,7 @@ import { AdminLayout } from './pages/admin/AdminLayout';
 import { EventTypesAdmin } from './pages/admin/EventTypesAdmin';
 import { ProductsAdmin, TherapeuticAreasAdmin } from './pages/admin/MasterDataAdmin';
 import { LibraryAdmin } from './pages/admin/LibraryAdmin';
+import { EmailsAdmin } from './pages/admin/EmailsAdmin';
 import { UsersAdmin } from './pages/admin/UsersAdmin';
 import { CustomFieldsAdmin } from './pages/admin/CustomFieldsAdmin';
 import { ContractTemplatePage, ContractTemplatesAdmin } from './pages/admin/ContractTemplatesAdmin';
@@ -65,6 +66,7 @@ export function App() {
           <Route path="contract-templates/:id" element={<ContractTemplatePage />} />
           <Route path="library" element={<LibraryAdmin />} />
           <Route path="users" element={<UsersAdmin />} />
+          <Route path="emails" element={<EmailsAdmin />} />
         </Route>
         <Route path="*" element={<PlaceholderPage title="Page not found" phase="no phase — check the address" />} />
       </Route>

@@ -11,3 +11,5 @@
 @media (max-width: 960px) { .request-body { grid-template-columns: minmax(0, 1fr); } }
 
 .request-expert { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.req-decider { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }

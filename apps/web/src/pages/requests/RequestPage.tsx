@@ -17,6 +17,7 @@ import type { Person } from '../event/team/teamData';
 import { DecideRequestDialog, type Decision } from './DecideRequestDialog';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
+import { ViaEmail } from '../../ui/ViaEmail';
 import { missingForSubmit, useMyRequestAccess, useRequest, useRequestDurations, useRequestKinds } from './requestData';
 import '../event.css';
 import './requests.css';
@@ -158,7 +159,8 @@ export function RequestPage() {
               <Row label="Business justification" wide>{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
               <Row label="Requested by"><PersonValue p={r.requester} /></Row>
               {decided && <Row label={r.status === 'approved' ? 'Approved by' : 'Rejected by'}>
-                <PersonValue p={r.decider} />{r.decided_at && <div className="dt-sub">{formatDate(r.decided_at.slice(0, 10))}</div>}
+                <span className="req-decider"><PersonValue p={r.decider} />{r.decided_via === 'email' && <ViaEmail tip={`${r.status === 'approved' ? 'Approved' : 'Rejected'} by replying to the approval request email`} />}</span>
+                {r.decided_at && <div className="dt-sub">{formatDate(r.decided_at.slice(0, 10))}</div>}
               </Row>}
               {decided && r.decision_note && <Row label={r.status === 'approved' ? 'Note' : 'Reason'} wide><span className="details-text">{r.decision_note}</span></Row>}
               <Row label="Assignee">{r.coordinator ? <PersonValue p={r.coordinator} /> : <span className="text-muted">{isDraft ? '—' : 'Unassigned'}</span>}</Row>

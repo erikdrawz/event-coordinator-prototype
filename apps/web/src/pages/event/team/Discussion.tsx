@@ -7,6 +7,7 @@ import { avatarColorFor } from '../../../lib/avatar';
 import { Avatar } from '../../../components/Avatar';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
+import { ViaEmail } from '../../../ui/ViaEmail';
 import { boardTables, mentionsIn, postTime, postsKey, usePosts, useTeam, useTeamRoles, type Board, type Person, type Post, type Thread } from './teamData';
 
 const EMOJI = ['👍', '🎉', '👀', '❤️', '✅', '⚠️'];
@@ -212,6 +213,7 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
           <div className="post-head">
             <span className="post-who">{t.author?.display_name ?? 'Former user'}</span>
             <span className="post-when">{postTime(t.created_at)}</span>
+            {t.channel === 'email' && <ViaEmail tip="Posted by replying to an Event Center email" />}
             {postActions(t)}
           </div>
           <PostBody p={t} names={names} meId={me?.id} />
@@ -233,6 +235,7 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
                     <div className="post-head">
                       <span className="post-who">{r.author?.display_name ?? 'Former user'}</span>
                       <span className="post-when">{postTime(r.created_at)}</span>
+                      {r.channel === 'email' && <ViaEmail tip="Posted by replying to an Event Center email" />}
                       {postActions(r)}
                     </div>
                     <PostBody p={r} names={names} meId={me?.id} />

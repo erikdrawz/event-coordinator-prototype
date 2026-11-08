@@ -98,4 +98,4 @@ A dialog on the native `<dialog>` element, so focus trapping, Esc and the backdr
 Validate in the browser so people see problems early, but the database is the authority: show its error messages as they are, because they're written for people. See `pages/event/EventFormModal.tsx`.
 
 ## Still in `components/` (to move here when next touched)
-`Avatar`, `StatusPill`, `DateTile`, plus the shared classes in `styles/components.css` (`.card`, `.btn-*`, `.pill-*`, `.segmented`, `.link`).
+`ViaEmail` (the "via email" pill on posts and decisions made by replying to an email), `Avatar`, `StatusPill`, `DateTile`, plus the shared classes in `styles/components.css` (`.card`, `.btn-*`, `.pill-*`, `.segmented`, `.link`).

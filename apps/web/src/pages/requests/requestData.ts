@@ -23,12 +23,14 @@ export interface RequestRow {
   coordinator: Person | null;
   /** Approved or rejected: by whom, when, and why */
   decided_at: string | null; decision_note: string | null; decider: Person | null;
+  /** Where the decision was made: app, or email (a reply to the approval request). */
+  decided_via: 'app' | 'email' | null;
 }
 export const REQUEST_SELECT = 'id,request_number,title,status,request_type,event_type_id,event_date,duration,rationale,submitted_at,created_at,requested_by,event_id,' +
   'hcp_id,related_event_id,hcp(id,display_name,eligibility,eligibility_note,tier,specialty(name)),' +
   'related_event:event!event_request_related_event_id_fkey(id,name,starts_at,timezone),' +
   `event_type(name),requester:app_user!event_request_requested_by_fkey(${PERSON}),coordinator:app_user!event_request_coordinator_id_fkey(${PERSON}),` +
-  `decided_at,decision_note,decider:app_user!event_request_decided_by_fkey(${PERSON})`;
+  `decided_at,decision_note,decided_via,decider:app_user!event_request_decided_by_fkey(${PERSON})`;
 
 /** Request statuses (labels, tones) from request_status, like event statuses. */
 export function useRequestStatuses() {

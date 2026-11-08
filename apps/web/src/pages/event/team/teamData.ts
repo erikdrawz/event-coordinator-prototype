@@ -11,6 +11,8 @@ export interface Post {
   id: string; parent_id: string | null; body: string; created_at: string; author_id: string;
   /** People the post @mentions (on the team when it was posted). */
   mentions: string[];
+  /** Where it was written: app, or email (a reply to an Event Center email). */
+  channel: 'app' | 'email';
   author: Person | null; reactions: Reaction[];
 }
 export interface Thread extends Post { replies: Post[] }
@@ -74,7 +76,7 @@ export function usePosts(board: Board) {
     queryKey: postsKey(board),
     queryFn: async () => {
       const { data, error } = await supabase.from(t.post)
-        .select(`id,parent_id,body,created_at,author_id,mentions,author:app_user!${t.post}_author_id_fkey(${PERSON}),reactions:${t.reaction}(emoji,user_id)`)
+        .select(`id,parent_id,body,created_at,author_id,mentions,channel,author:app_user!${t.post}_author_id_fkey(${PERSON}),reactions:${t.reaction}(emoji,user_id)`)
         .eq(t.key, board.id)
         .order('created_at', { ascending: false });
       if (error) throw error;

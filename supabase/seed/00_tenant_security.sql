@@ -17,7 +17,8 @@ insert into public.profile (id, tenant_id, name, description, is_admin, can_acce
   (app.sid('profile:coordinator'), app.sid('tenant:alera'), 'Event Coordinator', 'Runs strategic events end to end', false, false),
   (app.sid('profile:collaborator'),app.sid('tenant:alera'), 'Collaborator',      'Contributes to events: medical, compliance, requesters', false, false),
   (app.sid('profile:account-manager'), app.sid('tenant:alera'), 'Account Manager', 'Field reps who meet HCPs and create their own events', false, false),
-  (app.sid('profile:agent'),       app.sid('tenant:alera'), 'Agent',             'AI agents acting for a named human; narrow write access', false, false);
+  (app.sid('profile:agent'),       app.sid('tenant:alera'), 'Agent',             'AI agents acting for a named human; narrow write access', false, false),
+  (app.sid('profile:email-agent'), app.sid('tenant:alera'), 'Email Agent',       'Delivers replies to Event Center emails, acting for the person who replied', false, false);
 
 -- Object permissions -------------------------------------------------
 with objects(obj) as (values
@@ -135,3 +136,9 @@ select x.tenant_id, x.profile_id, o, x.can_read, p.can_access_admin, p.can_acces
   join public.profile p on p.id = x.profile_id
  cross join unnest(array['library_item', 'event_type_content']) o
  where x.object_name = 'event_type';
+
+-- Emails: everyone reads their own (a policy, not a permission); Business Admins read them all;
+-- the Email Agent may deliver replies (receive_email) and nothing else
+insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all) values
+  (app.sid('tenant:alera'), app.sid('profile:bizadmin'),    'email_message', true, false, false, false, true, false),
+  (app.sid('tenant:alera'), app.sid('profile:email-agent'), 'email_message', true, true,  false, false, false, false);

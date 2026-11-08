@@ -350,6 +350,28 @@ const offTeam = await api(sarah, 'event_post', { method: 'POST', body: { event_i
 ok(offTeam.status >= 400 && /isn't on the team/.test(offTeam.data?.message ?? ''), "people off the team can't be mentioned");
 await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Note to self', mentions: [sarahMe.data.id] } });
 ok((await mentionsOf(sarah, ev.id)).length === 0, "mentioning yourself doesn't notify you");
+
+// Working by email: a mention also queues an email; the reply comes back through the Email Agent
+const emailAgent = await login('email-agent@agents.alera.example');
+const receive = (who, p) => api(who, 'rpc/receive_email', { method: 'POST', body: { p } });
+const paulEmail = (await api(paul, `email_message?record_id=eq.${ev.id}&kind=eq.mention&select=id,status,to_address,reply_to,body,post_id`)).data?.[0];
+ok(paulEmail?.status === 'queued' && paulEmail.to_address === 'paul.taylor@alera.example' && paulEmail.body.includes('can you check the venue')
+   && paulEmail.post_id === mPost.data?.[0]?.id, "a mention also queues an email with the post's text");
+ok((await api(sarah, `email_message?id=eq.${paulEmail?.id}&select=id`)).data?.length === 0, "people can't read other people's emails");
+ok((await api(paul, 'email_message', { method: 'POST', body: { direction: 'inbound', kind: 'reply', status: 'processed', from_address: 'x', to_address: 'y', subject: 's', body: 'b' } })).status >= 400,
+   "emails can't be written through the API");
+ok((await receive(paul, { from: 'paul.taylor@alera.example', to: paulEmail?.reply_to, text: 'Hi' })).status >= 400, 'only the email service delivers replies');
+ok((await receive(emailAgent, { from: 'Sarah Mitchell <sarah.mitchell@alera.example>', to: paulEmail?.reply_to, text: 'Spoofed' })).data?.status === 'failed',
+   "a reply from someone other than the recipient isn't used");
+const viaEmail = await receive(emailAgent, { from: 'Paul Taylor <PAUL.TAYLOR@alera.example>', to: paulEmail?.reply_to, subject: 'Re: mention',
+  text: 'Booked, see you there.\n\nOn Mon 2 Nov 2026 at 09:00, Event Center <notifications@eventcenter.example> wrote:\n> @Paul Taylor can you check the venue?' });
+const emailPost = (await api(paul, `event_post?id=eq.${viaEmail.data?.post_id}&select=body,channel,author_id,parent_id`)).data?.[0];
+ok(viaEmail.data?.status === 'processed' && emailPost?.channel === 'email' && emailPost.body === 'Booked, see you there.'
+   && emailPost.author_id === me.data.id && emailPost.parent_id === mPost.data?.[0]?.id, 'a reply to a mention email is posted in the thread as the person, marked as email');
+const emailLog = await api(paul, `event_history?record_id=eq.${viaEmail.data?.post_id}&select=actor_type,on_behalf_of_name`);
+ok(emailLog.data?.[0]?.actor_type === 'agent' && emailLog.data[0].on_behalf_of_name === 'Paul Taylor', 'history shows the Email Agent acting for the person who replied');
+ok((await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Pretend email', channel: 'email', author_id: me.data.id } })).data?.[0]?.channel === 'app',
+   "a post can't claim to come from email or from someone else");
 await api(paul, `notification?kind=eq.mention&record_id=eq.${ev.id}`, { method: 'DELETE' });
 
 // The Team decides access: off the team you don't see the event; viewers see it; organizers edit it
@@ -508,6 +530,23 @@ ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', 
 ok((await api(lisaT, `notification?record_id=eq.${tier.data?.id}&kind=eq.approval_required&select=id`)).data?.length === 1, "submitting notifies the request's approvers");
 ok((await api(paul, `event_request?request_type=eq.tiering&coordinator_id=is.null&status=eq.review&select=id`)).data?.length === 2,
    'tiering requests wait in the unassigned requests');
+
+// Approving by email: the approval email has the details; the reply starts with Approve or Reject
+const lisaApproval = (await api(lisaT, `email_message?record_id=eq.${tier.data?.id}&kind=eq.approval&select=reply_to,body,subject`)).data?.[0];
+ok(lisaApproval?.subject.startsWith('Approval needed: Tiering') && lisaApproval.body.includes('Smoke: please review her cap'), "submitting emails the request's approvers its details");
+await api(sarah, 'request_team_member', { method: 'POST', body: { request_id: tier.data?.id, user_id: paulId, team_role: 'approver' } });
+ok((await api(paul, `email_message?record_id=eq.${tier.data?.id}&kind=eq.approval&select=id`)).data?.length === 1, 'an approver added during review is emailed too');
+const lisaFrom = 'Lisa Anderson <lisa.anderson@alera.example>';
+ok((await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Sounds good' })).data?.status === 'failed', 'an approval reply starts with Approve or Reject');
+const noReason = await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Reject\n\n> Approval needed' });
+ok(noReason.data?.status === 'failed' && /reason/.test(noReason.data?.status_note ?? ''), 'rejecting by email needs a reason too');
+const byEmail = await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Approve - Smoke: fine by email\n\nOn Mon, Event Center wrote:\n> Approval needed' });
+const tierNow = (await api(paul, `event_request?id=eq.${tier.data?.id}&select=status,decided_by,decided_via,decision_note`)).data?.[0];
+ok(byEmail.data?.status === 'processed' && tierNow?.status === 'approved' && tierNow.decided_via === 'email' && tierNow.decided_by === lisa.data[0].id
+   && tierNow.decision_note === 'Smoke: fine by email', 'an approver approves by replying Approve, with a comment');
+ok((await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Reject: changed my mind' })).data?.status === 'failed', 'a decided request stays decided');
+ok((await api(paul, `event_request?id=eq.${reqId}&select=decided_via`)).data?.[0]?.decided_via === 'app', 'decisions made in Event Center say so');
+ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { decided_via: 'app' } })).status >= 400, "where a decision was made can't be edited");
 
 // Attendees: HCPs added in bulk from EC or straight from a CRM; each person once
 const addAtt = (who, people) => api(who, 'rpc/add_event_attendees', { method: 'POST', body: { p_event_id: ev.id, p_people: people } });
@@ -694,6 +733,8 @@ await api(paul, `event?id=eq.${ev.id}`, { method: 'DELETE' });
 await api(alex, `event_request?id=eq.${reqId}`, { method: 'DELETE' });
 await api(sarah, `notification?record_id=eq.${reqId}`, { method: 'DELETE' });
 await api(lisaT, `notification?record_id=eq.${tier.data?.id}`, { method: 'DELETE' });
+await api(paul, `notification?record_id=eq.${tier.data?.id}`, { method: 'DELETE' });
+await api(alex, `email_message?record_id=in.(${ev.id},${reqId},${tier.data?.id})`, { method: 'DELETE' });
 await api(paul, `hcp?id=eq.${imported.data?.id}`, { method: 'DELETE' });
 await api(paul, `hco?id=eq.${karinHcp.data?.[0]?.primary_hco?.id}`, { method: 'DELETE' });
 await api(alex, `content?id=eq.${sent.data?.document_content_id}`, { method: 'DELETE' });

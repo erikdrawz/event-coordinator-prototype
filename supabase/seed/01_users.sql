@@ -18,7 +18,8 @@ with u(key, email) as (values
   ('maria',   'maria.castillo@alera.example'),
   ('daniel',  'daniel.novak@alera.example'),
   ('agent-compliance', 'compliance-agent@agents.alera.example'),
-  ('agent-invoice',    'invoice-agent@agents.alera.example')
+  ('agent-invoice',    'invoice-agent@agents.alera.example'),
+  ('agent-email',      'email-agent@agents.alera.example')
 ),
 ins as (
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -76,7 +77,11 @@ insert into public.app_user (id, tenant_id, user_type, auth_user_id, display_nam
   (app.sid('user:agent-invoice'), app.sid('tenant:alera'), 'agent', app.sid('auth:agent-invoice'),
    'Invoice Agent', 'invoice-agent@agents.alera.example', 'AI agent', 'IA', '#5c6670',
    app.sid('profile:agent'), app.sid('user:lisa'),
-   'Reads uploaded invoices and proposes expense lines for a human to confirm.');
+   'Reads uploaded invoices and proposes expense lines for a human to confirm.'),
+  (app.sid('user:agent-email'), app.sid('tenant:alera'), 'agent', app.sid('auth:agent-email'),
+   'Email Agent', 'email-agent@agents.alera.example', 'AI agent', 'EA', '#5c6670',
+   app.sid('profile:email-agent'), app.sid('user:alex'),
+   'Turns replies to Event Center emails into discussion replies and request decisions, as the person who replied.');
 
 insert into public.user_group_member (group_id, user_id, tenant_id) values
   (app.sid('group:hq-events'), app.sid('user:paul'),    app.sid('tenant:alera')),

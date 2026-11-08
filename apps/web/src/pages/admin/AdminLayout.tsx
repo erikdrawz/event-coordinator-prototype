@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Boxes, CalendarCog, FileSignature, FlaskConical, Library, Users, Workflow, ListChecks, Plug, SlidersHorizontal } from 'lucide-react';
+import { Boxes, CalendarCog, FileSignature, FlaskConical, Library, Mail, Users, Workflow, ListChecks, Plug, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import './admin.css';
 
@@ -12,6 +12,7 @@ const SECTIONS = [
   { to: 'contract-templates', label: 'Contract templates', icon: FileSignature },
   { to: 'library', label: 'Library', icon: Library },
   { to: 'users', label: 'Users', icon: Users },
+  { to: 'emails', label: 'Emails', icon: Mail },
 ];
 // On the roadmap, shown so admins can see where configuration is heading
 const LATER = [
