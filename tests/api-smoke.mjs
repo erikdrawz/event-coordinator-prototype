@@ -360,6 +360,16 @@ const offTeam = await api(sarah, 'event_post', { method: 'POST', body: { event_i
 ok(offTeam.status >= 400 && /isn't on the team/.test(offTeam.data?.message ?? ''), "people off the team can't be mentioned");
 await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Note to self', mentions: [sarahMe.data.id] } });
 ok((await mentionsOf(sarah, ev.id)).length === 0, "mentioning yourself doesn't notify you");
+// Editing posts: the author only, text and mentions only; people already mentioned aren't told again
+const mPostId = mPost.data?.[0]?.id;
+const edited = await api(sarah, `event_post?id=eq.${mPostId}`, { method: 'PATCH', body: { body: '@Paul Taylor can you check the venue? It holds 40.', mentions: [me.data.id] } });
+ok(edited.data?.[0]?.edited_at && edited.data[0].body.endsWith('holds 40.') && (await mentionsOf(paul, ev.id)).length === 1
+   && (await api(paul, `email_message?post_id=eq.${mPostId}&direction=eq.outbound&select=id`)).data?.length === 1,
+   "the author edits a post, marked edited; people already mentioned aren't notified or emailed again");
+ok((await api(paul, `event_post?id=eq.${mPostId}`, { method: 'PATCH', body: { body: 'Rewritten by the owner' } })).data?.length === 0,
+   "an event's owner can't edit other people's posts");
+ok((await api(sarah, `event_post?id=eq.${mPostId}`, { method: 'PATCH', body: { event_id: ev.id, parent_id: null } })).status >= 400, 'only the text and mentions of a post change');
+ok((await api(sarah, `event_post?id=eq.${mPostId}`, { method: 'PATCH', body: { body: '  ' } })).status >= 400, "a post can't be edited to nothing");
 
 // Working by email: a mention also queues an email; the reply comes back through the Email Agent
 const emailAgent = await login('email-agent@agents.alera.example');

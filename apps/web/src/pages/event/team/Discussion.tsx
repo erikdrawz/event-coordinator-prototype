@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MoreVertical, SmilePlus, Trash2 } from 'lucide-react';
+import { MoreVertical, Pencil, SmilePlus, Trash2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { avatarColorFor } from '../../../lib/avatar';
@@ -31,11 +31,13 @@ function mentionAt(text: string, caret: number) {
  * Grows with its text; Cmd/Ctrl+Enter sends. Typing @ lists the people who can be mentioned;
  * picking one writes "@Their Name", and the post mentions everyone named that way.
  */
-function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCancel, pending, people }: {
+function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCancel, pending, people, initial }: {
   placeholder: string; note?: string; submitLabel: string; autoFocus?: boolean; pending?: boolean; people: Mentionable[];
   onSubmit: (body: string, mentions: string[]) => Promise<unknown>; onCancel?: () => void;
+  /** Text to start from (editing a post); the caret starts at its end. */
+  initial?: string;
 }) {
-  const [body, setBody] = useState('');
+  const [body, setBody] = useState(initial ?? '');
   const [typing, setTyping] = useState<{ start: number; query: string } | null>(null);
   const [active, setActive] = useState(0);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -46,6 +48,10 @@ function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCance
     const el = ref.current;
     if (el && caret.current !== null) { el.setSelectionRange(caret.current, caret.current); fit(el); caret.current = null; }
   }, [body]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && initial) { fit(el); el.setSelectionRange(initial.length, initial.length); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const matches = typing ? people.filter((p) => {
     const name = p.display_name.toLowerCase();
     return name.startsWith(typing.query) || name.split(/\s+/).some((w) => w.startsWith(typing.query));
@@ -103,7 +109,7 @@ function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCance
       <div className="composer-foot">
         <span className="composer-note">{note}</span>
         {onCancel && <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
-        <button type="button" className="btn btn-primary btn-sm" disabled={!body.trim() || pending} onClick={() => void send()}>{submitLabel}</button>
+        <button type="button" className="btn btn-primary btn-sm" disabled={!body.trim() || body === initial || pending} onClick={() => void send()}>{submitLabel}</button>
       </div>
     </div>
   );
@@ -146,6 +152,7 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Post | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: postsKey(board) });
 
   // ?post=<id> (links in emails): open its thread, scroll to it and highlight it for a moment
@@ -179,6 +186,14 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
     },
     onSettled: refresh,
   });
+  // Authors edit their own posts; only people newly mentioned are told (the database decides)
+  const edit = useMutation({
+    mutationFn: async ({ id, body, mentions }: { id: string; body: string; mentions: string[] }) => {
+      const { error } = await supabase.from(t.post).update({ body, mentions }).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => { refresh(); setEditing(null); },
+  });
   const remove = useMutation({
     mutationFn: async (p: Post) => {
       const { error } = await supabase.from(t.post).delete().eq('id', p.id);
@@ -188,7 +203,7 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
   });
 
   const threads = posts.data ?? [];
-  const error = post.error ?? react.error ?? posts.error;
+  const error = post.error ?? edit.error ?? react.error ?? posts.error;
 
   const reactions = (p: Post, small?: boolean) => {
     const counts = new Map<string, { n: number; mine: boolean }>();
@@ -212,11 +227,21 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
     );
   };
 
-  const postActions = (p: Post) => (p.author_id === me?.id || canModerate) && (
+  const postActions = (p: Post) => (p.author_id === me?.id || canModerate) && editing !== p.id && (
     <Menu label="Post actions" width={170}
-      items={[{ key: 'delete', label: 'Delete', icon: <Trash2 size={14} />, danger: true, onSelect: () => setDeleting(p) }]}
+      items={[
+        ...(p.author_id === me?.id ? [{ key: 'edit', label: 'Edit', icon: <Pencil size={14} />, onSelect: () => { edit.reset(); setEditing(p.id); } }] : []),
+        { key: 'delete', label: 'Delete', icon: <Trash2 size={14} />, danger: true, onSelect: () => setDeleting(p) },
+      ]}
       trigger={(t) => <button type="button" className="icon-btn post-menu" aria-label="Post actions" {...t}><MoreVertical size={15} /></button>} />
   );
+
+  const edited = (p: Post) => p.edited_at && <span className="post-edited" data-tip={`Edited ${postTime(p.edited_at)}`}>Edited</span>;
+  const bodyOrEditor = (p: Post) => editing === p.id
+    ? <Composer placeholder="Edit your post…" submitLabel="Save" autoFocus initial={p.body} pending={edit.isPending} people={mentionable}
+        note="Only people you newly mention are notified."
+        onSubmit={(body, mentions) => edit.mutateAsync({ id: p.id, body, mentions })} onCancel={() => setEditing(null)} />
+    : <PostBody p={p} names={names} meId={me?.id} />;
 
   const renderThread = (t: Thread) => {
     const open = expanded.has(t.id);
@@ -229,10 +254,11 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
           <div className="post-head">
             <span className="post-who">{t.author?.display_name ?? 'Former user'}</span>
             <span className="post-when">{postTime(t.created_at)}</span>
+            {edited(t)}
             {t.channel === 'email' && <ViaEmail tip="Posted by replying to an Event Center email" />}
             {postActions(t)}
           </div>
-          <PostBody p={t} names={names} meId={me?.id} />
+          {bodyOrEditor(t)}
           <div className="post-foot">
             {reactions(t)}
             <button type="button" className="link post-reply" onClick={() => setReplyTo(replyTo === t.id ? null : t.id)}>Reply</button>
@@ -251,10 +277,11 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
                     <div className="post-head">
                       <span className="post-who">{r.author?.display_name ?? 'Former user'}</span>
                       <span className="post-when">{postTime(r.created_at)}</span>
+                      {edited(r)}
                       {r.channel === 'email' && <ViaEmail tip="Posted by replying to an Event Center email" />}
                       {postActions(r)}
                     </div>
-                    <PostBody p={r} names={names} meId={me?.id} />
+                    {bodyOrEditor(r)}
                     {r.reactions.length > 0 && reactions(r, true)}
                   </div>
                 </div>

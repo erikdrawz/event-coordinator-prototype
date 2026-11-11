@@ -211,6 +211,7 @@
 .post-head { display: flex; align-items: baseline; gap: 8px; }
 .post-who { font-weight: 700; color: var(--color-text); }
 .post-when { font-size: var(--text-sm); color: var(--color-text-muted); }
+.post-edited { font-size: var(--text-sm); color: var(--color-text-muted); font-style: italic; cursor: default; }
 .post-menu { margin-left: auto; width: 28px; height: 28px; opacity: 0; }
 .post:hover > .post-main > .post-head .post-menu, .post-menu:focus-visible, .post-menu[aria-expanded='true'] { opacity: 1; }
 .post-body { margin: 4px 0 0; color: var(--color-text); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
