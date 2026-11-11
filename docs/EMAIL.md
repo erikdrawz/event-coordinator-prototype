@@ -29,7 +29,7 @@ Discussion ◄─ receive_email() (as the person, via the Email Agent) ◄─ em
 - Leave it empty to email people at their own addresses.
 
 **Links**
-- "Open the discussion" goes to `app.setting('app_url')` (default `http://localhost:5173`) and scrolls to the post.
+- The last line, e.g. "Open the SMA Board discussion: <link>", becomes a button with that label in the HTML version; plain-text clients show the address. Links go to `app.setting('app_url')` (default `http://localhost:5173`) and scroll to the post.
 - If you're signed out, you sign in first and land on the post.
 
 **Without the functions** (the local stack by default), `email_send_url` is unset and new emails stay **Queued**. Everything else works.

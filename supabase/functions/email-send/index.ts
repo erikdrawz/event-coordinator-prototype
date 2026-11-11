@@ -9,10 +9,18 @@ interface Outgoing { id: string; to: string; subject: string; text: string; repl
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const linkify = (s: string) => esc(s).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" style="color:#1d6fd6">${u}</a>`);
 
-/** The same email as simple HTML: the reply line in grey, quoted lines as a quote, links clickable. */
+/**
+ * The same email as simple HTML: the reply line in grey, quoted lines as a quote, links clickable,
+ * and a line "Open <what>: <link>" as a button saying "Open <what>".
+ */
 function toHtml(text: string) {
   const lines = text.split('\n').map((line) => {
     if (/reply above this line/i.test(line)) return `<div style="color:#8a94a3;font-size:12px">${esc(line)}</div>`;
+    const open = /^(Open .+): (https?:\/\/\S+)$/.exec(line);
+    if (open) {
+      return `<div style="margin-top:8px"><a href="${esc(open[2])}" style="display:inline-block;padding:9px 16px;border-radius:8px;`
+        + `background:#1d6fd6;color:#ffffff;text-decoration:none;font-weight:600">${esc(open[1])}</a></div>`;
+    }
     if (/^>/.test(line)) return `<div style="border-left:3px solid #dfe4eb;padding-left:10px;color:#3a4250">${linkify(line.replace(/^>\s?/, '')) || '&nbsp;'}</div>`;
     return `<div>${linkify(line) || '&nbsp;'}</div>`;
   });
