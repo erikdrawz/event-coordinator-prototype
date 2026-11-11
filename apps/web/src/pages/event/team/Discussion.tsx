@@ -1,4 +1,5 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreVertical, SmilePlus, Trash2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
@@ -147,6 +148,21 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
   const [deleting, setDeleting] = useState<Post | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: postsKey(board) });
 
+  // ?post=<id> (links in emails): open its thread, scroll to it and highlight it for a moment
+  const [params] = useSearchParams();
+  const linked = params.get('post');
+  const [focus, setFocus] = useState<string | null>(null);
+  useEffect(() => {
+    if (!linked || !posts.data) return;
+    const thread = posts.data.find((t) => t.id === linked || t.replies.some((r) => r.id === linked));
+    if (!thread) return;
+    if (thread.id !== linked) setExpanded((s) => new Set(s).add(thread.id));
+    setFocus(linked);
+    const t1 = setTimeout(() => document.getElementById(`post-${linked}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    const t2 = setTimeout(() => setFocus(null), 3500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [linked, posts.data != null]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const post = useMutation({
     mutationFn: async ({ body, mentions, parent_id }: { body: string; mentions: string[]; parent_id?: string }) => {
       const { error } = await supabase.from(t.post).insert({ [t.key]: board.id, body, mentions, parent_id: parent_id ?? null });
@@ -207,7 +223,7 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
     const shown = open ? t.replies : t.replies.slice(-SHOWN_REPLIES);
     const hidden = t.replies.length - shown.length;
     return (
-      <article key={t.id} className="post">
+      <article key={t.id} id={`post-${t.id}`} className={`post${focus === t.id ? ' post-focus' : ''}`}>
         <PersonAvatar p={t.author} size={34} />
         <div className="post-main">
           <div className="post-head">
@@ -229,7 +245,7 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
                 </button>
               )}
               {shown.map((r) => (
-                <div key={r.id} className="post reply">
+                <div key={r.id} id={`post-${r.id}`} className={`post reply${focus === r.id ? ' post-focus' : ''}`}>
                   <PersonAvatar p={r.author} size={26} />
                   <div className="post-main">
                     <div className="post-head">

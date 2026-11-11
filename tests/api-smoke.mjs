@@ -29,6 +29,13 @@ const maria = await login('maria.castillo@alera.example');   // Business Admin
 const alex = await login('alex.morgan@alera.example');       // System Admin
 const lisaT = await login('lisa.anderson@alera.example');    // another coordinator
 
+// Emails this run makes go to Resend's test sink, never to a real demo inbox (restored at the end)
+const SINK = 'delivered@resend.dev';
+const me0 = await api(alex, 'rpc/me', { method: 'POST' });
+const tenantId = me0.data?.tenant?.id;
+const savedInbox = (await api(alex, `tenant?id=eq.${tenantId}&select=demo_inbox`)).data?.[0]?.demo_inbox ?? null;
+await api(alex, `tenant?id=eq.${tenantId}`, { method: 'PATCH', body: { demo_inbox: SINK } });
+
 // Anonymous callers see nothing
 const anon = await api(null, 'event?select=id');
 ok(anon.status >= 400 || (Array.isArray(anon.data) && anon.data.length === 0), 'anonymous caller cannot read events');
@@ -358,7 +365,7 @@ ok((await mentionsOf(sarah, ev.id)).length === 0, "mentioning yourself doesn't n
 const emailAgent = await login('email-agent@agents.alera.example');
 const receive = (who, p) => api(who, 'rpc/receive_email', { method: 'POST', body: { p } });
 const paulEmail = (await api(paul, `email_message?record_id=eq.${ev.id}&kind=eq.mention&select=id,status,to_address,reply_to,body,post_id`)).data?.[0];
-ok(paulEmail?.status === 'queued' && paulEmail.to_address === 'paul.taylor@alera.example' && paulEmail.body.includes('can you check the venue')
+ok(['queued', 'sending', 'sent', 'failed'].includes(paulEmail?.status) && paulEmail.to_address === 'paul.taylor@alera.example' && paulEmail.body.includes('can you check the venue')
    && paulEmail.post_id === mPost.data?.[0]?.id, "a mention also queues an email with the post's text");
 ok((await api(sarah, `email_message?id=eq.${paulEmail?.id}&select=id`)).data?.length === 0, "people can't read other people's emails");
 ok((await api(paul, 'email_message', { method: 'POST', body: { direction: 'inbound', kind: 'reply', status: 'processed', from_address: 'x', to_address: 'y', subject: 's', body: 'b' } })).status >= 400,
@@ -375,6 +382,20 @@ const emailLog = await api(paul, `event_history?record_id=eq.${viaEmail.data?.po
 ok(emailLog.data?.[0]?.actor_type === 'agent' && emailLog.data[0].on_behalf_of_name === 'Paul Taylor', 'history shows the Email Agent acting for the person who replied');
 ok((await api(sarah, 'event_post', { method: 'POST', body: { event_id: ev.id, body: 'Pretend email', channel: 'email', author_id: me.data.id } })).data?.[0]?.channel === 'app',
    "a post can't claim to come from email or from someone else");
+// Sending: only the Email Agent picks up and records emails
+ok((await api(paul, 'rpc/claim_outbound_emails', { method: 'POST', body: { p_limit: 1 } })).status >= 400, 'only the email service picks up emails to send');
+ok((await api(paul, 'rpc/email_sent', { method: 'POST', body: { p: { id: paulEmail?.id, ok: true } } })).status >= 400, 'only the email service records what was sent');
+// Demo inbox: a reply from it counts as the person the email was for; each reply is taken once
+ok((await api(maria, `tenant?id=eq.${tenantId}`, { method: 'PATCH', body: { demo_inbox: 'maria@example.com' } })).data?.length === 0, 'only System Admins set the demo inbox');
+const replyId = `smoke-${Date.now()}`;
+const fromInbox = await receive(emailAgent, { id: replyId, from: `Demo <${SINK}>`, to: paulEmail?.reply_to, text: 'Smoke: via the demo inbox' });
+const inboxPost = (await api(paul, `event_post?id=eq.${fromInbox.data?.post_id}&select=author_id,channel`)).data?.[0];
+ok(fromInbox.data?.status === 'processed' && inboxPost?.author_id === me.data.id && inboxPost.channel === 'email', 'a reply from the demo inbox is posted as the person the email was for');
+const again = await receive(emailAgent, { id: replyId, from: `Demo <${SINK}>`, to: paulEmail?.reply_to, text: 'Smoke: via the demo inbox' });
+ok(again.data?.id === fromInbox.data?.id && (await api(paul, `event_post?event_id=eq.${ev.id}&body=eq.Smoke: via the demo inbox&select=id`)).data?.length === 1,
+   'a reply delivered twice is posted once');
+ok((await receive(emailAgent, { from: 'paul.taylor@alera.example', to: paulEmail?.reply_to, text: 'Forged', authentication: { spf: 'fail', dkim: 'fail' } })).data?.status === 'failed',
+   "a reply that fails the mail server's SPF and DKIM checks isn't used");
 await api(paul, `notification?kind=eq.mention&record_id=eq.${ev.id}`, { method: 'DELETE' });
 
 // The Team decides access: off the team you don't see the event; viewers see it; organizers edit it
@@ -779,6 +800,7 @@ await api(alex, `content?id=eq.${sent.data?.document_content_id}`, { method: 'DE
 await api(paul, `event_expert?id=eq.${holm.data[0].id}`, { method: 'PATCH', body: { check_status: 'pending', check_notes: null } });
 
 await api(alex, `custom_field?id=in.(${dietF?.id},${hcpF?.id},${reqF?.id})`, { method: 'DELETE' });
+await api(alex, `tenant?id=eq.${tenantId}`, { method: 'PATCH', body: { demo_inbox: savedInbox } });
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);

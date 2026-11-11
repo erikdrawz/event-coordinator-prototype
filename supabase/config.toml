@@ -32,3 +32,11 @@ enable_signup = false
 # Sign-ups are already blocked by [auth] enable_signup = false.
 enable_signup = true
 enable_confirmations = false
+
+# Email functions (Resend). Neither takes a user's token: email-send is woken by the database and
+# only sends what's queued; email-inbound checks Resend's webhook signature instead.
+[functions.email-send]
+verify_jwt = false
+
+[functions.email-inbound]
+verify_jwt = false

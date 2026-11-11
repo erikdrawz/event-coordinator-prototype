@@ -43,3 +43,5 @@ jobs:
             end \$\$;"
       - name: Reset database (migrations + seed)
         run: yes | supabase db reset --linked
+      - name: Point the database at email-send
+        run: .github/scripts/point-email-sender.sh

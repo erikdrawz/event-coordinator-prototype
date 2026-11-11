@@ -66,7 +66,8 @@ Request list and form, submit, the approval process per event type, approval his
 - ✓ Request page: name, event type, date and rough duration (1–3 hours … more than 2 days), business justification, status (draft → review → approved | rejected) in the header; Actions: Submit for approval, Delete (drafts only); Team and Discussion as on events
 - ✓ @mentions on event and request boards: type @ to pick someone on the team; they get a Mention notification that opens the board
 - ✓ Admin → Settings (System Admins): show each person's profile beside their name in the top bar, for demos and day-to-day
-- ✓ Working by email, EC side: mentions and approval requests queue emails (the mention's text; the request's details), replies come in through `receive_email()` (the Email Agent) and are posted in the thread or approve/reject the request as the person who replied, marked "via email"; Admin → Emails shows what was sent and what each reply did. Next: connect an email provider (outbound sender and inbound webhook calling `receive_email`), per-person email preferences, a reply when an emailed decision can't be used
+- ✓ Working by email, EC side: mentions and approval requests queue emails (the mention's text; the request's details), replies come in through `receive_email()` (the Email Agent) and are posted in the thread or approve/reject the request as the person who replied, marked "via email"; Admin → Emails shows what was sent and what each reply did. 
+- ✓ Email delivery through Resend (demo setup, `docs/EMAIL.md`): the `email-send` edge function sends what's queued (woken by the database), `email-inbound` takes Resend's reply webhook and hands replies to `receive_email`; a demo inbox in Admin → Settings receives every email and its replies count as the person's; links open the post. Next: per-person email preferences, a reply when an emailed decision can't be used, a verified sending domain
 - ✓ Access: the request's Team decides (creator = owner); drafts are private to the team, submitted requests are visible to home office (view_all on `event_request`)
 - ✓ Approving and rejecting: a request in review gets Approve / Reject in its Actions for home office and its Approvers, never the requester; a rejection needs a reason; the decision (who, when, note) shows on the request and the requester is notified. Submitting notifies the request's approvers
 - Next: multi-step approval processes (`approval_process`), assigning a coordinator, an approved request creates its event; an approved tiering request updates the expert
@@ -103,4 +104,4 @@ Users and profiles, event types, custom fields, approval process builder, integr
 - A second Supabase project as the `demo` environment
 
 ## Out of scope for the prototype
-Real CRM/CLM APIs, real OCR, SSO/SAML, multi-tenant activation, email delivery, reporting dashboards.
+Real CRM/CLM APIs, real OCR, SSO/SAML, multi-tenant activation, production email (own domain, preferences, bounces), reporting dashboards.

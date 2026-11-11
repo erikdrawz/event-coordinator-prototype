@@ -16,6 +16,7 @@ interface Email {
   from_address: string; to_address: string; reply_to: string | null; subject: string; body: string;
   record_type: 'event' | 'request' | null; record_id: string | null; post_id: string | null;
   in_reply_to: string | null; status_note: string | null; created_at: string; sent_at: string | null; processed_at: string | null;
+  delivered_to: string | null;
   person: { display_name: string; initials: string | null; avatar_color: string | null; email: string | null } | null;
 }
 type Dir = 'all' | 'outbound' | 'inbound';
@@ -83,7 +84,7 @@ export function EmailsAdmin() {
   const statusOf = (c: string) => data?.statuses.find((s) => s.code === c);
   const statusPill = (e: Email) => {
     const s = statusOf(e.status);
-    return <span className={`pill pill-${s?.tone ?? 'grey'}`} data-tip={e.status === 'queued' ? "Waiting to be sent: Event Center isn't connected to an email service yet" : e.status_note ?? undefined}>{s?.label ?? e.status}</span>;
+    return <span className={`pill pill-${s?.tone ?? 'grey'}`} data-tip={e.status === 'queued' ? 'Waiting to be sent' : e.status === 'sending' ? 'Being sent now' : e.status_note ?? undefined}>{s?.label ?? e.status}</span>;
   };
   const about = (e: Email) => e.record_id
     ? <Link className="link" to={recordLink(e)}>{data?.names.get(e.record_id) ?? (e.record_type === 'event' ? 'Event' : 'Request')}</Link>
@@ -123,7 +124,7 @@ export function EmailsAdmin() {
   return (
     <AdminPage title="Emails"
       sub="What Event Center emails people (mentions and approval requests) and the replies that come back. A reply is posted, or decides the request, as the person who sent it.">
-      <p className="em-note">Event Center isn't connected to an email service yet, so new emails wait as Queued. The ones here from the demo data show how it works once it is.</p>
+      <p className="em-note">Emails go out through Resend, and replies come back the same way. With a demo inbox set in Settings, every email goes to that one address. A copy of Event Center without the email service keeps new emails as Queued.</p>
       <Toolbar label="Filter emails">
         <SearchInput value={q} onChange={(v) => setParam('q', v)} placeholder="Search subject, person or record" />
         <Segmented label="Direction" value={dir} onChange={(v) => setParam('dir', v)}
@@ -140,10 +141,16 @@ export function EmailsAdmin() {
           <PanelSection title={open.direction === 'outbound' ? kindLabel(open.kind) : 'Reply'}>
             <PanelField label="Status">
               <span className="em-status">{statusPill(open)}
-                {open.status === 'queued' && <span className="dt-sub">Not sent: no email service is connected yet</span>}
+                {open.status === 'queued' && <span className="dt-sub">Not sent yet. Without the email service (e.g. on a local copy) it stays queued.</span>}
                 {open.sent_at && open.status === 'sent' && <span className="dt-sub">{when(open.sent_at)}</span>}
               </span>
             </PanelField>
+            {open.direction === 'outbound' && open.delivered_to && open.delivered_to.toLowerCase() !== open.to_address.toLowerCase() && (
+              <PanelField label="Delivered to">{open.delivered_to} <span className="dt-sub">(demo inbox)</span></PanelField>
+            )}
+            {open.direction === 'outbound' && open.status === 'failed' && open.status_note && (
+              <PanelField label="Why"><span className="em-failed">{open.status_note}</span></PanelField>
+            )}
             {open.direction === 'inbound' && open.status_note && (
               <PanelField label={open.status === 'failed' ? 'Why' : 'What it did'}>
                 <span className={open.status === 'failed' ? 'em-failed' : undefined}>{open.status_note}</span>

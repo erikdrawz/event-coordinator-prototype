@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation, type Location } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../lib/auth';
@@ -20,6 +20,8 @@ const DEMO_ACCOUNTS = [
 
 export function LoginPage() {
   const { session, signIn } = useAuth();
+  // Back to the page that sent you here (e.g. a link in an email), once you're signed in
+  const from = (useLocation().state as { from?: Location } | null)?.from;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function LoginPage() {
     },
   });
 
-  if (session) return <Navigate to="/" replace />;
+  if (session) return <Navigate to={from ? `${from.pathname}${from.search}${from.hash}` : '/'} replace />;
 
   async function submit(e: FormEvent, creds?: { email: string; password: string }) {
     e.preventDefault();

@@ -1,0 +1,31 @@
+# Deploys the edge functions (email: email-send, email-inbound) to the hosted Supabase project.
+# Runs on every push to main that touches supabase/functions, or manually.
+# Their secrets (RESEND_API_KEY, RESEND_WEBHOOK_SECRET, EMAIL_REPLY_DOMAIN, EMAIL_AGENT_PASSWORD, …)
+# are set once in the Supabase dashboard; see docs/EMAIL.md.
+name: Functions — deploy
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/functions/**", "supabase/config.toml"]
+  workflow_dispatch:
+
+concurrency: supabase-db
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0  # pinned; bump deliberately after reading the CLI changelog
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Deploy functions
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF" --use-api
+      - name: Point the database at email-send
+        run: .github/scripts/point-email-sender.sh

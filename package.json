@@ -4,6 +4,7 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "dev": "npm run dev -w apps/web",
+    "dev:hosted": "npm run dev -w apps/web -- --mode production",
     "build": "npm run build -w apps/web",
     "typecheck": "npm run typecheck -w apps/web",
     "test:api": "node tests/api-smoke.mjs"

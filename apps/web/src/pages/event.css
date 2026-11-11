@@ -201,6 +201,9 @@
 .team-card { padding: 18px 22px 20px; }
 .discussion .ov-title-row { margin-bottom: 14px; }
 .post { display: flex; gap: 12px; align-items: flex-start; }
+/* The post a link opened (?post=): a soft highlight that fades */
+.post.post-focus { border-radius: var(--radius-md); box-shadow: 0 0 0 6px var(--color-accent-softer); background: var(--color-accent-softer); }
+.post { transition: background-color .8s ease, box-shadow .8s ease; }
 .post-new { margin-bottom: 18px; }
 .post-main { flex: 1; min-width: 0; }
 .posts { display: grid; gap: 0; }
