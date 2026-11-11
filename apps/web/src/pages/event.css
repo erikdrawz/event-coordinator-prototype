@@ -235,6 +235,16 @@
 }
 .composer:focus-within { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent-soft); }
 .composer-input { display: block; width: 100%; min-height: 40px; max-height: 240px; padding: 10px 12px 4px; border: 0; outline: 0; resize: none; background: transparent; font: inherit; color: var(--color-text); line-height: 1.5; }
+/* Mentions highlighted while writing: a layer behind the textarea with the same text and metrics,
+   where each recognised "@Name" shows in the accent colour on a soft background. */
+.composer-field { position: relative; }
+.composer-backdrop { position: absolute; inset: 0; padding: 10px 12px 4px; overflow: hidden; pointer-events: none;
+  font: inherit; line-height: 1.5; white-space: pre-wrap; overflow-wrap: break-word; color: var(--color-text); }
+/* The textarea draws the caret and selection; the layer behind it draws the text (same weight, so they line up) */
+.composer-field .composer-input { position: relative; color: transparent; caret-color: var(--color-text); }
+.composer-field .composer-input::placeholder { color: var(--color-text-muted); }
+.composer-field .composer-input::selection { background: color-mix(in srgb, var(--color-accent) 25%, transparent); }
+.composer-mention { color: var(--color-accent); background: var(--color-accent-soft); border-radius: 4px; box-shadow: 0 0 0 2px var(--color-accent-soft); }
 .composer-foot { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px 12px; }
 .composer-note { flex: 1; font-size: var(--text-sm); color: var(--color-text-muted); }
 /* @mentions: the list opens just under the text (absolute, at its place in the flow) */

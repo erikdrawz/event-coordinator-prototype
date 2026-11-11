@@ -41,6 +41,7 @@ function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCance
   const [typing, setTyping] = useState<{ start: number; query: string } | null>(null);
   const [active, setActive] = useState(0);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
   const listId = useId();
   // Where the caret goes once a picked name is in the text
   const caret = useRef<number | null>(null);
@@ -80,11 +81,18 @@ function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCance
   };
   return (
     <div className="composer">
+      {/* Names picked or typed in full show highlighted behind the text, so you can see who you're mentioning */}
+      <div className="composer-field">
+      <div ref={backdrop} className="composer-backdrop" aria-hidden>
+        {splitMentions(body, people).map((part, i) => typeof part === 'string' ? part : <mark key={i} className="composer-mention">{part.text}</mark>)}
+        {'\u200b'}
+      </div>
       <textarea ref={ref} className="composer-input" rows={1} value={body} placeholder={placeholder} aria-label={placeholder} autoFocus={autoFocus}
         role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={open ? listId : undefined}
         aria-activedescendant={open ? `${listId}-${active}` : undefined}
         onChange={(e) => { setBody(e.target.value); fit(e.target); track(e.target); }}
         onSelect={(e) => track(e.currentTarget)} onBlur={() => setTyping(null)}
+        onScroll={(e) => { if (backdrop.current) backdrop.current.scrollTop = e.currentTarget.scrollTop; }}
         onKeyDown={(e) => {
           if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
             e.preventDefault(); setActive((i) => (i + (e.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length); return;
@@ -94,6 +102,7 @@ function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCance
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); }
           if (e.key === 'Escape' && onCancel) { e.preventDefault(); onCancel(); }
         }} />
+      </div>
       {open && (
         <ul id={listId} className="mention-list" role="listbox" aria-label="People to mention">
           {matches.map((p, i) => (
@@ -115,19 +124,28 @@ function Composer({ placeholder, note, submitLabel, autoFocus, onSubmit, onCance
   );
 }
 
+/**
+ * Text split around "@Name" for the given people (longest names first, not inside a longer name):
+ * plain strings, and {id, text} for each mention.
+ */
+function splitMentions(text: string, people: { id: string; display_name: string }[]): (string | { id: string; text: string })[] {
+  const tags = people.map((p) => ({ id: p.id, tag: `@${p.display_name}` })).filter((t) => t.tag.length > 1)
+    .sort((a, b) => b.tag.length - a.tag.length);
+  if (!tags.length) return [text];
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.split(new RegExp(`(${tags.map((t) => esc(t.tag)).join('|')})(?![\\p{L}\\p{N}])`, 'giu')).map((part, i) => {
+    const t = i % 2 ? tags.find((x) => x.tag.toLowerCase() === part.toLowerCase()) : undefined;
+    return t ? { id: t.id, text: part } : part;
+  });
+}
+
 /** Post text with its mentions highlighted (yours more strongly). */
 function PostBody({ p, names, meId }: { p: Post; names: Map<string, string>; meId?: string }) {
-  const tags = p.mentions.map((id) => ({ id, tag: `@${names.get(id) ?? ''}` })).filter((t) => t.tag.length > 1)
-    .sort((a, b) => b.tag.length - a.tag.length);
-  if (!tags.length) return <p className="post-body">{p.body}</p>;
-  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = p.body.split(new RegExp(`(${tags.map((t) => esc(t.tag)).join('|')})(?![\\p{L}\\p{N}])`, 'giu'));
+  const parts = splitMentions(p.body, p.mentions.map((id) => ({ id, display_name: names.get(id) ?? '' })));
   return (
     <p className="post-body">
-      {parts.map((part, i) => {
-        const t = i % 2 ? tags.find((x) => x.tag.toLowerCase() === part.toLowerCase()) : undefined;
-        return t ? <span key={i} className={`mention${t.id === meId ? ' mention-me' : ''}`}>{part}</span> : part;
-      })}
+      {parts.map((part, i) => typeof part === 'string' ? part
+        : <span key={i} className={`mention${part.id === meId ? ' mention-me' : ''}`}>{part.text}</span>)}
     </p>
   );
 }
