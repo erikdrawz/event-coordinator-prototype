@@ -47,11 +47,12 @@ export function Segmented<V extends string>({ label, value, options, onChange }:
   { label: string; value: V; options: { value: V; label: string }[]; onChange: (v: V) => void }) {
   return (
     <div className="segmented" role="group" aria-label={label}>
-      {options.map((o) => <button key={o.value} aria-pressed={value === o.value} onClick={() => onChange(o.value)}>{o.label}</button>)}
+      {/* type="button": inside a form (editor modals) a plain button would submit it */}
+      {options.map((o) => <button key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)}>{o.label}</button>)}
     </div>
   );
 }
 
 export function ClearFilters({ onClick }: { onClick: () => void }) {
-  return <button className="tb-clear" onClick={onClick}><X size={14} aria-hidden />Clear filters</button>;
+  return <button type="button" className="tb-clear" onClick={onClick}><X size={14} aria-hidden />Clear filters</button>;
 }
