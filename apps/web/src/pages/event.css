@@ -283,6 +283,15 @@
 .team-add .sel-trigger, .team-add .input { height: 34px; }
 .team-add-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; }
 .team-add-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.team-add-group { grid-template-columns: minmax(0, 1fr) 130px; }
+.team-subhead { margin: 14px 0 2px; font-size: var(--text-sm); font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.team-group-icon { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--color-accent-soft); color: var(--color-accent); }
+.team-group.inactive .team-group-icon { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.team-group.inactive .team-name { color: var(--color-text-muted); }
+.team-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.team-you, .team-auto { flex: none; }
+.team-group .team-name { overflow: visible; }
+.team-auto { font-size: var(--text-xs); font-weight: 700; padding: 1px 6px; border-radius: var(--radius-pill); background: var(--tone-blue-bg); color: var(--tone-blue-fg); cursor: default; }
 @media (max-width: 960px) { .team-tab { grid-template-columns: minmax(0, 1fr); } }
 
 /* Event details tab */
@@ -321,3 +330,5 @@
   .tabs { overflow-x: auto; scrollbar-width: none; }
   .tab { white-space: nowrap; }
 }
+/* Keeps a rule group's access lined up with rows that have a remove button */
+.icon-btn-spacer { width: 30px; flex: none; }

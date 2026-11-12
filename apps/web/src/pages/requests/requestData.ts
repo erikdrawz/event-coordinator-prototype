@@ -13,6 +13,8 @@ const PERSON = 'id,display_name,initials,avatar_color,job_title,user_type';
 export interface RequestRow {
   id: string; request_number: string; title: string; status: RequestStatus; request_type: RequestKind; event_type_id: string | null;
   /** 'YYYY-MM-DD' */ event_date: string | null; duration: string | null; rationale: string | null;
+  /** Where the event is (tiering: the expert's country). Access rules use it once submitted. */
+  country_code: string | null; country: { name: string } | null;
   submitted_at: string | null; created_at: string; requested_by: string; event_id: string | null;
   custom_fields: Record<string, unknown>;
   event_type: { name: string } | null;
@@ -27,7 +29,7 @@ export interface RequestRow {
   /** Where the decision was made: app, or email (a reply to the approval request). */
   decided_via: 'app' | 'email' | null;
 }
-export const REQUEST_SELECT = 'id,request_number,title,status,request_type,event_type_id,event_date,duration,rationale,submitted_at,created_at,requested_by,event_id,custom_fields,' +
+export const REQUEST_SELECT = 'id,request_number,title,status,request_type,event_type_id,event_date,duration,rationale,country_code,country(name),submitted_at,created_at,requested_by,event_id,custom_fields,' +
   'hcp_id,related_event_id,hcp(id,display_name,eligibility,eligibility_note,tier,specialty(name)),' +
   'related_event:event!event_request_related_event_id_fkey(id,name,starts_at,timezone),' +
   `event_type(name),requester:app_user!event_request_requested_by_fkey(${PERSON}),coordinator:app_user!event_request_coordinator_id_fkey(${PERSON}),` +

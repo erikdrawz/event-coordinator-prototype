@@ -47,7 +47,7 @@ ok(me.data?.tenant?.brand_name === 'Alera Pharma', 'me() returns tenant branding
 
 // Reads
 const events = await api(paul, 'event?select=name,status,starts_at&order=starts_at');
-ok(Array.isArray(events.data) && events.data.length === 6, `Paul sees the 6 events he's on the team of (got ${events.data?.length})`);
+ok(Array.isArray(events.data) && events.data.length === 8, `Paul sees every event: HQ Events, his group, follows them all (got ${events.data?.length})`);
 ok((await api(maria, 'event?select=id')).data?.length === 8, 'Business Admin sees every event');
 const sma = await api(paul, `event?name=eq.SMA%20Board&select=id,status,event_expert(role,total_payable,hcp(display_name)),event_session(title)`);
 const s = sma.data?.[0];
@@ -778,6 +778,92 @@ const smokeTemplate = await api(maria, 'content', { method: 'POST', body: { ...t
 ok(smokeTemplate.status === 201, 'a Business Admin adds an agenda template with its fields mapped');
 await api(maria, `content?id=eq.${smokeTemplate.data?.[0]?.id}`, { method: 'DELETE' });
 
+// Groups are plain sets of people; access rules put them on teams by country and event type, and
+// their members get the rule's access for as long as they're in the group
+const groupName = `Smoke group ${Date.now()}`;
+ok((await api(paul, 'user_group', { method: 'POST', body: { name: groupName } })).status >= 400, "a coordinator can't create groups");
+const grp = await api(maria, 'user_group', { method: 'POST', body: { name: groupName } });
+const grpId = grp.data?.[0]?.id;
+const agentMe = await api(agent, 'rpc/me', { method: 'POST', body: {} });
+ok(grp.status === 201 && (await api(maria, 'user_group_member', { method: 'POST', body: { group_id: grpId, user_id: lisaMe.data.id } })).status === 201,
+   'a Business Admin creates a group with members');
+ok((await api(maria, 'user_group_member', { method: 'POST', body: { group_id: grpId, user_id: agentMe.data.id } })).status >= 400, 'agents are not group members');
+const addRule = (who, body) => api(who, 'access_rule', { method: 'POST', body: { group_id: grpId, ...body } });
+ok((await addRule(paul, { country_codes: ['NL'] })).status >= 400, "a coordinator can't create access rules");
+ok((await addRule(maria, { team_role: 'approver' })).status >= 400 && (await addRule(maria, { team_role: 'owner' })).status >= 400,
+   'a rule gives Organizer or Viewer access, nothing else');
+ok((await addRule(maria, { country_codes: [] })).status >= 400 && (await addRule(maria, { country_codes: ['XX'] })).status >= 400,
+   'a rule names real countries, or none for every country');
+const rule = (await addRule(maria, { applies_to: 'all', country_codes: ['NL'], event_type_ids: [types.data[0].id], team_role: 'viewer' })).data?.[0];
+ok(rule?.id, 'a Business Admin adds an access rule for a group: these countries, these event types');
+const grpEv = (await capture({ ...base, name: 'Smoke group event', country_code: 'NL', city: 'Amsterdam' })).data;
+const grpRow = async (evId = grpEv?.id) => (await api(paul, `event_team_group?event_id=eq.${evId}&group_id=eq.${grpId}&select=id,team_role,is_auto`)).data?.[0];
+const lisaSeesG = async () => (await api(lisaT, `event?id=eq.${grpEv?.id}&select=id`)).data?.length === 1;
+const lisaEditsG = async () => (await api(lisaT, 'rpc/update_event', { method: 'POST', body: { p_event_id: grpEv?.id, p: { city: 'Utrecht' } } })).status === 200;
+const autoRow = await grpRow();
+ok(autoRow?.is_auto === true && autoRow.team_role === 'viewer', "a new event that matches a rule gets the rule's group on its team, with the rule's access");
+const lisaAccess = (await api(lisaT, 'rpc/my_event_access', { method: 'POST', body: { p_event_id: grpEv?.id } })).data;
+ok(await lisaSeesG() && !(await lisaEditsG()) && lisaAccess?.access === 'view' && lisaAccess.via_group === groupName,
+   'a group member sees the event with the group\'s access, and knows which group gave it');
+ok((await api(paul, `event_team_group?id=eq.${autoRow?.id}`, { method: 'PATCH', body: { team_role: 'organizer' } })).data?.length !== 1
+   && (await api(paul, `event_team_group?id=eq.${autoRow?.id}`, { method: 'DELETE' })).status >= 400 && await grpRow(),
+   "the event's editors can't change or remove a group a rule added");
+await api(maria, `access_rule?id=eq.${rule?.id}`, { method: 'PATCH', body: { team_role: 'organizer' } });
+ok((await grpRow())?.team_role === 'organizer' && await lisaEditsG(), "changing the rule's access changes it on open events, and members edit");
+const second = (await addRule(maria, { applies_to: 'events', team_role: 'viewer' })).data?.[0];
+ok((await grpRow())?.team_role === 'organizer', 'when several rules match, the group gets the strongest access');
+await api(maria, `access_rule?id=eq.${second?.id}`, { method: 'DELETE' });
+const grpPost = await api(paul, 'event_post', { method: 'POST', body: { event_id: grpEv?.id, body: '@Lisa Anderson smoke: via your group', mentions: [lisaMe.data.id] } });
+ok(grpPost.status === 201, 'people on the team through a group can be mentioned');
+await api(maria, `user_group?id=eq.${grpId}`, { method: 'PATCH', body: { is_active: false } });
+ok(!(await lisaSeesG()) && !(await grpRow()), "an inactive group gives nobody access, and rules don't apply to it");
+await api(maria, `user_group?id=eq.${grpId}`, { method: 'PATCH', body: { is_active: true } });
+ok(await grpRow() && await lisaSeesG(), 'reactivated, the group is back on the team of open events its rules match');
+await api(maria, `user_group_member?group_id=eq.${grpId}&user_id=eq.${lisaMe.data.id}`, { method: 'DELETE' });
+ok(!(await lisaSeesG()), 'leaving the group ends the access it gave');
+await api(maria, 'user_group_member', { method: 'POST', body: { group_id: grpId, user_id: lisaMe.data.id } });
+const seminar = (await api(paul, 'event_type?name=eq.Seminar&select=id')).data?.[0]?.id;
+await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: grpEv?.id, p: { event_type_id: seminar } } });
+ok(!(await grpRow()), "an event changed to an event type the rule doesn't cover loses the group");
+await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: grpEv?.id, p: { event_type_id: types.data[0].id, country_code: 'DE', city: 'Berlin' } } });
+ok(!(await grpRow()) && !(await lisaSeesG()), "an event moved out of the rule's countries loses the group");
+await api(maria, `access_rule?id=eq.${rule?.id}`, { method: 'PATCH', body: { country_codes: ['NL', 'DE'] } });
+ok((await grpRow())?.is_auto === true, "a country added to the rule brings the group onto that country's open events");
+const uki = (await api(paul, 'user_group?name=eq.UKI%20Medical&select=id')).data?.[0];
+const ukiRow = await api(paul, 'event_team_group', { method: 'POST', body: { event_id: grpEv?.id, group_id: uki?.id, team_role: 'viewer' } });
+ok(ukiRow.status === 201 && ukiRow.data?.[0]?.is_auto === false, "an event's editors add another group by hand");
+ok((await api(paul, 'event_team_group', { method: 'POST', body: { event_id: grpEv?.id, group_id: grpId, team_role: 'viewer', is_auto: true } })).status >= 400,
+   'only rules add groups as automatic');
+ok((await api(paul, `event_team_group?id=eq.${ukiRow.data?.[0]?.id}`, { method: 'PATCH', body: { team_role: 'organizer' } })).data?.[0]?.team_role === 'organizer'
+   && (await api(paul, `event_team_group?id=eq.${ukiRow.data?.[0]?.id}`, { method: 'PATCH', body: { team_role: 'owner' } })).status >= 400,
+   "editors change the access of a group they added, to Organizer or Viewer");
+ok((await api(sarah, 'event_team_group', { method: 'POST', body: { event_id: smaId, group_id: uki?.id } })).status >= 400, "people who can't edit the event can't add groups");
+// Requests: rules apply once the request is submitted, by the request's country and event type
+const grpReq = await saveReq(sarah, { title: 'Smoke group request', event_type_id: types.data[0].id, event_date: '2027-05-04', duration: 'full_day',
+                                      country_code: 'DE', rationale: 'Smoke test' });
+const reqGroups = async () => (await api(sarah, `request_team_group?request_id=eq.${grpReq.data?.id}&select=group_id,is_auto`)).data ?? [];
+ok(grpReq.data?.country_code === 'DE' && (await reqGroups()).length === 0, 'a draft request has no groups: drafts stay private');
+await api(sarah, `event_request?id=eq.${grpReq.data?.id}`, { method: 'PATCH', body: { status: 'review' } });
+ok((await reqGroups()).some((g) => g.group_id === grpId && g.is_auto), "submitting a request brings in the groups its rules give");
+ok((await api(lisaT, `rpc/my_request_access`, { method: 'POST', body: { p_request_id: grpReq.data?.id } })).data?.via_group === groupName,
+   'a group member sees the submitted request through their group');
+await api(maria, `access_rule?id=eq.${rule?.id}`, { method: 'PATCH', body: { applies_to: 'events' } });
+ok(!(await reqGroups()).some((g) => g.group_id === grpId) && await grpRow(), 'a rule for events only leaves requests alone');
+const holmExpert = (await api(paul, `event_expert?id=eq.${holm.data[0].id}&select=hcp(id,country_code)`)).data?.[0]?.hcp;
+const tierCountry = (await saveReq(sarah, { request_type: 'tiering', hcp_id: holmExpert?.id, rationale: "Smoke" })).data;
+ok(tierCountry?.country_code && tierCountry.country_code === holmExpert?.country_code,
+   "a tiering request is in the expert's country");
+
+// Managers: set by people who manage users; never yourself or someone who reports to you
+const sarahManager = (await api(maria, `app_user?id=eq.${sarahMe.data.id}&select=manager_id`)).data?.[0]?.manager_id ?? null;
+const setManager = (who, userId, managerId) => api(who, `app_user?id=eq.${userId}`, { method: 'PATCH', body: { manager_id: managerId } });
+ok((await setManager(maria, sarahMe.data.id, me.data.id)).data?.[0]?.manager_id === me.data.id, "a Business Admin sets someone's manager");
+ok((await setManager(sarah, sarahMe.data.id, lisaMe.data.id)).status >= 400, "people can't choose their own manager");
+ok((await setManager(maria, me.data.id, me.data.id)).status >= 400, "someone can't be their own manager");
+ok((await setManager(maria, me.data.id, sarahMe.data.id)).status >= 400, "someone can't manage their own manager");
+ok((await setManager(maria, sarahMe.data.id, agentMe.data.id)).status >= 400, 'an agent is never a manager');
+await setManager(maria, sarahMe.data.id, sarahManager);
+
 // Tenant settings: System Admins switch the profile badge; me() reports it
 const badgeOf = async (who) => (await api(who, 'rpc/me', { method: 'POST', body: {} })).data?.tenant;
 const tenantNow = await badgeOf(paul);
@@ -791,6 +877,11 @@ await setBadge(alex, tenantNow?.show_profile_badge);
 ok((await api(alex, `tenant?id=eq.${tenantNow?.id}`, { method: 'PATCH', body: { name: 'Renamed' } })).status >= 400, "the organisation's name isn't a setting");
 
 // Cleanup
+await api(paul, `event?id=eq.${grpEv?.id}`, { method: 'DELETE' });
+await api(alex, `event_request?id=in.(${grpReq.data?.id},${tierCountry?.id})`, { method: 'DELETE' });
+await api(lisaT, `notification?record_id=eq.${grpEv?.id}`, { method: 'DELETE' });
+await api(maria, `user_group?id=eq.${grpId}`, { method: 'DELETE' });
+await api(alex, `email_message?record_id=in.(${grpEv?.id},${grpReq.data?.id})`, { method: 'DELETE' });
 await api(daniel, `event_request?id=eq.${amReq.data?.id}`, { method: 'DELETE' });
 await api(alex, `event?id=eq.${amEv.data?.id}`, { method: 'DELETE' });
 await api(alex, `event_request?id=eq.${tier.data?.id}`, { method: 'DELETE' });

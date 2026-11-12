@@ -160,6 +160,7 @@ export function RequestPage() {
                 <Row label="Date">{r.event_date ? formatDate(r.event_date) : empty}</Row>
                 <Row label="Duration">{durationLabel ?? empty}</Row>
               </>}
+              <Row label="Country">{r.country?.name ?? empty}</Row>
               <Row label="Business justification" wide>{r.rationale ? <span className="details-text">{r.rationale}</span> : empty}</Row>
               <Row label="Requested by"><PersonValue p={r.requester} /></Row>
               {decided && <Row label={r.status === 'approved' ? 'Approved by' : 'Rejected by'}>

@@ -8,12 +8,14 @@ import { CustomFieldInputs, customPayload, fieldsFor, useCustomFieldDefs, type C
 import { Field, FormSection } from '../../ui/Form';
 import { Select } from '../../ui/Select';
 import { DateInput, formatDate } from '../../ui/DateInput';
+import { useAuth } from '../../lib/auth';
+import { useCountries } from '../admin/adminData';
 import { useEligibilities, useExpertDirectory } from '../experts/expertsData';
 import { useRequestDurations, useRequestEvents, useRequestKinds, useRequestTypes, type RequestKind, type RequestRow } from './requestData';
 import '../contracts/contracts.css';
 
 interface FormState {
-  request_type: RequestKind; title: string; event_type_id: string; event_date: string; duration: string; rationale: string;
+  request_type: RequestKind; title: string; event_type_id: string; event_date: string; duration: string; rationale: string; country_code: string;
   hcp_id: string; related_event_id: string;
   custom: CustomValues;
 }
@@ -29,13 +31,16 @@ export function RequestFormModal({ request, tiering, onClose }: { request?: Requ
   const navigate = useNavigate();
   const qc = useQueryClient();
   const kinds = useRequestKinds();
+  const { me } = useAuth();
+  const countries = useCountries();
   const initial = useMemo<FormState>(() => ({
     request_type: request?.request_type ?? (tiering ? 'tiering' : 'event'),
     title: request?.title ?? '', event_type_id: request?.event_type_id ?? '', event_date: request?.event_date ?? '',
     duration: request?.duration ?? '', rationale: request?.rationale ?? '',
+    country_code: request ? request.country_code ?? '' : me?.country_code ?? '',
     hcp_id: request?.hcp_id ?? tiering?.hcp.id ?? '', related_event_id: request?.related_event_id ?? tiering?.event.id ?? '',
     custom: { ...request?.custom_fields },
-  }), [request, tiering]);
+  }), [request, tiering, me?.country_code]);
   const [f, setF] = useState(initial);
   const isTiering = f.request_type === 'tiering';
   const types = useRequestTypes();
@@ -59,7 +64,7 @@ export function RequestFormModal({ request, tiering, onClose }: { request?: Requ
     mutationFn: async () => {
       const fields = isTiering
         ? { hcp_id: f.hcp_id, related_event_id: f.related_event_id, rationale: f.rationale.trim() }
-        : { title: f.title.trim(), event_type_id: f.event_type_id, event_date: f.event_date, duration: f.duration, rationale: f.rationale.trim() };
+        : { title: f.title.trim(), event_type_id: f.event_type_id, event_date: f.event_date, duration: f.duration, country_code: f.country_code, rationale: f.rationale.trim() };
       const { data, error } = await supabase.rpc('save_request', {
         p: { ...(request ? { id: request.id } : { request_type: f.request_type }), ...fields, custom_fields: customPayload(shownCustom, f.custom) },
       });
@@ -158,6 +163,10 @@ export function RequestFormModal({ request, tiering, onClose }: { request?: Requ
             <Field label="Duration">
               {(id) => <Select id={id} value={f.duration} onChange={(v) => set('duration', v)}
                 options={(durations.data ?? []).map((x) => ({ value: x.code, label: x.label }))} />}
+            </Field>
+            <Field label="Country" hint="Groups with access to this country join once you submit.">
+              {(id, d) => <Select id={id} aria-describedby={d} value={f.country_code} searchable emptyLabel="Not decided" placeholder="Not decided"
+                onChange={(v) => set('country_code', v)} options={(countries.data ?? []).map((c) => ({ value: c.code, label: c.name }))} />}
             </Field>
           </>}
 

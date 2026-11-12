@@ -124,3 +124,13 @@ insert into public.session_kind (tenant_id, name, sort)
 select app.sid('tenant:alera'), n, srt
   from (values ('Housekeeping', 10), ('Chair introduction', 20), ('Presentation', 30), ('Panel / Q&A', 40), ('Discussion', 50),
                ('Workshop', 60), ('Break', 70), ('Meal', 80), ('Networking', 90), ('Summary', 100)) as t(n, srt);
+
+-- Access rules: which groups join which teams (groups are in 00_tenant_security.sql)
+insert into public.access_rule (id, tenant_id, group_id, applies_to, country_codes, event_type_ids, team_role, note) values
+  (app.sid('rule:hq-events'), app.sid('tenant:alera'), app.sid('group:hq-events'), 'all', null, null, 'viewer',
+   'HQ follows every event and request'),
+  (app.sid('rule:south-europe'), app.sid('tenant:alera'), app.sid('group:south-europe'), 'all', array['ES','PT','IT'], null, 'organizer',
+   'The regional team runs events in Southern Europe'),
+  (app.sid('rule:uki-medical'), app.sid('tenant:alera'), app.sid('group:uki-medical'), 'events', array['GB','IE'],
+   array[app.sid('etype:advisory'), app.sid('etype:conference')], 'viewer',
+   'Medical follows advisory boards and conferences in the UK and Ireland');

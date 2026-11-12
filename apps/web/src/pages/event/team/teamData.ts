@@ -5,6 +5,13 @@ export interface Person { id: string; display_name: string; initials: string | n
 
 export interface TeamRole { code: string; label: string; description: string; can_edit: boolean; sort: number }
 export interface TeamMember { id: string; user_id: string; team_role: string; role_label: string | null; created_at: string; user: Person | null }
+/** A group on the team: every member gets team_role. is_auto: added by an access rule (only rules change or remove it). */
+export interface TeamGroup {
+  id: string; group_id: string; team_role: string; is_auto: boolean;
+  group: { id: string; name: string; is_active: boolean; members: { user: Person | null }[] } | null;
+}
+/** A group that could join a team. */
+export interface GroupOption { id: string; name: string }
 
 export interface Reaction { emoji: string; user_id: string }
 export interface Post {
@@ -25,11 +32,12 @@ export interface Thread extends Post { replies: Post[] }
  */
 export interface Board { kind: 'event' | 'request'; id: string }
 export const boardTables = ({ kind }: Board) => ({
-  team: `${kind}_team_member`, post: `${kind}_post`, reaction: `${kind}_post_reaction`, key: `${kind}_id`,
+  team: `${kind}_team_member`, groups: `${kind}_team_group`, post: `${kind}_post`, reaction: `${kind}_post_reaction`, key: `${kind}_id`,
 });
 /** Everything cached for the record (access, team, posts) sits under this key. */
 export const boardKey = (b: Board) => [b.kind, b.id];
 export const teamKey = (b: Board) => [b.kind, b.id, 'team'];
+export const teamGroupsKey = (b: Board) => [b.kind, b.id, 'team-groups'];
 export const postsKey = (b: Board) => [b.kind, b.id, 'posts'];
 const PERSON = 'id,display_name,initials,avatar_color,job_title,user_type';
 
@@ -55,6 +63,47 @@ export function useTeam(board: Board) {
         .eq(t.key, board.id);
       if (error) throw error;
       return data as unknown as TeamMember[];
+    },
+  });
+}
+
+/** Groups on the team, each with its members. */
+export function useTeamGroups(board: Board) {
+  const t = boardTables(board);
+  return useQuery({
+    queryKey: teamGroupsKey(board),
+    queryFn: async () => {
+      const { data, error } = await supabase.from(t.groups)
+        .select(`id,group_id,team_role,is_auto,group:user_group(id,name,is_active,members:user_group_member(user:app_user(${PERSON})))`)
+        .eq(t.key, board.id);
+      if (error) throw error;
+      return data as unknown as TeamGroup[];
+    },
+  });
+}
+
+/**
+ * Everyone on the team: people added directly, then members of its active groups (each once).
+ * `via`: the group that puts them there, when they're not on the team themselves.
+ */
+export function teamPeople(members: TeamMember[] | undefined, groups: TeamGroup[] | undefined) {
+  const out = new Map<string, { user: Person; member?: TeamMember; via?: string }>();
+  for (const m of members ?? []) if (m.user) out.set(m.user.id, { user: m.user, member: m });
+  for (const g of groups ?? []) {
+    if (!g.group?.is_active) continue;
+    for (const { user } of g.group.members) if (user && !out.has(user.id)) out.set(user.id, { user, via: g.group.name });
+  }
+  return [...out.values()];
+}
+
+/** Active groups, for adding one to a team. */
+export function useGroupOptions(enabled: boolean) {
+  return useQuery({
+    queryKey: ['group-options'], enabled, staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('user_group').select('id,name').eq('is_active', true).order('name');
+      if (error) throw error;
+      return data as GroupOption[];
     },
   });
 }

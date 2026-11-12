@@ -129,3 +129,19 @@
 .admin-settings + .admin-settings { margin-top: 16px; }
 .settings-input-row { display: flex; gap: 8px; }
 .settings-input-row .input { flex: 1; min-width: 0; }
+
+/* Groups */
+.group-faces { display: inline-flex; align-items: center; }
+.group-faces > * + * { margin-left: -6px; }
+.group-faces .avatar { box-shadow: 0 0 0 2px var(--color-surface); }
+.group-faces-more { margin-left: 4px !important; font-size: var(--text-sm); color: var(--color-text-muted); font-weight: 600; }
+
+/* Groups: the access rules that use a group */
+.group-rules { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.group-rules li {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; border-radius: var(--radius-md); background: var(--color-bg); font-size: var(--text-base);
+}
+.group-rules li.inactive { color: var(--color-text-muted); }
+.group-rules-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.group-rule-count { font-size: var(--text-base); color: var(--color-text-secondary); }

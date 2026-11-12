@@ -83,8 +83,14 @@ insert into public.app_user (id, tenant_id, user_type, auth_user_id, display_nam
    app.sid('profile:email-agent'), app.sid('user:alex'),
    'Turns replies to Event Center emails into discussion replies and request decisions, as the person who replied.');
 
-insert into public.user_group_member (group_id, user_id, tenant_id) values
-  (app.sid('group:hq-events'), app.sid('user:paul'),    app.sid('tenant:alera')),
-  (app.sid('group:hq-events'), app.sid('user:lisa'),    app.sid('tenant:alera')),
-  (app.sid('group:medical'),   app.sid('user:sarah'),   app.sid('tenant:alera')),
-  (app.sid('group:medical'),   app.sid('user:michael'), app.sid('tenant:alera'));
+insert into public.user_group_member (group_id, user_id, tenant_id)
+select app.sid('group:' || g), app.sid('user:' || u), app.sid('tenant:alera')
+  from (values ('hq-events', 'paul'), ('south-europe', 'lisa'),
+               ('uki-medical', 'michael'), ('uki-marketing', 'emma'),
+               ('nordics-medical', 'sarah'), ('nordics-medical', 'ingrid'), ('dach-medical', 'klaus')) m(g, u);
+
+-- Managers (they'll approve their people's requests once approval processes are set up)
+update public.app_user u set manager_id = app.sid('user:' || m.manager)
+  from (values ('lisa', 'paul'), ('daniel', 'paul'), ('emma', 'paul'),
+               ('sarah', 'michael'), ('carlos', 'michael'), ('klaus', 'michael'), ('ingrid', 'michael')) m(person, manager)
+ where u.id = app.sid('user:' || m.person);

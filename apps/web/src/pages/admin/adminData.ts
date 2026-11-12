@@ -46,8 +46,27 @@ export interface UserRow {
   email: string | null; job_title: string | null; initials: string | null; avatar_color: string | null;
   status: 'active' | 'inactive'; country_code: string | null; profile_id: string; auth_user_id: string | null;
   last_login_at: string | null;
+  /** Their manager (an active person) */
+  manager_id: string | null;
   profile: { name: string; is_admin: boolean } | null;
   app_user_country: { country_code: string }[];
+  /** Groups they're in */
+  user_group_member: { group_id: string }[];
+}
+
+export interface GroupRow {
+  id: string; name: string; description: string | null; is_active: boolean;
+  user_group_member: { user_id: string }[];
+}
+export type RuleAppliesTo = 'all' | 'events' | 'requests';
+export interface AccessRuleRow {
+  id: string; group_id: string; applies_to: RuleAppliesTo;
+  /** null: every country */
+  country_codes: string[] | null;
+  /** null: every event type (and tiering requests, which have none) */
+  event_type_ids: string[] | null;
+  team_role: 'organizer' | 'viewer';
+  note: string | null; is_active: boolean;
 }
 
 export type CustomFieldType = 'text' | 'long_text' | 'number' | 'currency' | 'date' | 'checkbox' | 'picklist' | 'multi_picklist' | 'lookup_user' | 'url';
@@ -134,8 +153,23 @@ export function useUsers() {
   return useQuery({
     queryKey: [ADMIN_KEY, 'users'],
     queryFn: () => rows<UserRow>(supabase.from('app_user')
-      .select('id,user_type,first_name,last_name,display_name,email,job_title,initials,avatar_color,status,country_code,profile_id,auth_user_id,last_login_at,profile(name,is_admin),app_user_country!app_user_country_user_id_fkey(country_code)')
+      .select('id,user_type,first_name,last_name,display_name,email,job_title,initials,avatar_color,status,country_code,profile_id,auth_user_id,last_login_at,manager_id,' +
+              'profile(name,is_admin),app_user_country!app_user_country_user_id_fkey(country_code),user_group_member(group_id)')
       .order('display_name')),
+  });
+}
+
+export function useGroups() {
+  return useQuery({
+    queryKey: [ADMIN_KEY, 'groups'],
+    queryFn: () => rows<GroupRow>(supabase.from('user_group').select('id,name,description,is_active,user_group_member(user_id)').order('name')),
+  });
+}
+export function useAccessRules() {
+  return useQuery({
+    queryKey: [ADMIN_KEY, 'access-rules'],
+    queryFn: () => rows<AccessRuleRow>(supabase.from('access_rule')
+      .select('id,group_id,applies_to,country_codes,event_type_ids,team_role,note,is_active').order('created_at')),
   });
 }
 

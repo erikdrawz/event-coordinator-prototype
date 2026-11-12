@@ -16,11 +16,13 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 | Table | P0 | Key fields | Notes |
 |---|---|---|---|
 | `tenant` | ✓ | name, slug, brand_name, brand_color, show_profile_badge | "Alera Pharma" seeded |
-| `app_user` | ✓ | user_type (human/agent), auth_user_id → auth.users, first/last/display name, email, title, initials, avatar_color, profile_id, owner_user_id (agents), status, last_login_at | ERD "User". Agents are first-class users |
+| `app_user` | ✓ | user_type (human/agent), auth_user_id → auth.users, first/last/display name, email, title, initials, avatar_color, profile_id, owner_user_id (agents), manager_id, status, last_login_at | ERD "User". Agents are first-class users. `manager_id`: an active person, never themselves or someone below them; set by people who manage users |
 | `profile` | ✓ | name, description, is_admin | ERD "Profile": System Admin, Event Coordinator, Collaborator, Agent |
 | `permission` | ✓ | profile_id, object_name, can_read/create/edit/delete, view_all, modify_all | ERD "Permission": Salesforce-style object permissions |
 | `app_user_country` | ✓ (Phase 1) | user_id, country_code | Countries a user may create events in (plus `app_user.country_code` = home country) |
-| `user_group` / `user_group_member` | ✓ | name / group_id, user_id | ERD "Group": event sharing comes later |
+| `user_group` / `user_group_member` | ✓ | name, description, is_active / group_id, user_id | ERD "Group". Plain sets of people; someone can be in several groups. Access rules put groups on teams; approval processes will use them |
+| `access_rule` | ✓ | group_id, applies_to (all, events, requests), country_codes (null = all), event_type_ids (null = all), team_role (organizer, viewer), note, is_active | Puts a group on the team of matching events, and of matching requests once submitted. Several matching rules: the strongest access wins |
+| `event_team_group` / `request_team_group` | ✓ | event_id or request_id, group_id, team_role (organizer, viewer), is_auto | A group on a record's team: its members get team_role while they're in the active group. `is_auto`: added by an access rule, and only rules change or remove it |
 | `audit_log` | ✓ | table_name, record_id, event_id, action, actor_user_id, on_behalf_of_user_id, changed jsonb, at | Generic trigger on business tables |
 
 ## 2. Reference & configuration
@@ -119,7 +121,8 @@ Spend (Phase 5, built): `event_spend` (one invoice/receipt line), `event_spend_a
 - `hco` 1—N `event_contracting_org`
 - `contract` N—1 counterparty (`hcp` | `hco`); N—1 `event_expert` (expert contracts) and `event`; self-reference (Work Order → MSA, Addendum → Work Order / Single-event Contract); N—M to attendees and organisations via junctions; N—1 `contract_template_version`; N—1 `content` (template, document)
 - `content` 1—N `event_content`
-- `app_user` N—1 `profile`; N—M `user_group`; agents N—1 owner `app_user`
+- `app_user` N—1 `profile`; N—1 manager `app_user`; N—M `user_group`; agents N—1 owner `app_user`
+- `user_group` N—M `country`; N—M `event` and `event_request` (as team groups)
 
 ## Veeva CRM mapping (≈, to be verified by Erik)
 

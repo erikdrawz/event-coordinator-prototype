@@ -14,7 +14,7 @@ import { CheckboxField, Field, FormSection } from '../../ui/Form';
 import { Select } from '../../ui/Select';
 import { MultiSelect } from '../../ui/MultiSelect';
 import { AdminPage } from './AdminLayout';
-import { ADMIN_KEY, must, syncLinks, useCountries, useProfiles, useUsers, type Profile, type UserRow } from './adminData';
+import { ADMIN_KEY, must, syncLinks, useCountries, useGroups, useProfiles, useUsers, type Profile, type UserRow } from './adminData';
 
 /** A readable temporary password: 3 short words' worth of letters, digits and a dash. */
 function tempPassword() {
@@ -31,9 +31,10 @@ export function UsersAdmin() {
   const [profile, setProfile] = useState('');
   const [status, setStatus] = useState('active');
   const [editing, setEditing] = useState<UserRow | 'new' | null>(null);
+  const names = useMemo(() => new Map((users.data ?? []).map((u) => [u.id, u.display_name])), [users.data]);
 
   const columns = useMemo<Column<UserRow>[]>(() => [
-    { id: 'name', header: 'User', width: '30%', sortValue: (u) => u.display_name,
+    { id: 'name', header: 'User', width: '25%', sortValue: (u) => u.display_name,
       cell: (u) => (
         <span className="dt-person">
           <Avatar size={28} initials={u.initials} color={u.avatar_color} isAgent={u.user_type === 'agent'} />
@@ -43,9 +44,11 @@ export function UsersAdmin() {
           </span>
         </span>
       ) },
-    { id: 'profile', header: 'Profile', width: '17%', sortValue: (u) => u.profile?.name, cell: (u) => u.profile?.name },
-    { id: 'home', header: 'Home', width: '8%', sortValue: (u) => u.country_code, cell: (u) => u.country_code ?? <span className="text-muted">—</span> },
-    { id: 'countries', header: 'Creates events in', width: '23%', sortValue: (u) => u.app_user_country.length,
+    { id: 'profile', header: 'Profile', width: '14%', sortValue: (u) => u.profile?.name, cell: (u) => u.profile?.name },
+    { id: 'manager', header: 'Manager', width: '14%', sortValue: (u) => (u.manager_id ? names.get(u.manager_id) : ''),
+      cell: (u) => (u.manager_id ? names.get(u.manager_id) : <span className="text-muted">—</span>) },
+    { id: 'home', header: 'Home', width: '7%', sortValue: (u) => u.country_code, cell: (u) => u.country_code ?? <span className="text-muted">—</span> },
+    { id: 'countries', header: 'Creates events in', width: '18%', sortValue: (u) => u.app_user_country.length,
       cell: (u) => u.app_user_country.length
         ? <span className="admin-codes">{u.app_user_country.map((c) => c.country_code).sort().map((c) => <span key={c} className="admin-code">{c}</span>)}</span>
         : <span className="admin-all">None</span> },
@@ -53,7 +56,7 @@ export function UsersAdmin() {
       cell: (u) => <span className="dt-sub dt-nowrap">{!u.auth_user_id ? 'No login' : u.last_login_at ? timeAgo(u.last_login_at) : 'Never'}</span> },
     { id: 'status', header: 'Status', width: '10%', sortValue: (u) => u.status,
       cell: (u) => <span className={`pill ${u.status === 'active' ? 'pill-green' : 'pill-grey'}`}>{u.status === 'active' ? 'Active' : 'Inactive'}</span> },
-  ], []);
+  ], [names]);
 
   const filtered = useMemo(() => users.data?.filter((u) => (!status || u.status === status) && (!profile || u.profile_id === profile)
     && (!q || [u.display_name, u.email, u.job_title].some((v) => v?.toLowerCase().includes(q.toLowerCase())))), [users.data, q, profile, status]);
@@ -78,11 +81,15 @@ function UserEditor({ user, profiles, onClose }: { user: UserRow | null; profile
   const { me } = useAuth();
   const qc = useQueryClient();
   const countries = useCountries();
+  const users = useUsers();
+  const groups = useGroups();
   const iAmAdmin = Boolean(me?.profile.is_admin);
   // Only System Admins touch System Admin accounts; the database enforces the same
   const editable = (user ? can(me, 'app_user', 'edit') : can(me, 'app_user', 'create')) && (iAmAdmin || !user?.profile?.is_admin);
   const isAgent = user?.user_type === 'agent';
   const beforeCountries = user?.app_user_country.map((c) => c.country_code) ?? [];
+  const beforeGroups = user?.user_group_member.map((m) => m.group_id) ?? [];
+  const canGroup = can(me, 'user_group_member', 'create');
 
   const [first, setFirst] = useState(user?.first_name ?? '');
   const [last, setLast] = useState(user?.last_name ?? '');
@@ -92,6 +99,8 @@ function UserEditor({ user, profiles, onClose }: { user: UserRow | null; profile
   const [status, setStatus] = useState<'active' | 'inactive'>(user?.status ?? 'active');
   const [home, setHome] = useState(user?.country_code ?? '');
   const [ctry, setCtry] = useState(beforeCountries);
+  const [manager, setManager] = useState(user?.manager_id ?? '');
+  const [groupIds, setGroupIds] = useState(beforeGroups);
   const [withLogin, setWithLogin] = useState(true);
   const [password, setPassword] = useState(tempPassword);
   const [resetting, setResetting] = useState(false);
@@ -100,6 +109,12 @@ function UserEditor({ user, profiles, onClose }: { user: UserRow | null; profile
 
   const profileOptions = profiles.filter((p) => iAmAdmin || !p.is_admin || p.id === profileId).map((p) => ({ value: p.id, label: p.name }));
   const countryOptions = (countries.data ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }));
+  // Active people, never themselves; a current manager who has left stays listed
+  const managerOptions = (users.data ?? [])
+    .filter((u) => u.user_type === 'human' && u.id !== user?.id && (u.status === 'active' || u.id === user?.manager_id))
+    .map((u) => ({ value: u.id, label: u.job_title ? `${u.display_name} · ${u.job_title}` : u.display_name }));
+  const groupOptions = (groups.data ?? []).filter((g) => g.is_active || beforeGroups.includes(g.id))
+    .map((g) => ({ value: g.id, label: g.name }));
 
   const save = useMutation({
     mutationFn: async () => {
@@ -108,11 +123,13 @@ function UserEditor({ user, profiles, onClose }: { user: UserRow | null; profile
         first_name: first.trim() || null, last_name: last.trim() || null, display_name: display || email.trim(),
         email: email.trim() || null, job_title: title.trim() || null, profile_id: profileId, status, country_code: home || null,
         initials: initialsFor(first, last, display || email),
+        ...(isAgent ? {} : { manager_id: manager || null }),
       };
       let id = user?.id;
       if (id) await must(supabase.from('app_user').update(row).eq('id', id));
       else id = (await must(supabase.from('app_user').insert({ ...row, user_type: 'human', avatar_color: avatarColorFor(display) }).select('id').single()))!.id;
       await syncLinks('app_user_country', 'user_id', id!, 'country_code', beforeCountries, ctry);
+      if (canGroup && !isAgent) await syncLinks('user_group_member', 'user_id', id!, 'group_id', beforeGroups, groupIds);
       if (!user && withLogin) await must(supabase.rpc('create_user_login', { p_user_id: id, p_password: password }));
       return !user && withLogin ? `Login created. Share the temporary password with ${first || display} securely: ${password}` : null;
     },
@@ -189,6 +206,19 @@ function UserEditor({ user, profiles, onClose }: { user: UserRow | null; profile
               options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />}
           </Field>
         </FormSection>
+
+        {!isAgent && (
+          <FormSection title="Manager and groups">
+            <Field label="Manager" hint="Approves their requests once approval processes say so.">
+              {(id, d) => <Select id={id} aria-describedby={d} value={manager} onChange={setManager} searchable emptyLabel="No manager"
+                placeholder="No manager" options={managerOptions} disabled={!editable} />}
+            </Field>
+            <Field label="Groups" hint={canGroup ? 'Access rules put groups on the teams of events and requests.' : 'Managed in Admin → Groups.'}>
+              {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Groups" value={groupIds} onChange={setGroupIds}
+                disabled={!editable || !canGroup} placeholder="No groups" options={groupOptions} />}
+            </Field>
+          </FormSection>
+        )}
 
         <FormSection title="Countries">
           <Field label="Home country" hint="New events default to it.">

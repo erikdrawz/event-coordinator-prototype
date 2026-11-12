@@ -9,7 +9,7 @@ import { Avatar } from '../../../components/Avatar';
 import { Menu } from '../../../ui/Menu';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { ViaEmail } from '../../../ui/ViaEmail';
-import { boardTables, mentionsIn, postTime, postsKey, usePosts, useTeam, useTeamRoles, type Board, type Person, type Post, type Thread } from './teamData';
+import { boardTables, mentionsIn, postTime, postsKey, teamPeople, usePosts, useTeam, useTeamGroups, useTeamRoles, type Board, type Person, type Post, type Thread } from './teamData';
 
 const EMOJI = ['👍', '🎉', '👀', '❤️', '✅', '⚠️'];
 const SHOWN_REPLIES = 2;
@@ -160,12 +160,15 @@ export function Discussion({ board, name, canModerate }: { board: Board; name: s
   const t = boardTables(board);
   const posts = usePosts(board);
   const team = useTeam(board);
+  const teamGroups = useTeamGroups(board);
   const roles = useTeamRoles();
-  // Anyone on the team can be mentioned (they can read the board); mentions of people who left still show by name
-  const members = useMemo(() => (team.data ?? []).map((m) => m.user).filter((u): u is Person => Boolean(u)), [team.data]);
-  const mentionable = useMemo(() => (team.data ?? []).flatMap((m): Mentionable[] => m.user && m.user.id !== me?.id && m.user.user_type === 'human'
-    ? [{ ...m.user, note: m.role_label ?? roles.data?.find((r) => r.code === m.team_role)?.label ?? null }] : [])
-    .sort((a, b) => a.display_name.localeCompare(b.display_name)), [team.data, roles.data, me?.id]);
+  // Anyone on the team, directly or through a group, can be mentioned (they can read the board);
+  // mentions of people who left still show by name
+  const everyone = useMemo(() => teamPeople(team.data, teamGroups.data), [team.data, teamGroups.data]);
+  const members = useMemo(() => everyone.map((p) => p.user), [everyone]);
+  const mentionable = useMemo(() => everyone.flatMap(({ user, member, via }): Mentionable[] => user.id !== me?.id && user.user_type === 'human'
+    ? [{ ...user, note: member ? member.role_label ?? roles.data?.find((r) => r.code === member.team_role)?.label ?? null : via ?? null }] : [])
+    .sort((a, b) => a.display_name.localeCompare(b.display_name)), [everyone, roles.data, me?.id]);
   const names = useMemo(() => new Map(members.map((u) => [u.id, u.display_name])), [members]);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

@@ -105,9 +105,15 @@ select app.sid('tenant:alera'), app.sid('profile:bizadmin'), o.obj, true, w, w, 
       ) as v(obj)
   ) as o(obj, w);
 
+-- Groups: named sets of people. Access rules (02_reference_customers.sql) put some of them on
+-- teams; approval processes use others. Members are added in 01_users.sql.
 insert into public.user_group (id, tenant_id, name, description) values
-  (app.sid('group:hq-events'), app.sid('tenant:alera'), 'HQ Events',      'Global strategic events team'),
-  (app.sid('group:medical'),   app.sid('tenant:alera'), 'Medical Affairs','Medical leads and reviewers');
+  (app.sid('group:hq-events'),      app.sid('tenant:alera'), 'HQ Events',              'Global strategic events team'),
+  (app.sid('group:south-europe'),   app.sid('tenant:alera'), 'Southern Europe Events', 'Runs events in Spain, Portugal and Italy'),
+  (app.sid('group:uki-medical'),    app.sid('tenant:alera'), 'UKI Medical',            'Medical review for the UK and Ireland'),
+  (app.sid('group:uki-marketing'),  app.sid('tenant:alera'), 'UKI Marketing',          'Marketing review for the UK and Ireland'),
+  (app.sid('group:nordics-medical'),app.sid('tenant:alera'), 'Nordics Medical',        'Medical review for the Nordic countries'),
+  (app.sid('group:dach-medical'),   app.sid('tenant:alera'), 'DACH Medical',           'Medical review for Germany, Austria and Switzerland');
 
 -- Request team and board: the same rights as the event team and board, except that a requester
 -- (Collaborator) manages the team of their own requests
@@ -146,3 +152,19 @@ select x.tenant_id, x.profile_id, o, x.can_read, p.can_access_admin, p.can_acces
 insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all) values
   (app.sid('tenant:alera'), app.sid('profile:bizadmin'),    'email_message', true, false, false, false, true, false),
   (app.sid('tenant:alera'), app.sid('profile:email-agent'), 'email_message', true, true,  false, false, false, false);
+
+-- Groups and access rules: everyone who works on events reads them (to see who's on a team and
+-- why); Business Admins manage them with users. Groups on teams go with the team.
+insert into public.permission (tenant_id, profile_id, object_name, can_read)
+select p.tenant_id, p.id, o, true
+  from public.profile p
+ cross join unnest(array['user_group', 'user_group_member', 'access_rule']) o
+ where exists (select 1 from public.permission x where x.profile_id = p.id and x.object_name = 'event' and x.can_read)
+on conflict (profile_id, object_name) do nothing;
+update public.permission set can_create = true, can_edit = true, can_delete = true
+ where profile_id = app.sid('profile:bizadmin') and object_name in ('user_group', 'user_group_member', 'access_rule');
+insert into public.permission (tenant_id, profile_id, object_name, can_read, can_create, can_edit, can_delete, view_all, modify_all)
+select tenant_id, profile_id, n.target, can_read, can_create, can_edit, can_delete, view_all, modify_all
+  from public.permission x
+  join (values ('event_team_member', 'event_team_group'), ('request_team_member', 'request_team_group')) n(source, target)
+    on n.source = x.object_name;
