@@ -5,7 +5,7 @@ import { ConfirmDialog } from '../../ui/ConfirmDialog';
 
 export type Decision = 'approved' | 'rejected';
 
-/** Approves or rejects a request in review through decide_request(); rejecting requires a reason. */
+/** Decides the caller's step of a request's approval through decide_request(); rejecting requires a reason. */
 export function DecideRequestDialog({ request, decision, onDone, onClose }: {
   request: { id: string; title: string; requester: string | null }; decision: Decision; onDone: () => void; onClose: () => void;
 }) {
@@ -31,7 +31,9 @@ export function DecideRequestDialog({ request, decision, onDone, onClose }: {
     <ConfirmDialog title={approving ? 'Approve this request?' : 'Reject this request?'} confirmLabel={approving ? 'Approve request' : 'Reject request'}
       danger={!approving} pending={decide.isPending} error={decide.error?.message} onConfirm={confirm} onCancel={onClose}>
       <p className="cancel-event-text">
-        <strong>{request.title}</strong> is closed as {approving ? 'approved' : 'rejected'}. {who} is notified{approving ? '' : ' with your reason'}. This can't be undone.
+        {approving
+          ? <>You approve your step of <strong>{request.title}</strong>. When every step is approved, the request is approved and {who} is notified.</>
+          : <><strong>{request.title}</strong> is rejected, and any steps still open are cancelled. {who} is notified with your reason.</>} This can't be undone.
       </p>
       <label className="field-label" htmlFor="decision-note">
         {approving ? <>Note <span className="text-muted">(optional)</span></> : <>Reason <span className="field-required">*</span></>}

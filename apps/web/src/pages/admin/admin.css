@@ -145,3 +145,16 @@
 .group-rules li.inactive { color: var(--color-text-muted); }
 .group-rules-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
 .group-rule-count { font-size: var(--text-base); color: var(--color-text-secondary); }
+
+/* Approval processes: condition and step rows */
+.proc-rows { display: grid; gap: 8px; }
+.proc-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 8px; border-radius: var(--radius-md); background: var(--color-bg); }
+.proc-cells { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.proc-crit { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr) minmax(0, 1.6fr); }
+.proc-step { grid-template-columns: 64px minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 1.3fr); }
+.proc-num { text-align: center; }
+.proc-error { flex-basis: 100%; }
+@media (max-width: 720px) {
+  .proc-crit, .proc-step { grid-template-columns: minmax(0, 1fr); }
+  .proc-num { width: 64px; }
+}

@@ -13,3 +13,12 @@
 .request-expert { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 .req-decider { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Side column: the approval above the team */
+.request-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
+.approval-steps { margin: 4px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.approval-step-head { font-size: var(--text-sm); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 2px; }
+.approval-task { align-items: flex-start; }
+.approval-decision { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--text-sm); color: var(--color-text-secondary); }
+.approval-comment { margin-top: 4px; padding: 6px 10px; border-radius: var(--radius-md); background: var(--color-bg); font-size: var(--text-base); color: var(--color-text); white-space: pre-wrap; }
+.approval-task .team-sub { white-space: normal; overflow: visible; }

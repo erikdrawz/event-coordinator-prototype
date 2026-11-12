@@ -30,7 +30,7 @@ with objects(obj) as (values
   ('content'),('event_content'),('contract'),
   ('event_attendee_contract'),('org_contract'),
   ('event_post'),('event_post_reaction'),('event_task'),
-  ('approval_process'),('approval_process_step'),('approval'),('approval_action'),
+  ('approval_process'),('approval_process_step'),
   ('user_group'),('user_group_member'),('audit_log'),('custom_field'),('custom_field_layout'),
   ('event_type_country'),('app_user_country'),('session_kind')
 ),
@@ -69,7 +69,7 @@ select app.sid('tenant:alera'), app.sid('profile:collaborator'), o.obj, true,
     ('hco'),('hcp'),('fmv_rate'),('event_request'),('event'),('event_product'),('event_team_member'),
     ('event_session'),('event_expert'),('event_session_speaker'),('event_attendee'),('event_contracting_org'),
     ('content'),('event_content'),('contract'),('event_attendee_contract'),('org_contract'),
-    ('event_post'),('event_post_reaction'),('event_task'),('approval'),('approval_action'),('audit_log'),
+    ('event_post'),('event_post_reaction'),('event_task'),('audit_log'),
     ('custom_field'),('custom_field_layout'),
     ('event_type_country'),('app_user_country'),('session_kind')
   ) as o(obj);
@@ -99,7 +99,7 @@ select app.sid('tenant:alera'), app.sid('profile:bizadmin'), o.obj, true, w, w, 
         ('event_type'),('therapeutic_area'),('product'),('specialty'),('crm_connection'),
         ('hco'),('hcp'),('fmv_rate'),('event_request'),('event'),('event_product'),('event_team_member'),
         ('event_session'),('event_expert'),('event_session_speaker'),('event_attendee'),('event_contracting_org'),
-        ('content'),('event_content'),('contract'),('event_post'),('event_task'),('approval'),('approval_action'),
+        ('content'),('event_content'),('contract'),('event_post'),('event_task'),
         ('audit_log'),('custom_field'),('custom_field_layout'),
         ('event_type_country'),('app_user'),('app_user_country'),('session_kind')
       ) as v(obj)
@@ -113,7 +113,8 @@ insert into public.user_group (id, tenant_id, name, description) values
   (app.sid('group:uki-medical'),    app.sid('tenant:alera'), 'UKI Medical',            'Medical review for the UK and Ireland'),
   (app.sid('group:uki-marketing'),  app.sid('tenant:alera'), 'UKI Marketing',          'Marketing review for the UK and Ireland'),
   (app.sid('group:nordics-medical'),app.sid('tenant:alera'), 'Nordics Medical',        'Medical review for the Nordic countries'),
-  (app.sid('group:dach-medical'),   app.sid('tenant:alera'), 'DACH Medical',           'Medical review for Germany, Austria and Switzerland');
+  (app.sid('group:dach-medical'),   app.sid('tenant:alera'), 'DACH Medical',           'Medical review for Germany, Austria and Switzerland'),
+  (app.sid('group:compliance'),     app.sid('tenant:alera'), 'Compliance',             'Reviews expert tiering and anything outside the usual rules');
 
 -- Request team and board: the same rights as the event team and board, except that a requester
 -- (Collaborator) manages the team of their own requests
@@ -168,3 +169,13 @@ select tenant_id, profile_id, n.target, can_read, can_create, can_edit, can_dele
   from public.permission x
   join (values ('event_team_member', 'event_team_group'), ('request_team_member', 'request_team_group')) n(source, target)
     on n.source = x.object_name;
+
+-- Approval processes: everyone who works on events reads them; Business Admins manage them
+insert into public.permission (tenant_id, profile_id, object_name, can_read)
+select p.tenant_id, p.id, o, true
+  from public.profile p
+ cross join unnest(array['approval_process', 'approval_process_step']) o
+ where exists (select 1 from public.permission x where x.profile_id = p.id and x.object_name = 'event' and x.can_read)
+on conflict (profile_id, object_name) do update set can_read = true;
+update public.permission set can_create = true, can_edit = true, can_delete = true
+ where profile_id = app.sid('profile:bizadmin') and object_name in ('approval_process', 'approval_process_step');

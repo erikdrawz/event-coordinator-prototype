@@ -532,19 +532,36 @@ ok((await api(lisaT, `event_request?id=eq.${draft2.data?.id}`, { method: 'DELETE
 ok((await api(sarah, `event_request?id=eq.${draft2.data?.id}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } })).data?.length === 1, 'the requester can delete their draft');
 const reqAccess = await api(sarah, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: reqId } });
 ok(reqAccess.data?.access === 'edit' && reqAccess.data?.team_role === 'owner', 'my_request_access reports the requester as owner with edit access');
-// Deciding: home office or the request's approvers approve or reject a request in review, never their own
-const decide = (who, decision, note) => api(who, 'rpc/decide_request', { method: 'POST', body: { p_request_id: reqId, p_decision: decision, p_note: note } });
+// Deciding: the approval process decides who approves (the standard one: the requester's manager)
+const michaelT = await login('michael.chen@alera.example');
+const michaelId = (await api(michaelT, 'rpc/me', { method: 'POST', body: {} })).data?.id;
+const mariaId = (await api(maria, 'rpc/me', { method: 'POST', body: {} })).data?.id;
+const approvalOf = async (id) => (await api(paul, `approval?record_id=eq.${id}&select=id,process_name,status,current_step,approval_task(step_number,step_name,approver_type,approver_id,approver_group_id,status,decided_by,comment)&order=submitted_at.desc`)).data?.[0];
+const smokeApproval = await approvalOf(reqId);
+ok(smokeApproval?.process_name === 'Event request — standard' && smokeApproval.approval_task.length === 1
+   && smokeApproval.approval_task[0].approver_id === michaelId && smokeApproval.approval_task[0].status === 'pending',
+   "submitting starts the matching process: the standard one sends it to the requester's manager");
+const decide = (who, decision, note, id = reqId) => api(who, 'rpc/decide_request', { method: 'POST', body: { p_request_id: id, p_decision: decision, p_note: note } });
 ok(reqAccess.data?.can_decide === false && (await decide(sarah, 'approved')).status >= 400, "the requester can't approve their own request");
-ok((await api(paul, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: reqId } })).data?.can_decide === true, 'home office may decide a request in review');
-ok((await decide(paul, 'rejected', '  ')).status >= 400, 'rejecting needs a reason');
-ok((await decide(paul, 'maybe')).status >= 400, 'a decision is approved or rejected');
-const approved = await decide(paul, 'approved', 'Smoke: go ahead');
+ok((await api(paul, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: reqId } })).data?.can_decide === false
+   && (await decide(paul, 'approved')).status >= 400, "home office doesn't decide unless the process names them");
+const michaelAccess = (await api(michaelT, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: reqId } })).data;
+ok(michaelAccess?.can_decide === true && michaelAccess.access === 'view' && michaelAccess.team_role === 'approver',
+   'the approver sees the request as its Approver and may decide');
+ok((await api(michaelT, 'rpc/my_pending_approvals', { method: 'POST', body: {} })).data?.some((x) => x.record_id === reqId),
+   'the request waits in the approver\'s approvals');
+ok((await api(michaelT, `notification?record_id=eq.${reqId}&kind=eq.approval_required&read_at=is.null&select=id`)).data?.length === 1, 'the approver is notified');
+ok((await decide(michaelT, 'rejected', '  ')).status >= 400, 'rejecting needs a reason');
+ok((await decide(michaelT, 'maybe')).status >= 400, 'a decision is approved or rejected');
+const approved = await decide(michaelT, 'approved', 'Smoke: go ahead');
 const paulId = (await api(paul, 'app_user?email=eq.paul.taylor@alera.example&select=id')).data?.[0]?.id;
-ok(approved.status === 200 && approved.data?.status === 'approved' && approved.data.decided_by === paulId && approved.data.decision_note === 'Smoke: go ahead' && approved.data.decided_at,
-   'home office approves a request, with who, when and a note');
+ok(approved.status === 200 && approved.data?.status === 'approved' && approved.data.decided_by === michaelId && approved.data.decision_note === 'Smoke: go ahead' && approved.data.decided_at,
+   'the manager approves the request, with who, when and a note');
+ok((await approvalOf(reqId))?.status === 'approved', 'the approval is complete');
 const reqNote = await api(sarah, `notification?record_id=eq.${reqId}&kind=eq.approved&select=id,title`);
 ok(reqNote.data?.[0]?.title === 'Request approved: Smoke request', 'the requester is notified of the decision');
-ok((await decide(lisaT, 'rejected', 'Too late')).status >= 400, 'a decided request stays decided');
+ok((await api(michaelT, `notification?record_id=eq.${reqId}&kind=eq.approval_required&read_at=is.null&select=id`)).data?.length === 0, "the approver's request to approve is done");
+ok((await decide(michaelT, 'rejected', 'Too late')).status >= 400, 'a decided request stays decided');
 ok((await api(sarah, `event_request?id=eq.${reqId}`, { method: 'PATCH', body: { decision_note: 'Edited' } })).status >= 400, "a decision can't be edited");
 
 // Tiering requests: an expert and a business justification; named after the expert
@@ -558,29 +575,78 @@ ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', 
    'a tiering request needs a business justification to be submitted');
 ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { request_type: 'event' } })).status >= 400, "a request's type can't change");
 await saveReq(sarah, { id: tier.data?.id, rationale: 'Smoke: please review her cap' });
-await api(sarah, 'request_team_member', { method: 'POST', body: { request_id: tier.data?.id, user_id: lisa.data[0].id, team_role: 'approver' } });
 ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { status: 'review' } })).data?.[0]?.status === 'review'
    && (await api(paul, `event_request?id=eq.${tier.data?.id}&select=id`)).data?.length === 1, 'a submitted tiering request reaches home office');
-ok((await api(lisaT, `notification?record_id=eq.${tier.data?.id}&kind=eq.approval_required&select=id`)).data?.length === 1, "submitting notifies the request's approvers");
+ok((await approvalOf(tier.data?.id))?.process_name === 'Expert tiering', 'a tiering request goes through the tiering process (Compliance)');
+ok((await api(maria, `notification?record_id=eq.${tier.data?.id}&kind=eq.approval_required&select=id`)).data?.length === 1
+   && (await api(alex, `notification?record_id=eq.${tier.data?.id}&kind=eq.approval_required&select=id`)).data?.length === 1, "every member of an approving group is notified");
 ok((await api(paul, `event_request?request_type=eq.tiering&coordinator_id=is.null&status=eq.review&select=id`)).data?.length === 2,
    'tiering requests wait in the unassigned requests');
 
 // Approving by email: the approval email has the details; the reply starts with Approve or Reject
-const lisaApproval = (await api(lisaT, `email_message?record_id=eq.${tier.data?.id}&kind=eq.approval&select=reply_to,body,subject`)).data?.[0];
-ok(lisaApproval?.subject.startsWith('Approval needed: Tiering') && lisaApproval.body.includes('Smoke: please review her cap'), "submitting emails the request's approvers its details");
-await api(sarah, 'request_team_member', { method: 'POST', body: { request_id: tier.data?.id, user_id: paulId, team_role: 'approver' } });
-ok((await api(paul, `email_message?record_id=eq.${tier.data?.id}&kind=eq.approval&select=id`)).data?.length === 1, 'an approver added during review is emailed too');
-const lisaFrom = 'Lisa Anderson <lisa.anderson@alera.example>';
-ok((await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Sounds good' })).data?.status === 'failed', 'an approval reply starts with Approve or Reject');
-const noReason = await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Reject\n\n> Approval needed' });
+const mariaApproval = (await api(maria, `email_message?record_id=eq.${tier.data?.id}&kind=eq.approval&user_id=eq.${mariaId}&select=reply_to,body,subject`)).data?.[0];
+ok(mariaApproval?.subject.startsWith('Approval needed: Tiering') && mariaApproval.body.includes('Smoke: please review her cap'), "submitting emails the approvers the request's details");
+const alexApproval = (await api(alex, `email_message?record_id=eq.${tier.data?.id}&kind=eq.approval&user_id=eq.${me0.data?.id}&select=reply_to`)).data?.[0];
+const mariaFrom = 'Maria Castillo <maria.castillo@alera.example>';
+ok((await receive(emailAgent, { from: mariaFrom, to: mariaApproval?.reply_to, text: 'Sounds good' })).data?.status === 'failed', 'an approval reply starts with Approve or Reject');
+const noReason = await receive(emailAgent, { from: mariaFrom, to: mariaApproval?.reply_to, text: 'Reject\n\n> Approval needed' });
 ok(noReason.data?.status === 'failed' && /reason/.test(noReason.data?.status_note ?? ''), 'rejecting by email needs a reason too');
-const byEmail = await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Approve - Smoke: fine by email\n\nOn Mon, Event Center wrote:\n> Approval needed' });
+const byEmail = await receive(emailAgent, { from: mariaFrom, to: mariaApproval?.reply_to, text: 'Approve - Smoke: fine by email\n\nOn Mon, Event Center wrote:\n> Approval needed' });
 const tierNow = (await api(paul, `event_request?id=eq.${tier.data?.id}&select=status,decided_by,decided_via,decision_note`)).data?.[0];
-ok(byEmail.data?.status === 'processed' && tierNow?.status === 'approved' && tierNow.decided_via === 'email' && tierNow.decided_by === lisa.data[0].id
+ok(byEmail.data?.status === 'processed' && tierNow?.status === 'approved' && tierNow.decided_via === 'email' && tierNow.decided_by === mariaId
    && tierNow.decision_note === 'Smoke: fine by email', 'an approver approves by replying Approve, with a comment');
-ok((await receive(emailAgent, { from: lisaFrom, to: lisaApproval?.reply_to, text: 'Reject: changed my mind' })).data?.status === 'failed', 'a decided request stays decided');
+ok((await receive(emailAgent, { from: 'Alex Morgan <alex.morgan@alera.example>', to: alexApproval?.reply_to, text: 'Reject: changed my mind' })).data?.status === 'failed',
+   'one member decides for the group: the others can no longer');
 ok((await api(paul, `event_request?id=eq.${reqId}&select=decided_via`)).data?.[0]?.decided_via === 'app', 'decisions made in Event Center say so');
 ok((await api(sarah, `event_request?id=eq.${tier.data?.id}`, { method: 'PATCH', body: { decided_via: 'app' } })).status >= 400, "where a decision was made can't be edited");
+
+// Approval processes: entry criteria pick the process; same step number runs in parallel, the next waits
+const procName = `Smoke process ${Date.now()}`;
+const compliance = (await api(paul, 'user_group?name=eq.Compliance&select=id')).data?.[0]?.id;
+ok((await api(paul, 'approval_process', { method: 'POST', body: { name: procName } })).status >= 400, "a coordinator can't create approval processes");
+ok((await api(maria, 'approval_process', { method: 'POST', body: { name: `${procName} x`, criteria: [{ field: 'secret', op: 'in', values: ['x'] }] } })).status >= 400
+   && (await api(maria, 'approval_process', { method: 'POST', body: { name: `${procName} y`, criteria: [{ field: 'country_code', op: 'gt', value: 3 }] } })).status >= 400,
+   'entry criteria use known fields with fitting conditions');
+const proc = (await api(maria, 'approval_process', { method: 'POST', body: { name: procName, priority: 1,
+  criteria: [{ field: 'request_type', op: 'in', values: ['event'] }, { field: 'country_code', op: 'in', values: ['NL'] }] } })).data?.[0];
+const addStep = (body) => api(maria, 'approval_process_step', { method: 'POST', body: { process_id: proc?.id, ...body } });
+ok((await addStep({ step_number: 1, name: 'Bad', approver_type: 'group' })).status >= 400, 'a group step names its group');
+ok((await addStep({ step_number: 1, name: 'HQ', approver_type: 'user', approver_user_id: paulId })).status === 201
+   && (await addStep({ step_number: 1, name: 'Compliance', approver_type: 'group', approver_group_id: compliance })).status === 201
+   && (await addStep({ step_number: 2, name: 'Manager', approver_type: 'manager' })).status === 201,
+   'a Business Admin sets up a process: two steps in parallel, then the manager');
+const nlReq = (await saveReq(sarah, { title: 'Smoke NL request', event_type_id: types.data[0].id, event_date: '2027-06-01', duration: 'hours',
+                                     country_code: 'NL', rationale: 'Smoke' })).data;
+await api(sarah, `event_request?id=eq.${nlReq?.id}`, { method: 'PATCH', body: { status: 'review' } });
+const nlTasks = async () => (await approvalOf(nlReq?.id))?.approval_task ?? [];
+const t1 = await nlTasks();
+ok((await approvalOf(nlReq?.id))?.process_name === procName && t1.filter((t) => t.status === 'pending').length === 2
+   && t1.find((t) => t.step_number === 2)?.status === 'waiting' && t1.find((t) => t.step_number === 2)?.approver_id === michaelId,
+   'the matching process applies: step 1 waits on both approvers, step 2 on the manager fixed at submit');
+ok((await api(michaelT, 'rpc/my_request_access', { method: 'POST', body: { p_request_id: nlReq?.id } })).data?.can_decide === false, "a later step's approver can't decide yet");
+await decide(paul, 'approved', null, nlReq?.id);
+ok((await nlTasks()).find((t) => t.step_number === 2)?.status === 'waiting', 'a step is done only when all its parallel approvers approve');
+await decide(maria, 'approved', 'Smoke: compliant', nlReq?.id);
+ok((await nlTasks()).find((t) => t.step_number === 2)?.status === 'pending'
+   && (await api(michaelT, `notification?record_id=eq.${nlReq?.id}&kind=eq.approval_required&select=id`)).data?.length === 1,
+   'then the next step starts and its approver is notified');
+ok((await decide(alex, 'approved', null, nlReq?.id)).status >= 400, 'once a member decided for the group, the others have nothing to decide');
+const nlRejected = await decide(michaelT, 'rejected', 'Smoke: not this quarter', nlReq?.id);
+ok(nlRejected.data?.status === 'rejected' && nlRejected.data.decision_note === 'Smoke: not this quarter', 'a rejection at any step rejects the request');
+// Refusals: no manager and no fallback; no process at all
+const paulNl = (await saveReq(michaelT, { title: 'Smoke NL by Michael', event_type_id: types.data[0].id, event_date: '2027-06-01', duration: 'hours',
+                                     country_code: 'NL', rationale: 'Smoke' })).data;
+const paulSubmit = await api(michaelT, `event_request?id=eq.${paulNl?.id}`, { method: 'PATCH', body: { status: 'review' } });
+ok(paulSubmit.status >= 400 && /manager/.test(paulSubmit.data?.message ?? ''), "submitting is refused when a manager step has no manager and no fallback");
+const standard = (await api(maria, "approval_process?name=eq.Event%20request%20%E2%80%94%20standard&select=id")).data?.[0]?.id;
+await api(maria, `approval_process?id=eq.${standard}`, { method: 'PATCH', body: { is_active: false } });
+const dkReq = (await saveReq(sarah, { title: 'Smoke DK request', event_type_id: types.data[0].id, event_date: '2027-06-01', duration: 'hours', rationale: 'Smoke' })).data;
+const dkSubmit = await api(sarah, `event_request?id=eq.${dkReq?.id}`, { method: 'PATCH', body: { status: 'review' } });
+await api(maria, `approval_process?id=eq.${standard}`, { method: 'PATCH', body: { is_active: true } });
+ok(dkSubmit.status >= 400 && /No approval process/.test(dkSubmit.data?.message ?? ''), 'submitting is refused when no process applies');
+await api(maria, `approval_process?id=eq.${proc?.id}`, { method: 'DELETE' });
+await api(alex, `event_request?id=in.(${nlReq?.id},${paulNl?.id},${dkReq?.id})`, { method: 'DELETE' });
+await api(alex, `email_message?record_id=eq.${nlReq?.id}`, { method: 'DELETE' });
 
 // Attendees: HCPs added in bulk from EC or straight from a CRM; each person once
 const addAtt = (who, people) => api(who, 'rpc/add_event_attendees', { method: 'POST', body: { p_event_id: ev.id, p_people: people } });

@@ -86,10 +86,11 @@ insert into public.app_user (id, tenant_id, user_type, auth_user_id, display_nam
 insert into public.user_group_member (group_id, user_id, tenant_id)
 select app.sid('group:' || g), app.sid('user:' || u), app.sid('tenant:alera')
   from (values ('hq-events', 'paul'), ('south-europe', 'lisa'),
-               ('uki-medical', 'michael'), ('uki-marketing', 'emma'),
+               ('uki-medical', 'michael'), ('uki-medical', 'sarah'), ('uki-marketing', 'emma'),
+               ('compliance', 'alex'), ('compliance', 'maria'),
                ('nordics-medical', 'sarah'), ('nordics-medical', 'ingrid'), ('dach-medical', 'klaus')) m(g, u);
 
--- Managers (they'll approve their people's requests once approval processes are set up)
+-- Managers (approval processes send their people's requests to them)
 update public.app_user u set manager_id = app.sid('user:' || m.manager)
   from (values ('lisa', 'paul'), ('daniel', 'paul'), ('emma', 'paul'),
                ('sarah', 'michael'), ('carlos', 'michael'), ('klaus', 'michael'), ('ingrid', 'michael')) m(person, manager)

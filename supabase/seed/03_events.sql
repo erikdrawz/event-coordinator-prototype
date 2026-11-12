@@ -11,11 +11,22 @@ language sql stable as $$ select ((current_date + p_days) + p_hhmm::time) at tim
 -- ---------------------------------------------------------------------
 -- Approval processes (configuration)
 -- ---------------------------------------------------------------------
-insert into public.approval_process (id, tenant_id, name, record_type) values
-  (app.sid('ap:request-standard'), app.sid('tenant:alera'), 'Event request — standard', 'request');
-insert into public.approval_process_step (id, tenant_id, process_id, sort, name, approver_user_id, approver_profile_id) values
-  (app.sid('aps:request-1'), app.sid('tenant:alera'), app.sid('ap:request-standard'), 1, 'HQ Events review',   app.sid('user:paul'), null),
-  (app.sid('aps:request-2'), app.sid('tenant:alera'), app.sid('ap:request-standard'), 2, 'Compliance sign-off', app.sid('user:alex'), null);
+-- Lowest priority first; the standard process catches every other request.
+insert into public.approval_process (id, tenant_id, name, description, priority, criteria) values
+  (app.sid('ap:tiering'), app.sid('tenant:alera'), 'Expert tiering', 'Compliance reviews every exception to an expert''s tier or cap.', 10,
+   '[{"field": "request_type", "op": "in", "values": ["tiering"]}]'),
+  (app.sid('ap:uki-advisory'), app.sid('tenant:alera'), 'UK & Ireland advisory boards',
+   'The requester''s manager and UKI Marketing in parallel, then UKI Medical.', 20,
+   jsonb_build_array(jsonb_build_object('field', 'request_type', 'op', 'in', 'values', jsonb_build_array('event')),
+                     jsonb_build_object('field', 'event_type_id', 'op', 'in', 'values', jsonb_build_array(app.sid('etype:advisory'))),
+                     jsonb_build_object('field', 'country_code', 'op', 'in', 'values', jsonb_build_array('GB', 'IE')))),
+  (app.sid('ap:standard'), app.sid('tenant:alera'), 'Event request — standard', 'Every other request: the requester''s manager approves.', 100, '[]');
+insert into public.approval_process_step (id, tenant_id, process_id, step_number, name, approver_type, approver_user_id, approver_group_id, fallback_group_id) values
+  (app.sid('aps:tiering-1'),  app.sid('tenant:alera'), app.sid('ap:tiering'),      1, 'Compliance review',  'group',   null, app.sid('group:compliance'),    null),
+  (app.sid('aps:uki-1a'),     app.sid('tenant:alera'), app.sid('ap:uki-advisory'), 1, 'Manager approval',   'manager', null, null,                           app.sid('group:hq-events')),
+  (app.sid('aps:uki-1b'),     app.sid('tenant:alera'), app.sid('ap:uki-advisory'), 1, 'Marketing review',   'group',   null, app.sid('group:uki-marketing'), null),
+  (app.sid('aps:uki-2'),      app.sid('tenant:alera'), app.sid('ap:uki-advisory'), 2, 'Medical review',     'group',   null, app.sid('group:uki-medical'),   null),
+  (app.sid('aps:standard-1'), app.sid('tenant:alera'), app.sid('ap:standard'),     1, 'Manager approval',   'manager', null, null,                           app.sid('group:hq-events'));
 
 -- ---------------------------------------------------------------------
 -- Events
@@ -113,9 +124,9 @@ select app.sid('req:' || k), app.sid('tenant:alera'), 'REQ-' || extract(year fro
   ) as t(k, num, hcp, ev, st, req, why, sub_h)
   join public.hcp h on h.id = app.sid('hcp:' || t.hcp);
 
--- Request teams (requesters are added as owner by trigger): the coordinator approves; a few extras
+-- Request teams (requesters are added as owner by trigger): the coordinator follows it; a few extras
 insert into public.request_team_member (tenant_id, request_id, user_id, team_role, role_label)
-select app.sid('tenant:alera'), r.id, r.coordinator_id, 'approver', 'Coordinator'
+select app.sid('tenant:alera'), r.id, r.coordinator_id, 'viewer', 'Coordinator'
   from public.event_request r where r.coordinator_id is not null
 on conflict (request_id, user_id) do nothing;
 insert into public.request_team_member (tenant_id, request_id, user_id, team_role, role_label)
@@ -184,19 +195,7 @@ update public.event e set custom_fields = v.cf::jsonb
   ) as v(k, cf)
  where e.id = app.sid('event:' || v.k);
 
--- Approvals: one completed (SMA Board), three waiting for Paul ----------------
-insert into public.approval (id, tenant_id, process_id, record_type, record_id, status, current_step, submitted_by, submitted_at, decided_at)
-select app.sid('appr:' || k), app.sid('tenant:alera'), app.sid('ap:request-standard'), 'request', app.sid('req:' || k),
-       st, step, r.requested_by, r.submitted_at, case when st = 'approved' then r.submitted_at + interval '3 days' end
-  from (values ('sma-board','approved',2), ('onc-ab-q3','pending',1), ('rare-vienna','pending',1), ('q4-planning','pending',1)) t(k, st, step)
-  join public.event_request r on r.id = app.sid('req:' || k);
-
-insert into public.approval_action (tenant_id, approval_id, step_id, step_name, approver_id, decision, comment, decided_at) values
-  (app.sid('tenant:alera'), app.sid('appr:sma-board'), app.sid('aps:request-1'), 'HQ Events review',    app.sid('user:paul'), 'approved', 'Fits the Nordic SMA plan. Budget within range.', now() - interval '38 days'),
-  (app.sid('tenant:alera'), app.sid('appr:sma-board'), app.sid('aps:request-2'), 'Compliance sign-off', app.sid('user:alex'), 'approved', null,                                               now() - interval '37 days'),
-  (app.sid('tenant:alera'), app.sid('appr:onc-ab-q3'),   app.sid('aps:request-1'), 'HQ Events review', app.sid('user:paul'), null, null, null),
-  (app.sid('tenant:alera'), app.sid('appr:rare-vienna'), app.sid('aps:request-1'), 'HQ Events review', app.sid('user:paul'), null, null, null),
-  (app.sid('tenant:alera'), app.sid('appr:q4-planning'), app.sid('aps:request-1'), 'HQ Events review', app.sid('user:paul'), null, null, null);
+-- Approvals start in 07_email.sql, where submitting queues the approval emails
 
 -- ---------------------------------------------------------------------
 -- Attendees (before the experts, who'd otherwise join as attendees automatically)
@@ -621,7 +620,6 @@ select app.sid('task:' || k), app.sid('tenant:alera'), app.sid('event:' || e), t
 -- Notifications for the demo lead (Paul)
 -- ---------------------------------------------------------------------
 insert into public.notification (tenant_id, user_id, kind, title, body, record_type, record_id, read_at, created_at) values
-  (app.sid('tenant:alera'), app.sid('user:paul'), 'approval_required', 'Oncology Advisory Board Q3', 'submitted for your approval by Michael Chen', 'request', app.sid('req:onc-ab-q3'), null, now() - interval '2 hours'),
   (app.sid('tenant:alera'), app.sid('user:paul'), 'new_request',       'Respiratory Conference Barcelona', 'is waiting for an owner',            'request', app.sid('req:resp-barcelona'), null, now() - interval '5 hours'),
   (app.sid('tenant:alera'), app.sid('user:paul'), 'approved',          'SMA Board',                  'moved to Contract — approvals complete',       'event',   app.sid('event:sma-board'), now() - interval '20 hours', now() - interval '1 day'),
   (app.sid('tenant:alera'), app.sid('user:paul'), 'task_assigned',     'Countersign Marriott venue contract', 'assigned to you on SMA Board',        'event',   app.sid('event:sma-board'), now() - interval '1 day', now() - interval '25 hours');

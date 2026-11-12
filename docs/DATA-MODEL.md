@@ -101,10 +101,11 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 | Table | P0 | Key fields | Notes |
 |---|---|---|---|
-| `approval_process` | ✓ | name, record_type (request/event), event_type_id, is_active | config |
-| `approval_process_step` | ✓ | process_id, sort, name, approver_profile_id, approver_user_id | config (ERD "Approval Step") |
-| `approval` | ✓ | process_id, record_type, record_id, status (pending/approved/rejected/recalled), current_step, submitted_by/at | runtime (ERD "Approval") |
-| `approval_action` | ✓ | approval_id, step_id, approver_id, decision, comment, decided_at | runtime (ERD "Approval Action") |
+| `approval_process` | ✓ | name, description, record_type (request), priority, criteria (jsonb: [{field, op, values/value}]), is_active | config (Admin → Approvals). The lowest-priority active process whose criteria all match applies |
+| `approval_process_step` | ✓ | process_id, step_number, name, approver_type (manager/group/user), approver_user_id, approver_group_id, fallback_group_id | config (ERD "Approval Step"). Same step_number: in parallel |
+| `approval_criteria_field` | ✓ | record_type, code, label, kind (choice/number) | lookup: fields criteria can test (plus custom.<api_name>) |
+| `approval` | ✓ | process_id, process_name, record_type, record_id, status (pending/approved/rejected/cancelled), current_step, submitted_by/at, decided_at | runtime (ERD "Approval"): one per submission |
+| `approval_task` | ✓ | approval_id, step_number, step_name, approver_type, approver_id or approver_group_id, status (waiting/pending/approved/rejected/cancelled), decided_by/at/via, comment | runtime (ERD "Approval Action"): who approves each step, fixed at submit |
 
 ## 8. Later phases
 

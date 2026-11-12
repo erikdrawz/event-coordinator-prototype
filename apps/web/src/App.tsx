@@ -23,6 +23,7 @@ import { SettingsAdmin } from './pages/admin/SettingsAdmin';
 import { UsersAdmin } from './pages/admin/UsersAdmin';
 import { GroupsAdmin } from './pages/admin/GroupsAdmin';
 import { AccessRulesAdmin } from './pages/admin/AccessRulesAdmin';
+import { ApprovalsAdmin } from './pages/admin/ApprovalsAdmin';
 import { CustomFieldsAdmin } from './pages/admin/CustomFieldsAdmin';
 import { ContractTemplatePage, ContractTemplateRedirect } from './pages/admin/ContractTemplatesAdmin';
 
@@ -72,6 +73,7 @@ export function App() {
           <Route path="users" element={<UsersAdmin />} />
           <Route path="groups" element={<GroupsAdmin />} />
           <Route path="access-rules" element={<AccessRulesAdmin />} />
+          <Route path="approvals" element={<ApprovalsAdmin />} />
           <Route path="emails" element={<EmailsAdmin />} />
           <Route path="settings" element={<SettingsAdmin />} />
         </Route>

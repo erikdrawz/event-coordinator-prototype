@@ -24,7 +24,7 @@ const GROUPS: { title: string; sections: Section[] }[] = [
     { to: 'event-types', label: 'Event types', icon: CalendarCog, show: (me) => can(me, 'event_type', 'edit') },
     { to: 'custom-fields', label: 'Custom fields', icon: SlidersHorizontal, show: (me) => can(me, 'custom_field', 'edit') },
     { label: 'Business rules', icon: Workflow, show: admin },
-    { label: 'Approvals', icon: ShieldCheck, show: admin },
+    { to: 'approvals', label: 'Approvals', icon: ShieldCheck, show: (me) => can(me, 'approval_process', 'edit') },
     { label: 'Connections', icon: Plug, show: admin },
   ] },
   { title: 'Users & permissions', sections: [

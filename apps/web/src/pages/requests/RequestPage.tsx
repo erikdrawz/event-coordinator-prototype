@@ -15,6 +15,7 @@ import { Discussion } from '../event/team/Discussion';
 import { TeamPanel } from '../event/team/TeamPanel';
 import type { Person } from '../event/team/teamData';
 import { DecideRequestDialog, type Decision } from './DecideRequestDialog';
+import { ApprovalCard } from './ApprovalCard';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
 import { useCustomRows } from '../../components/CustomFields';
@@ -35,8 +36,8 @@ const PersonValue = ({ p }: { p: Person | null }) => p
 /**
  * A request: what's asked for (an event: name, type, when; a tiering review: the expert and the
  * event they're needed for), why, its status, and the team's discussion. Drafts can be edited,
- * submitted for approval or deleted; after that the details are fixed. In review, home office or
- * the request's approvers (never the requester) approve or reject it.
+ * submitted for approval or deleted; after that the details are fixed. Submitting starts the
+ * approval process that applies; each step's approvers (never the requester) approve or reject it.
  */
 export function RequestPage() {
   const { id } = useParams();
@@ -98,8 +99,8 @@ export function RequestPage() {
   const ev = r.related_event;
   const evDate = ev?.starts_at ? formatDate(ymdInZone(ev.starts_at, ev.timezone)) : null;
   const noActions = inReview
-    ? (r.requested_by === me?.id ? 'You submitted this request, so home office or its approvers approve or reject it'
-      : 'Home office and the request\'s approvers approve or reject it')
+    ? (r.requested_by === me?.id ? 'You submitted this request, so its approvers approve or reject it'
+      : 'The approvers of its current step approve or reject it')
     : !isDraft ? `This request is ${r.status === 'approved' ? 'approved' : 'rejected'}; nothing more to do`
       : !canEdit ? 'You can view this request; the requester and organizers act on it' : 'No actions available';
   const decided = r.status === 'approved' || r.status === 'rejected';
@@ -178,7 +179,10 @@ export function RequestPage() {
           </section>
           <Discussion board={board} name={r.title} canModerate={canEdit && can(me, 'request_post', 'delete')} />
         </div>
-        <TeamPanel board={board} canEdit={canEdit} />
+        <div className="request-side">
+          {!isDraft && <ApprovalCard requestId={r.id} requester={r.requester?.display_name ?? null} />}
+          <TeamPanel board={board} canEdit={canEdit} />
+        </div>
       </div>
 
       {editing && <RequestFormModal request={r} onClose={() => setEditing(false)} />}
@@ -192,8 +196,8 @@ export function RequestPage() {
         <ConfirmDialog title="Submit for approval?" confirmLabel="Submit for approval" danger={false}
           pending={submit.isPending} error={submit.error?.message}
           onConfirm={() => submit.mutate()} onCancel={() => { submit.reset(); setConfirm(null); }}>
-          <strong>{r.title}</strong> goes to review, and home office can see it. Its details can't be changed after this;
-          the team and the discussion stay open.
+          <strong>{r.title}</strong> goes to review through the approval process that applies to it, and its approvers are
+          notified. Home office can see it. Its details can't be changed after this; the team and the discussion stay open.
         </ConfirmDialog>
       ))}
       {(confirm === 'approved' || confirm === 'rejected') && (

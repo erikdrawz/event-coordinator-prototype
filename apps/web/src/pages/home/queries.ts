@@ -83,29 +83,17 @@ export interface PendingApproval {
   request: { id: string; title: string; event_date: string | null } | null;
 }
 
-/** Approval steps waiting on the current user. */
+/** Approvals with a step waiting on the current user (as a person, or a member of the approving group). */
 export function useMyApprovals(meId: string | undefined) {
   return useQuery({
     queryKey: ['home', 'approvals', meId],
     enabled: Boolean(meId),
     queryFn: async () => {
-      const { data, error } = await supabase.from('approval_action')
-        .select(`approval:approval!inner(id,record_type,record_id,status,submitted_at,submitter:app_user!approval_submitted_by_fkey(${PERSON}))`)
-        .eq('approver_id', meId!)
-        .is('decision', null)
-        .eq('approval.status', 'pending');
+      const { data, error } = await supabase.rpc('my_pending_approvals');
       if (error) throw error;
-      const approvals = (data as unknown as { approval: { id: string; record_type: string; record_id: string; submitted_at: string; submitter: Person | null } }[])
-        .map((r) => r.approval);
-      // approval.record_id is polymorphic (request | event), so requests are fetched separately
-      const ids = approvals.filter((a) => a.record_type === 'request').map((a) => a.record_id);
-      const { data: reqs, error: rErr } = ids.length
-        ? await supabase.from('event_request').select('id,title,event_date').in('id', ids)
-        : { data: [], error: null };
-      if (rErr) throw rErr;
-      return approvals
-        .map((a): PendingApproval => ({ id: a.id, submitted_at: a.submitted_at, submitter: a.submitter,
-          request: reqs?.find((r) => r.id === a.record_id) ?? null }))
+      return (data as { approval_id: string; record_id: string; title: string; event_date: string | null; submitted_at: string; submitter: Person | null }[])
+        .map((a): PendingApproval => ({ id: a.approval_id, submitted_at: a.submitted_at, submitter: a.submitter,
+          request: { id: a.record_id, title: a.title, event_date: a.event_date } }))
         .sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
     },
   });

@@ -83,9 +83,10 @@ export function TeamPanel({ board, canEdit }: { board: Board; canEdit: boolean }
     onSuccess: () => { refresh(); setRemovingGroup(null); },
   });
 
-  const assignable = (roles.data ?? []).filter((r) => r.code !== 'owner');
-  // Groups give Organizer or Viewer access; approving comes with approval processes
-  const groupRoles = assignable.filter((r) => r.code === 'organizer' || r.code === 'viewer');
+  // Approvers come from approval processes, so nobody is made one by hand (older Approver rows stay as they are)
+  const assignable = (roles.data ?? []).filter((r) => r.code !== 'owner' && r.code !== 'approver');
+  const approverRole = roles.data?.find((r) => r.code === 'approver');
+  const groupRoles = assignable;
   const error = update.error ?? updateGroup.error;
 
   return (
@@ -124,7 +125,7 @@ export function TeamPanel({ board, canEdit }: { board: Board; canEdit: boolean }
                 {canManage && !owner ? (
                   <div className="cell-select team-role-select" data-tip={role?.description}>
                     <Select aria-label={`Access for ${name}`} value={m.team_role} onChange={(v) => update.mutate({ id: m.id, team_role: v })}
-                      options={assignable.map((r) => ({ value: r.code, label: r.label }))} />
+                      options={(m.team_role === 'approver' && approverRole ? [...assignable, approverRole] : assignable).map((r) => ({ value: r.code, label: r.label }))} />
                   </div>
                 ) : (
                   <span className={`team-role-pill${owner ? ' owner' : ''}`} tabIndex={0} data-tip={role?.description}>{role?.label ?? m.team_role}</span>
@@ -178,8 +179,8 @@ export function TeamPanel({ board, canEdit }: { board: Board; canEdit: boolean }
       </>}
 
       <dl className="team-legend">
-        {(roles.data ?? []).map((r) => (
-          <div key={r.code}><dt>{r.label}</dt><dd>{board.kind === 'event' ? r.description.replace(/ Approves or rejects requests\.$/, '') : r.description}</dd></div>
+        {(roles.data ?? []).filter((r) => board.kind === 'request' || r.code !== 'approver').map((r) => (
+          <div key={r.code}><dt>{r.label}</dt><dd>{r.description}</dd></div>
         ))}
       </dl>
       <p className="field-hint">{copy.others}</p>

@@ -1,10 +1,10 @@
 -- =====================================================================
 -- Demo seed 07 — working by email
 -- Emails Event Center sent (mentions, approval requests) and the replies that came back:
--- Michael answers a mention on SMA Board by email, Lisa approves the Madrid workshop by email,
+-- Michael answers a mention on SMA Board by email, approves the Madrid workshop by email,
 -- and Paul's reply to the Vienna request couldn't be used (a rejection needs a reason).
--- Mentions queue their emails through the trigger; approval emails are queued here, since seeded
--- requests are inserted already in review.
+-- Mentions queue their emails through the trigger. Seeded requests are inserted already
+-- submitted, so their approvals are started here, as of when they were submitted.
 -- =====================================================================
 
 -- SMA Board: Paul asks Michael about the registry figures (the trigger notifies and emails him)
@@ -13,10 +13,9 @@ insert into public.event_post (id, tenant_id, event_id, author_id, body, mention
    '@Michael Chen Richard sent the source for the registry figures in his second deck: the 2025 Danish SMA registry report, which is published. Are you happy for the deck to go to Medical approval?',
    array[app.sid('user:michael')], now() - interval '30 hours', now() - interval '30 hours');
 
--- Approval requests for what Paul and Lisa approve
-select app.queue_approval_email(r.id, app.sid('user:' || u), r.submitted_at)
-  from (values ('onc-ab-q3', 'paul'), ('rare-vienna', 'paul'), ('q4-planning', 'paul'), ('cardio-workshop', 'lisa')) as t(q, u)
-  join public.event_request r on r.id = app.sid('req:' || t.q);
+-- Every submitted request went through its approval process (this notifies and emails approvers)
+select app.start_approval('request', r.id, r.submitted_at)
+  from public.event_request r where r.status <> 'draft' order by r.submitted_at;
 
 -- Everything above went out a minute after it was queued
 update public.email_message set status = 'sent', sent_at = created_at + interval '1 minute'
@@ -33,7 +32,7 @@ select o.tenant_id, 'inbound', 'reply', st, o.user_id, u.display_name || ' <' ||
     ('post', 'michael', 'sma-4', 'processed', 3,
      E'Yes, that report is published, so it''s fine from my side. Sarah, can you set the deck to Approved in Content once you''ve had a look?',
      'Posted as a reply in the SMA Board discussion'),
-    ('req', 'lisa', 'cardio-workshop', 'processed', 18,
+    ('req', 'michael', 'cardio-workshop', 'processed', 18,
      E'Approve. Keep the hands-on stations to six fellows each so everyone gets time on the scanner.',
      'Approved Cardio Workshop Madrid'),
     ('req', 'paul', 'rare-vienna', 'failed', 4,
@@ -55,16 +54,19 @@ update public.email_message set post_id = app.sid('post:sma-4a')
 update public.notification set read_at = now() - interval '27 hours'
  where user_id = app.sid('user:michael') and kind = 'mention' and record_id = app.sid('event:sma-board');
 
--- Decisions on the decided requests: Lisa's by email, the rest in Event Center
-update public.event_request r
-   set decided_by = app.sid('user:' || d.who), decided_at = coalesce(e.created_at, r.submitted_at + make_interval(hours => d.after_h)),
-       decision_note = coalesce(app.email_reply_text(substring(e.body from '^\S+[.\s]*(.*)$')), d.note), decided_via = d.via
+-- Decisions on the decided requests, made through their approvals: Michael's on the Madrid
+-- workshop by email, the rest in Event Center
+select app.apply_task_decision(t.id, app.sid('user:' || d.who), d.decision,
+         coalesce(app.email_reply_text(substring(e.body from '^\S+[.\s]*(.*)$')), d.note), d.via,
+         coalesce(e.created_at, r.submitted_at + make_interval(hours => d.after_h)))
   from (values
-    ('sma-board',       'paul', 'app',   20, null),
-    ('neuro-meet',      'lisa', 'app',   30, 'Approved. Book the venue through the Oslo office so it''s on their framework agreement.'),
-    ('bioforum',        'paul', 'app',   48, null),
-    ('cardio-workshop', 'lisa', 'email', 0,  null),
-    ('immuno-gala',     'paul', 'app',   26, 'A recognition dinner for prescribers isn''t something we can fund under the code. Happy to look at an educational format instead.')
-  ) as d(k, who, via, after_h, note)
-  left join public.email_message e on d.via = 'email' and e.direction = 'inbound' and e.record_id = app.sid('req:' || d.k) and e.status = 'processed'
- where r.id = app.sid('req:' || d.k);
+    ('sma-board',       'michael', 'approved', 'app',   20, null),
+    ('neuro-meet',      'michael', 'approved', 'app',   30, 'Approved. Book the venue through the Oslo office so it''s on their framework agreement.'),
+    ('bioforum',        'paul',    'approved', 'app',   48, null),
+    ('cardio-workshop', 'michael', 'approved', 'email', 0,  null),
+    ('immuno-gala',     'michael', 'rejected', 'app',   26, 'A recognition dinner for prescribers isn''t something we can fund under the code. Happy to look at an educational format instead.')
+  ) as d(k, who, decision, via, after_h, note)
+  join public.event_request r on r.id = app.sid('req:' || d.k)
+  join public.approval a on a.record_id = r.id and a.status = 'pending'
+  join public.approval_task t on t.approval_id = a.id and t.status = 'pending'
+  left join public.email_message e on d.via = 'email' and e.direction = 'inbound' and e.record_id = r.id and e.status = 'processed';
