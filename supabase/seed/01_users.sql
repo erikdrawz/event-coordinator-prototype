@@ -86,7 +86,7 @@ insert into public.app_user (id, tenant_id, user_type, auth_user_id, display_nam
 insert into public.user_group_member (group_id, user_id, tenant_id)
 select app.sid('group:' || g), app.sid('user:' || u), app.sid('tenant:alera')
   from (values ('hq-events', 'paul'), ('south-europe', 'lisa'),
-               ('uki-medical', 'michael'), ('uki-medical', 'sarah'), ('uki-marketing', 'emma'),
+               ('uki-medical', 'michael'), ('uki-medical', 'sarah'), ('uki-marketing', 'emma'), ('uki-marketing', 'maria'),
                ('compliance', 'alex'), ('compliance', 'maria'),
                ('nordics-medical', 'sarah'), ('nordics-medical', 'ingrid'), ('dach-medical', 'klaus')) m(g, u);
 

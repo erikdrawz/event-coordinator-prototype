@@ -22,7 +22,9 @@ interface EventLite { id: string; timezone: string; starts_at: string | null; en
  */
 export function AgendaSection({ event }: { event: EventLite }) {
   const { me } = useAuth();
-  const { canEdit: canEditEvent } = useEventAccess();
+  // Locked in review: the agenda is fixed (the branded agenda can still be made)
+  const { canEdit: canEditTeam, locked } = useEventAccess();
+  const canEditEvent = canEditTeam && !locked;
   const qc = useQueryClient();
   const sessions = useSessions(event.id);
   const [day, setDay] = useState<string | null>(null);
@@ -131,7 +133,7 @@ export function AgendaSection({ event }: { event: EventLite }) {
           </table>
         </div>
       )}
-      {branding && templates.data && <BrandedAgendaDialog eventId={event.id} templates={templates.data} canSave={canEditEvent} onClose={() => setBranding(false)} />}
+      {branding && templates.data && <BrandedAgendaDialog eventId={event.id} templates={templates.data} canSave={canEditTeam} onClose={() => setBranding(false)} />}
     </section>
   );
 }

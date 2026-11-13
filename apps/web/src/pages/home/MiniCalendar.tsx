@@ -57,7 +57,7 @@ function DayCard({ ymd, items, pinned, roleLabel, style, onClose, onEnter, onLea
         );
       })}
       {items.approvals.map((a) => a.request && (
-        <Link key={a.id} to={`/requests/${a.request.id}`} className="cal-item" onClick={onClose}>
+        <Link key={a.id} to={a.request.path} className="cal-item" onClick={onClose}>
           <FileCheck size={15} className="cal-item-icon req" aria-hidden />
           <span className="cal-item-main">
             <span className="cal-item-title">{a.request.title}</span>

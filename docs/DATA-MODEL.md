@@ -101,7 +101,7 @@ Status: 26 Oct 2026. This version merges Erik's ERD (`design/ec-draft-erd.png`) 
 
 | Table | P0 | Key fields | Notes |
 |---|---|---|---|
-| `approval_process` | ✓ | name, description, record_type (request), priority, criteria (jsonb: [{field, op, values/value}]), is_active | config (Admin → Approvals). The lowest-priority active process whose criteria all match applies |
+| `approval_process` | ✓ | name, description, record_type (request, event), priority, criteria (jsonb: [{field, op, values/value}]), is_active | config (Admin → Approvals). The lowest-priority active process whose criteria all match applies |
 | `approval_process_step` | ✓ | process_id, step_number, name, approver_type (manager/group/user), approver_user_id, approver_group_id, fallback_group_id | config (ERD "Approval Step"). Same step_number: in parallel |
 | `approval_criteria_field` | ✓ | record_type, code, label, kind (choice/number) | lookup: fields criteria can test (plus custom.<api_name>) |
 | `approval` | ✓ | process_id, process_name, record_type, record_id, status (pending/approved/rejected/cancelled), current_step, submitted_by/at, decided_at | runtime (ERD "Approval"): one per submission |

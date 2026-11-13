@@ -327,3 +327,11 @@
 }
 /* Keeps a rule group's access lined up with rows that have a remove button */
 .icon-btn-spacer { width: 30px; flex: none; }
+
+/* Event in review: what's locked, under the stepper */
+.event-review-note {
+  display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 9px 12px; border-radius: var(--radius-md);
+  background: var(--tone-yellow-bg); color: var(--tone-yellow-fg); font-size: var(--text-base);
+}
+.event-review-note svg { flex: none; margin-top: 3px; }
+.event-review-note .link { font-weight: 600; }

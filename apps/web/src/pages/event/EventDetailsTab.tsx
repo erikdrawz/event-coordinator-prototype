@@ -10,9 +10,10 @@ import { formatDate } from '../../ui/DateInput';
 import { useEventForm } from './EventFormProvider';
 import { fieldsForType, sectionTitle, useEventFormOptions, type CustomFieldDef, type UserOpt } from './eventForm';
 import { useEventAccess } from './eventAccess';
+import { ApprovalCard } from '../../components/ApprovalCard';
 
 interface Details {
-  id: string; event_number: string; name: string; event_type_id: string; timezone: string; starts_at: string | null; ends_at: string | null;
+  id: string; event_number: string; name: string; status: string; event_type_id: string; timezone: string; starts_at: string | null; ends_at: string | null;
   city: string | null; venue_name: string | null; venue_address: string | null;
   description: string | null; custom_fields: Record<string, unknown>;
   event_type: { name: string } | null; country: { name: string } | null; therapeutic_area: { name: string } | null;
@@ -20,7 +21,7 @@ interface Details {
   event_product: { product: { name: string } | null }[];
 }
 
-const SELECT = 'id,event_number,name,event_type_id,timezone,starts_at,ends_at,city,venue_name,venue_address,description,custom_fields,' +
+const SELECT = 'id,event_number,name,status,event_type_id,timezone,starts_at,ends_at,city,venue_name,venue_address,description,custom_fields,' +
   'event_type(name),country(name),therapeutic_area(name),owner:app_user!event_owner_id_fkey(display_name,initials,avatar_color,user_type),event_product(product(name))';
 
 const empty = <span className="text-muted">—</span>;
@@ -74,7 +75,7 @@ function DetailsCard({ id, title, onEdit, children }: { id: string; title: strin
  */
 export function EventDetailsTab({ eventId }: { eventId: string }) {
   const { me } = useAuth();
-  const { canEdit: canEditEvent } = useEventAccess();
+  const { canEdit: canEditEvent, locked } = useEventAccess();
   const { openEditEvent } = useEventForm();
   const options = useEventFormOptions();
   const { data: e, isLoading, error } = useQuery({
@@ -90,10 +91,13 @@ export function EventDetailsTab({ eventId }: { eventId: string }) {
   if (error || !e) return <section className="card details-card"><div className="form-error">Couldn't load the details: {error?.message}</div></section>;
 
   const sections = fieldsForType(options.data?.fields ?? [], e.event_type_id);
-  const onEdit = can(me, 'event', 'edit') && canEditEvent ? () => openEditEvent(e.id) : undefined;
+  const onEdit = can(me, 'event', 'edit') && canEditEvent && !locked ? () => openEditEvent(e.id) : undefined;
 
+  // The approval leads while the event is in review; afterwards it's history, at the end
+  const approval = <ApprovalCard recordType="event" recordId={e.id} />;
   return (
     <div className="details-stack">
+      {e.status === 'review' && approval}
       <DetailsCard id="details-event" title="Event details" onEdit={onEdit}>
         {/* Same order as the Edit event form */}
         <Row label="Event name">{e.name}</Row>
@@ -124,6 +128,7 @@ export function EventDetailsTab({ eventId }: { eventId: string }) {
           ))}
         </DetailsCard>
       ))}
+      {e.status !== 'review' && approval}
     </div>
   );
 }

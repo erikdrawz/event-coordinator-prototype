@@ -28,6 +28,22 @@ insert into public.approval_process_step (id, tenant_id, process_id, step_number
   (app.sid('aps:uki-2'),      app.sid('tenant:alera'), app.sid('ap:uki-advisory'), 2, 'Medical review',     'group',   null, app.sid('group:uki-medical'),   null),
   (app.sid('aps:standard-1'), app.sid('tenant:alera'), app.sid('ap:standard'),     1, 'Manager approval',   'manager', null, null,                           app.sid('group:hq-events'));
 
+-- Event approvals: submitting an event (Draft → Review) starts one of these. Manager steps send
+-- someone without a manager in Event Center (Paul, the HQ lead) to Compliance instead. UK & Ireland
+-- events go to Marketing and Medical in parallel, with no manager step.
+insert into public.approval_process (id, tenant_id, name, description, record_type, priority, criteria) values
+  (app.sid('ap:ev-nordic'), app.sid('tenant:alera'), 'Nordic events', 'The submitter''s manager and Nordics Medical, in parallel.', 'event', 20,
+   '[{"field": "country_code", "op": "in", "values": ["DK", "SE", "NO", "FI"]}]'),
+  (app.sid('ap:ev-uki'), app.sid('tenant:alera'), 'UK & Ireland events', 'UKI Marketing and UKI Medical approval (parallel)', 'event', 20,
+   '[{"field": "country_code", "op": "in", "values": ["GB", "IE"]}]'),
+  (app.sid('ap:ev-standard'), app.sid('tenant:alera'), 'Event — standard', 'Every other event: the submitter''s manager approves.', 'event', 100, '[]');
+insert into public.approval_process_step (id, tenant_id, process_id, step_number, name, approver_type, approver_user_id, approver_group_id, fallback_group_id) values
+  (app.sid('aps:ev-nordic-1a'), app.sid('tenant:alera'), app.sid('ap:ev-nordic'),   1, 'Manager approval', 'manager', null, null,                            app.sid('group:compliance')),
+  (app.sid('aps:ev-nordic-1b'), app.sid('tenant:alera'), app.sid('ap:ev-nordic'),   1, 'Medical review',   'group',   null, app.sid('group:nordics-medical'), null),
+  (app.sid('aps:ev-uki-1a'),    app.sid('tenant:alera'), app.sid('ap:ev-uki'),      1, 'Marketing review', 'group',   null, app.sid('group:uki-marketing'),  null),
+  (app.sid('aps:ev-uki-1b'),    app.sid('tenant:alera'), app.sid('ap:ev-uki'),      1, 'Medical review',   'group',   null, app.sid('group:uki-medical'),    null),
+  (app.sid('aps:ev-standard-1'),app.sid('tenant:alera'), app.sid('ap:ev-standard'), 1, 'Manager approval', 'manager', null, null,                            app.sid('group:compliance'));
+
 -- ---------------------------------------------------------------------
 -- Events
 -- ---------------------------------------------------------------------
@@ -623,7 +639,6 @@ select app.sid('task:' || k), app.sid('tenant:alera'), app.sid('event:' || e), t
 -- ---------------------------------------------------------------------
 insert into public.notification (tenant_id, user_id, kind, title, body, record_type, record_id, read_at, created_at) values
   (app.sid('tenant:alera'), app.sid('user:paul'), 'new_request',       'Respiratory Conference Barcelona', 'is waiting for an owner',            'request', app.sid('req:resp-barcelona'), null, now() - interval '5 hours'),
-  (app.sid('tenant:alera'), app.sid('user:paul'), 'approved',          'SMA Board',                  'moved to Contract — approvals complete',       'event',   app.sid('event:sma-board'), now() - interval '20 hours', now() - interval '1 day'),
   (app.sid('tenant:alera'), app.sid('user:paul'), 'task_assigned',     'Countersign Marriott venue contract', 'assigned to you on SMA Board',        'event',   app.sid('event:sma-board'), now() - interval '1 day', now() - interval '25 hours');
 
 update public.app_user set last_login_at = now() - interval '1 day' where user_type = 'human';

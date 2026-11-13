@@ -1,12 +1,14 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Ban, ChevronDown, MapPin, Clock, Pill, Users } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Ban, Check, ChevronDown, Lock, MapPin, Clock, Pill, Send, Undo2, Users, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { daysUntil, eventDateParts } from '../lib/format';
 import { DateTile } from '../components/DateTile';
 import { useEventStatuses, useStatusTransitions } from '../components/StatusPill';
-import { Menu } from '../ui/Menu';
+import { Menu, type MenuItem } from '../ui/Menu';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { DecideDialog, type Decision } from '../components/DecideDialog';
 import { useAuth } from '../lib/auth';
 import { can } from '../lib/permissions';
 import { useEventForm } from './event/EventFormProvider';
@@ -26,6 +28,7 @@ interface EventDetail {
   city: string | null; country_code: string | null; venue_name: string | null; cancel_reason: string | null;
   event_type: { name: string } | null; country: { name: string } | null;
   event_product: { product: { name: string } | null }[];
+  owner: { display_name: string } | null;
 }
 
 /** "Brevair", "Brevair, Telia", "Brevair, Telia +2"; the full list goes in the tooltip. */
@@ -70,6 +73,8 @@ export function EventPage() {
   const { data: statuses } = useEventStatuses();
   const { data: transitions } = useStatusTransitions();
   const [cancelling, setCancelling] = useState(false);
+  const [confirm, setConfirm] = useState<'submit' | 'withdraw' | Decision | null>(null);
+  const qc = useQueryClient();
   const myAccess = useMyEventAccess(id);
   const { me } = useAuth();
   const { openEditEvent } = useEventForm();
@@ -80,12 +85,27 @@ export function EventPage() {
     queryKey: ['event', id],
     queryFn: async () => {
       const { data, error } = await supabase.from('event')
-        .select('id,name,status,starts_at,ends_at,timezone,city,country_code,venue_name,cancel_reason,event_type(name),country(name),event_product(product(name))')
+        .select('id,name,status,starts_at,ends_at,timezone,city,country_code,venue_name,cancel_reason,event_type(name),country(name),event_product(product(name)),owner:app_user!event_owner_id_fkey(display_name)')
         .eq('id', id!).maybeSingle();
       if (error) throw error;
       return data as unknown as EventDetail | null;
     },
   });
+
+  // Submit for approval (Draft → Review) and withdraw (Review → Draft) are status moves; the database
+  // starts or cancels the approval and refuses a submission no process covers
+  const move = useMutation({
+    mutationFn: async (status: 'review' | 'draft') => {
+      const { error } = await supabase.rpc('change_event_status', { p_event_id: id, p_status: status });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => { refresh(); setConfirm(null); },
+  });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['event', id] });
+    qc.invalidateQueries({ queryKey: ['events'] });
+    qc.invalidateQueries({ queryKey: ['home'] });
+  };
 
   if (isLoading) return <main className="page"><div className="empty-state">Loading…</div></main>;
   if (!e) return <main className="page"><div className="card empty-state"><div className="empty-state-title">Event not found</div>It may have been deleted, or you don't have access.</div></main>;
@@ -97,9 +117,19 @@ export function EventPage() {
   // Profile allows editing events, and the Team gives me edit access to this one
   const onTeamEdit = myAccess.data?.access === 'edit';
   const canEdit = can(me, 'event', 'edit') && onTeamEdit;
-  // Only moves the lifecycle allows from here; more status actions join this menu later
-  const actions = canEdit && transitions?.some((t) => t.from_status === e.status && t.to_status === 'cancelled')
-    ? [{ key: 'cancel', label: 'Cancel event', icon: <Ban size={14} />, danger: true, onSelect: () => setCancelling(true) }] : [];
+  const locked = Boolean(myAccess.data?.locked);
+  const canDecide = e.status === 'review' && Boolean(myAccess.data?.can_decide);
+  // Only moves the lifecycle allows from here: submit, withdraw, decide, cancel
+  const actions: MenuItem[] = [
+    ...(canEdit && e.status === 'draft' ? [{ key: 'submit', label: 'Submit for approval', icon: <Send size={14} />, onSelect: () => setConfirm('submit') }] : []),
+    ...(canDecide ? [
+      { key: 'approve', label: 'Approve event', icon: <Check size={14} />, onSelect: () => setConfirm('approved') },
+      { key: 'reject', label: 'Reject event', icon: <X size={14} />, danger: true, onSelect: () => setConfirm('rejected') },
+    ] : []),
+    ...(canEdit && e.status === 'review' ? [{ key: 'withdraw', label: 'Withdraw to draft', icon: <Undo2 size={14} />, onSelect: () => setConfirm('withdraw') }] : []),
+    ...(canEdit && transitions?.some((t) => t.from_status === e.status && t.to_status === 'cancelled')
+      ? [{ key: 'cancel', label: 'Cancel event', icon: <Ban size={14} />, danger: true, onSelect: () => setCancelling(true) }] : []),
+  ];
 
   return (
     <main className="page">
@@ -121,9 +151,9 @@ export function EventPage() {
             </div>
           </div>
           <div className="event-actions">
-            {canEdit && <button className="btn" onClick={() => openEditEvent(e.id)}>Edit event</button>}
+            {canEdit && !locked && <button className="btn" onClick={() => openEditEvent(e.id)}>Edit event</button>}
             {actions.length > 0 ? (
-              <Menu label="Event actions" width={200} items={actions}
+              <Menu label="Event actions" width={210} items={actions}
                 trigger={(t) => <button type="button" className="btn btn-primary" {...t}>Actions <ChevronDown size={16} /></button>} />
             ) : (
               <button type="button" className="btn btn-primary" disabled title={cancelled ? 'No actions for a cancelled event' : 'No actions available'}>Actions <ChevronDown size={16} /></button>
@@ -138,7 +168,33 @@ export function EventPage() {
             </li>
           ))}
         </ol>
+        {e.status === 'review' && (
+          <p className="event-review-note">
+            <Lock size={14} aria-hidden />
+            <span>In review: the details, agenda and experts are locked until it's approved or withdrawn.{' '}
+              <button type="button" className="link" onClick={() => pickTab('details')}>See the approval</button></span>
+          </p>
+        )}
         {cancelling && <CancelEventDialog event={e} onClose={() => setCancelling(false)} />}
+        {confirm === 'submit' && (
+          <ConfirmDialog title="Submit for approval?" confirmLabel="Submit for approval" danger={false}
+            pending={move.isPending} error={move.error?.message}
+            onConfirm={() => move.mutate('review')} onCancel={() => { move.reset(); setConfirm(null); }}>
+            <strong>{e.name}</strong> goes to Review through the approval process that applies to it, and its approvers are notified.
+            Its details, agenda and experts are locked until it's approved, or until you withdraw it.
+          </ConfirmDialog>
+        )}
+        {confirm === 'withdraw' && (
+          <ConfirmDialog title="Withdraw to draft?" confirmLabel="Withdraw to draft" danger={false}
+            pending={move.isPending} error={move.error?.message}
+            onConfirm={() => move.mutate('draft')} onCancel={() => { move.reset(); setConfirm(null); }}>
+            <strong>{e.name}</strong> goes back to Draft and its approval is cancelled, so you can make changes. Submit it again when it's ready.
+          </ConfirmDialog>
+        )}
+        {(confirm === 'approved' || confirm === 'rejected') && (
+          <DecideDialog kind="event" record={{ id: e.id, title: e.name, owner: e.owner?.display_name ?? null }} decision={confirm}
+            onDone={() => { refresh(); setConfirm(null); }} onClose={() => setConfirm(null)} />
+        )}
         <div className="tabs" role="tablist" aria-label="Event sections">
           {TABS.map((t) => (
             <button key={t.id} id={`tab-${t.id}`} role="tab" aria-selected={tab === t.id} aria-controls="event-tabpanel"
@@ -147,7 +203,7 @@ export function EventPage() {
         </div>
       </section>
       <div id="event-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="event-tabpanel">
-        <EventAccessContext.Provider value={{ canEdit: onTeamEdit, teamRole: myAccess.data?.team_role ?? null }}>
+        <EventAccessContext.Provider value={{ canEdit: onTeamEdit, teamRole: myAccess.data?.team_role ?? null, locked }}>
         {tab === 'details' ? <EventDetailsTab eventId={e.id} /> : tab === 'overview' ? <OverviewTab event={e} /> : tab === 'team' ? <TeamTab event={e} /> : tab === 'attendees' ? <AttendeesTab event={e} /> : tab === 'spend' ? <SpendTab event={e} /> : <DocumentsTab event={e} />}
         </EventAccessContext.Provider>
       </div>

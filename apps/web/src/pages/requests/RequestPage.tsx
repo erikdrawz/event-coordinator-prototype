@@ -14,8 +14,8 @@ import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { Discussion } from '../event/team/Discussion';
 import { TeamPanel } from '../event/team/TeamPanel';
 import type { Person } from '../event/team/teamData';
-import { DecideRequestDialog, type Decision } from './DecideRequestDialog';
-import { ApprovalCard } from './ApprovalCard';
+import { DecideDialog, type Decision } from '../../components/DecideDialog';
+import { ApprovalCard } from '../../components/ApprovalCard';
 import { RequestFormModal } from './RequestFormModal';
 import { RequestStatusPill } from './RequestStatusPill';
 import { useCustomRows } from '../../components/CustomFields';
@@ -180,7 +180,7 @@ export function RequestPage() {
           <Discussion board={board} name={r.title} canModerate={canEdit && can(me, 'request_post', 'delete')} />
         </div>
         <div className="request-side">
-          {!isDraft && <ApprovalCard requestId={r.id} requester={r.requester?.display_name ?? null} />}
+          {!isDraft && <ApprovalCard recordType="request" recordId={r.id} />}
           <TeamPanel board={board} canEdit={canEdit} />
         </div>
       </div>
@@ -201,7 +201,7 @@ export function RequestPage() {
         </ConfirmDialog>
       ))}
       {(confirm === 'approved' || confirm === 'rejected') && (
-        <DecideRequestDialog request={{ id: r.id, title: r.title, requester: r.requester?.display_name ?? null }} decision={confirm}
+        <DecideDialog kind="request" record={{ id: r.id, title: r.title, owner: r.requester?.display_name ?? null }} decision={confirm}
           onDone={() => { refresh(); qc.invalidateQueries({ queryKey: ['request', id, 'access'] }); setConfirm(null); }} onClose={() => setConfirm(null)} />
       )}
       {confirm === 'delete' && (

@@ -438,6 +438,10 @@ const upd = await api(agent, `event_expert?id=eq.${holm.data[0].id}`, { method: 
 ok(upd.status === 200 && upd.data.length === 1, 'agent can record an expert check');
 const hist = await api(paul, `event_history?event_id=eq.${s.id}&table_name=eq.event_expert&order=at.desc&limit=1&select=actor_name,actor_type,on_behalf_of_name`);
 ok(hist.data?.[0]?.actor_type === 'agent' && hist.data?.[0]?.on_behalf_of_name === 'Paul Taylor', 'history shows agent acting on behalf of Paul');
+// Home → Recently worked on reads the whole of someone's history: it must stay quick (it timed out once)
+const t0 = Date.now();
+const myHistory = await api(paul, `event_history?select=event_id,at&or=(actor_user_id.eq.${me.data.id},on_behalf_of_user_id.eq.${me.data.id})&order=at.desc&limit=100`);
+ok(myHistory.status === 200 && myHistory.data?.length > 0 && Date.now() - t0 < 3000, `reading my own event history is quick (${Date.now() - t0} ms)`);
 const agentEvent = await api(agent, `event?id=eq.${s.id}`, { method: 'PATCH', body: { name: 'Hijacked' } });
 ok(Array.isArray(agentEvent.data) && agentEvent.data.length === 0, 'agent cannot edit events (no permission → 0 rows)');
 
@@ -650,6 +654,58 @@ ok(dkSubmit.status >= 400 && /No approval process/.test(dkSubmit.data?.message ?
 await api(maria, `approval_process?id=eq.${proc?.id}`, { method: 'DELETE' });
 await api(alex, `event_request?id=in.(${nlReq?.id},${paulNl?.id},${dkReq?.id})`, { method: 'DELETE' });
 await api(alex, `email_message?record_id=eq.${nlReq?.id}`, { method: 'DELETE' });
+
+// Event approvals: submitting starts the event's process; the event is locked in review; all
+// approved → Contract, a rejection → Draft; withdrawing cancels the approval
+const moveEv = (who, id, status) => api(who, 'rpc/change_event_status', { method: 'POST', body: { p_event_id: id, p_status: status } });
+const decideEv = (who, id, decision, note) => api(who, 'rpc/decide_event', { method: 'POST', body: { p_event_id: id, p_decision: decision, p_note: note } });
+const evStatus = async (id) => (await api(paul, `event?id=eq.${id}&select=status`)).data?.[0]?.status;
+const evApproval = async (id) => (await api(paul, `approval?record_type=eq.event&record_id=eq.${id}&select=process_name,status,approval_task(step_name,approver_group_id,status)&order=submitted_at.desc`)).data?.[0];
+const apEv = (await capture({ ...base, name: 'Smoke approval event' })).data;
+ok((await moveEv(paul, apEv?.id, 'review')).data?.status === 'review', 'an editor submits a draft event for approval');
+const apEv1 = await evApproval(apEv?.id);
+ok(apEv1?.process_name === 'Event — standard' && apEv1.approval_task[0]?.approver_group_id === compliance && apEv1.approval_task[0].status === 'pending',
+   "the event's process applies: the submitter has no manager, so the fallback group (Compliance) approves");
+const lockedEdit = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: apEv?.id, p: { city: 'Lille' } } });
+ok(lockedEdit.status >= 400 && /in review/.test(lockedEdit.data?.message ?? ''), "an event in review is locked: its details can't change");
+ok((await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: apEv?.id, p: { product_ids: [telia.data[0].id] } } })).status >= 400, '…nor its products');
+const lockedSession = await api(paul, 'event_session', { method: 'POST', body: { event_id: apEv?.id, title: 'Smoke session', starts_at: '2026-12-01T08:00:00Z', ends_at: '2026-12-01T09:00:00Z' } });
+ok(lockedSession.status >= 400 && /in review/.test(lockedSession.data?.message ?? ''), '…nor its agenda');
+ok((await api(paul, 'event_post', { method: 'POST', body: { event_id: apEv?.id, body: 'Smoke: still talking while in review' } })).status === 201,
+   'the discussion stays open while in review');
+ok((await api(paul, 'rpc/my_event_access', { method: 'POST', body: { p_event_id: apEv?.id } })).data?.locked === true, 'my_event_access says the event is locked');
+ok((await moveEv(paul, apEv?.id, 'contract')).status >= 400, 'only the approval moves an event from Review to Contract');
+ok((await decideEv(paul, apEv?.id, 'approved')).status >= 400, "the submitter can't approve their own event");
+ok((await api(maria, 'rpc/my_event_access', { method: 'POST', body: { p_event_id: apEv?.id } })).data?.can_decide === true, 'a member of the approving group may decide');
+ok((await decideEv(maria, apEv?.id, 'rejected', ' ')).status >= 400, 'rejecting an event needs a reason');
+const evRejected = await decideEv(maria, apEv?.id, 'rejected', 'Smoke: add the agenda first');
+ok(evRejected.data?.status === 'draft' && (await evApproval(apEv?.id))?.status === 'rejected', 'a rejection sends the event back to Draft');
+ok((await api(paul, `notification?record_id=eq.${apEv?.id}&kind=eq.rejected&select=body`)).data?.[0]?.body.includes('Smoke: add the agenda first'),
+   'the owner is told why');
+ok((await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: apEv?.id, p: { city: 'Lille' } } })).status === 200, 'back in Draft, it can be changed again');
+await moveEv(paul, apEv?.id, 'review');
+ok((await decideEv(alex, apEv?.id, 'approved', 'Smoke: fine')).data?.status === 'contract' && (await evApproval(apEv?.id))?.status === 'approved',
+   'resubmitted and approved, the event moves to Contract');
+await moveEv(paul, apEv?.id, 'review');
+ok((await evApproval(apEv?.id))?.status === 'pending', 'moving it back to Review starts a new approval');
+const withdrawn = await moveEv(paul, apEv?.id, 'draft');
+ok(withdrawn.data?.status === 'draft' && (await evApproval(apEv?.id))?.status === 'cancelled'
+   && (await api(maria, `notification?record_id=eq.${apEv?.id}&kind=eq.approval_required&read_at=is.null&select=id`)).data?.length === 0,
+   'withdrawing it to Draft cancels the approval and its open requests to approve');
+// By email, and approvers who aren't on the team: a Nordic event goes to Nordics Medical too
+const nordEv = (await capture({ ...base, name: 'Smoke Nordic approval', country_code: 'DK', city: 'Aarhus' })).data;
+await moveEv(paul, nordEv?.id, 'review');
+const sarahOnEv = (await api(sarah, 'rpc/my_event_access', { method: 'POST', body: { p_event_id: nordEv?.id } })).data;
+ok((await evApproval(nordEv?.id))?.process_name === 'Nordic events' && sarahOnEv?.access === 'view' && sarahOnEv.team_role === 'approver' && sarahOnEv.can_decide === true,
+   "an approver who isn't on the team sees the event as its Approver");
+const sarahEvEmail = (await api(sarah, `email_message?record_id=eq.${nordEv?.id}&kind=eq.approval&select=reply_to,subject`)).data?.[0];
+ok(sarahEvEmail?.subject.startsWith('Approval needed: Smoke Nordic approval'), 'event approvers are emailed');
+const evByEmail = await receive(emailAgent, { from: 'Sarah Mitchell <sarah.mitchell@alera.example>', to: sarahEvEmail?.reply_to, text: 'Approve. Smoke: medical fine' });
+ok(evByEmail.data?.status === 'processed' && (await evStatus(nordEv?.id)) === 'review', 'an approver approves an event by email; the other parallel step still waits');
+await decideEv(maria, nordEv?.id, 'approved');
+ok((await evStatus(nordEv?.id)) === 'contract', 'when both parallel steps are approved, the event moves to Contract');
+await api(alex, `email_message?record_id=in.(${apEv?.id},${nordEv?.id})`, { method: 'DELETE' });
+await api(alex, `event?id=in.(${apEv?.id},${nordEv?.id})`, { method: 'DELETE' });
 
 // Attendees: HCPs added in bulk from EC or straight from a CRM; each person once
 const addAtt = (who, people) => api(who, 'rpc/add_event_attendees', { method: 'POST', body: { p_event_id: ev.id, p_people: people } });

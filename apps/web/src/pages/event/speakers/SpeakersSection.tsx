@@ -48,7 +48,9 @@ const friendly = (m: string) => (/event_expert_event_id_hcp_id_key/.test(m) ? 'T
 export function SpeakersSection({ eventId, eventName, timezone }: { eventId: string; eventName: string; timezone: string }) {
   const { me } = useAuth();
   const navigate = useNavigate();
-  const { canEdit: canEditEvent } = useEventAccess();
+  // Locked in review: the experts and their terms are fixed
+  const { canEdit: canEditTeam, locked } = useEventAccess();
+  const canEditEvent = canEditTeam && !locked;
   const qc = useQueryClient();
   const experts = useExperts(eventId);
   const [adding, setAdding] = useState<number | null>(null);

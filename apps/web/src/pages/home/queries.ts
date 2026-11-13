@@ -80,7 +80,8 @@ export function useCalendarEvents(meId: string | undefined, scope: Scope, month:
 export interface PendingApproval {
   id: string; submitted_at: string;
   submitter: Person | null;
-  request: { id: string; title: string; event_date: string | null } | null;
+  /** The request or event waiting for approval; path opens it */
+  request: { id: string; title: string; event_date: string | null; path: string } | null;
 }
 
 /** Approvals with a step waiting on the current user (as a person, or a member of the approving group). */
@@ -91,9 +92,10 @@ export function useMyApprovals(meId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('my_pending_approvals');
       if (error) throw error;
-      return (data as { approval_id: string; record_id: string; title: string; event_date: string | null; submitted_at: string; submitter: Person | null }[])
+      return (data as { approval_id: string; record_type: 'request' | 'event'; record_id: string; title: string; event_date: string | null; submitted_at: string; submitter: Person | null }[])
         .map((a): PendingApproval => ({ id: a.approval_id, submitted_at: a.submitted_at, submitter: a.submitter,
-          request: { id: a.record_id, title: a.title, event_date: a.event_date } }))
+          request: { id: a.record_id, title: a.title, event_date: a.event_date,
+                     path: a.record_type === 'event' ? `/events/${a.record_id}?tab=details` : `/requests/${a.record_id}` } }))
         .sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
     },
   });

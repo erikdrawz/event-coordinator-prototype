@@ -2,7 +2,13 @@ import { createContext, useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 
-export interface EventAccess { access: 'edit' | 'view' | null; team_role: string | null }
+export interface EventAccess {
+  access: 'edit' | 'view' | null; team_role: string | null;
+  /** In review: details, agenda and experts are fixed until it's approved or withdrawn */
+  locked: boolean;
+  /** An open approval step is mine */
+  can_decide: boolean;
+}
 
 /** My access to this event (my_event_access): the Team decides it, the database enforces it. */
 export function useMyEventAccess(eventId: string | undefined) {
@@ -17,6 +23,9 @@ export function useMyEventAccess(eventId: string | undefined) {
   });
 }
 
-/** Shared with the event's tabs: whether I may edit this event, and my role on its team. */
-export const EventAccessContext = createContext<{ canEdit: boolean; teamRole: string | null }>({ canEdit: false, teamRole: null });
+/**
+ * Shared with the event's tabs: whether I may edit this event, my role on its team, and whether it's
+ * locked (in review: details, agenda and experts can't change; the rest stays open).
+ */
+export const EventAccessContext = createContext<{ canEdit: boolean; teamRole: string | null; locked: boolean }>({ canEdit: false, teamRole: null, locked: false });
 export const useEventAccess = () => useContext(EventAccessContext);

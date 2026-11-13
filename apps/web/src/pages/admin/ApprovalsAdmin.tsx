@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { can } from '../../lib/permissions';
 import { DataTable, useTableSort, type Column } from '../../ui/DataTable';
-import { SearchInput, Segmented, Toolbar } from '../../ui/Toolbar';
+import { FilterSelect, SearchInput, Segmented, Toolbar } from '../../ui/Toolbar';
 import { Modal } from '../../ui/Modal';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { Field, FormSection } from '../../ui/Form';
@@ -23,10 +23,14 @@ interface StepRow {
   approver_user_id: string | null; approver_group_id: string | null; fallback_group_id: string | null;
 }
 interface ProcessRow {
-  id: string; name: string; description: string | null; record_type: 'request'; priority: number; criteria: Criterion[]; is_active: boolean;
+  id: string; name: string; description: string | null; record_type: RecordType; priority: number; criteria: Criterion[]; is_active: boolean;
   approval_process_step: StepRow[];
 }
 type Kind = 'choice' | 'number' | 'boolean';
+type RecordType = 'request' | 'event';
+const RECORD_TYPES: { value: RecordType; label: string; plural: string }[] = [
+  { value: 'request', label: 'Requests', plural: 'requests' }, { value: 'event', label: 'Events', plural: 'events' },
+];
 interface FieldDef { code: string; label: string; kind: Kind; options: { value: string; label: string }[] }
 
 const OPS: Record<Kind, { value: Op; label: string }[]> = {
@@ -35,9 +39,10 @@ const OPS: Record<Kind, { value: Op; label: string }[]> = {
   boolean: [{ value: 'is_true', label: 'is ticked' }, { value: 'is_false', label: 'is not ticked' }],
 };
 const APPROVER_TYPES: { value: ApproverType; label: string }[] = [
-  { value: 'manager', label: "Requester's manager" }, { value: 'group', label: 'Group' }, { value: 'user', label: 'Person' },
+  { value: 'manager', label: "Submitter's manager" }, { value: 'group', label: 'Group' }, { value: 'user', label: 'Person' },
 ];
 const KEY = [ADMIN_KEY, 'approval-processes'];
+const NUMBER_ERROR = 'Give the step a number from 1 to 20';
 
 function useProcesses() {
   return useQuery({
@@ -48,17 +53,17 @@ function useProcesses() {
   });
 }
 
-/** The fields criteria can test, with their choices: built-in ones and the request's custom fields. */
-function useCriteriaFields(): FieldDef[] {
+/** The fields criteria can test, per record type, with their choices: built-in ones and the object's custom fields. */
+function useCriteriaFields(): Record<RecordType, FieldDef[]> {
   const base = useQuery({
     queryKey: ['approval-criteria-fields'], staleTime: Infinity,
-    queryFn: async () => (await must(supabase.from('approval_criteria_field').select('code,label,kind').eq('record_type', 'request').order('sort'))) as { code: string; label: string; kind: Kind }[],
+    queryFn: async () => (await must(supabase.from('approval_criteria_field').select('record_type,code,label,kind').order('sort'))) as { record_type: RecordType; code: string; label: string; kind: Kind }[],
   });
   const kinds = useRequestKinds();
   const types = useEventTypes();
   const countries = useCountries();
   const areas = useAreas();
-  const custom = useCustomFields('event_request');
+  const custom = useCustomFields();
   return useMemo(() => {
     const choices: Record<string, { value: string; label: string }[]> = {
       request_type: (kinds.data ?? []).map((k) => ({ value: k.code, label: k.label })),
@@ -66,19 +71,23 @@ function useCriteriaFields(): FieldDef[] {
       country_code: (countries.data ?? []).map((c) => ({ value: c.code, label: `${c.name} (${c.code})` })),
       therapeutic_area_id: (areas.data ?? []).map((a) => ({ value: a.id, label: a.name })),
     };
-    const builtIn = (base.data ?? []).map((f): FieldDef => ({ ...f, options: choices[f.code] ?? [] }));
-    const extra = (custom.data ?? []).filter((f) => f.is_active).flatMap((f): FieldDef[] => {
-      const kind: Kind | null = f.field_type === 'picklist' ? 'choice' : f.field_type === 'number' || f.field_type === 'currency' ? 'number'
-        : f.field_type === 'checkbox' ? 'boolean' : null;
-      return kind ? [{ code: `custom.${f.api_name}`, label: f.label, kind, options: f.options }] : [];
-    });
-    return [...builtIn, ...extra];
+    const forType = (rt: RecordType): FieldDef[] => {
+      const builtIn = (base.data ?? []).filter((f) => f.record_type === rt).map((f): FieldDef => ({ code: f.code, label: f.label, kind: f.kind, options: choices[f.code] ?? [] }));
+      const object = rt === 'event' ? 'event' : 'event_request';
+      const extra = (custom.data ?? []).filter((f) => f.is_active && f.object_name === object).flatMap((f): FieldDef[] => {
+        const kind: Kind | null = f.field_type === 'picklist' ? 'choice' : f.field_type === 'number' || f.field_type === 'currency' ? 'number'
+          : f.field_type === 'checkbox' ? 'boolean' : null;
+        return kind ? [{ code: `custom.${f.api_name}`, label: f.label, kind, options: f.options }] : [];
+      });
+      return [...builtIn, ...extra];
+    };
+    return { request: forType('request'), event: forType('event') };
   }, [base.data, kinds.data, types.data, countries.data, areas.data, custom.data]);
 }
 
-/** "Request type is Tiering · Country is GB, IE", or "Every request". */
-function criteriaText(criteria: Criterion[], fields: FieldDef[]) {
-  if (!criteria.length) return 'Every request';
+/** "Request type is Tiering · Country is GB, IE", or "Every request" / "Every event". */
+function criteriaText(criteria: Criterion[], fields: FieldDef[], rt: RecordType) {
+  if (!criteria.length) return rt === 'event' ? 'Every event' : 'Every request';
   return criteria.map((c) => {
     const f = fields.find((x) => x.code === c.field);
     const op = f ? OPS[f.kind].find((o) => o.value === c.op)?.label : c.op;
@@ -101,6 +110,7 @@ export function ApprovalsAdmin() {
   const groups = useGroups();
   const users = useUsers();
   const [q, setQ] = useState('');
+  const [rt, setRt] = useState('');
   const [editing, setEditing] = useState<ProcessRow | 'new' | null>(null);
   const who = useMemo(() => {
     const g = new Map((groups.data ?? []).map((x) => [x.id, x.name]));
@@ -109,31 +119,33 @@ export function ApprovalsAdmin() {
   }, [groups.data, users.data]);
 
   const columns = useMemo<Column<ProcessRow>[]>(() => [
-    { id: 'name', header: 'Process', width: '26%', sortValue: (p) => p.name,
+    { id: 'name', header: 'Process', width: '24%', sortValue: (p) => p.name,
       cell: (p) => <><button className="dt-primary as-button" onClick={() => setEditing(p)}>{p.name}</button>
         {p.description && <div className="dt-sub">{p.description}</div>}</> },
-    { id: 'criteria', header: 'Applies when', width: '28%', cell: (p) => <span className={p.criteria.length ? undefined : 'admin-all'}>{criteriaText(p.criteria, fields)}</span> },
-    { id: 'steps', header: 'Approvers', width: '26%', cell: (p) => p.approval_process_step.length
+    { id: 'type', header: 'For', width: '9%', sortValue: (p) => p.record_type, cell: (p) => RECORD_TYPES.find((r) => r.value === p.record_type)?.label },
+    { id: 'criteria', header: 'Applies when', width: '24%', cell: (p) => <span className={p.criteria.length ? undefined : 'admin-all'}>{criteriaText(p.criteria, fields[p.record_type], p.record_type)}</span> },
+    { id: 'steps', header: 'Approvers', width: '24%', cell: (p) => p.approval_process_step.length
       ? stepsText(p.approval_process_step, who) : <span className="admin-all">No steps: never applies</span> },
     { id: 'priority', header: 'Priority', width: '9%', sortValue: (p) => p.priority, cell: (p) => p.priority },
     { id: 'status', header: 'Status', width: '10%', sortValue: (p) => (p.is_active ? 0 : 1),
       cell: (p) => <span className={`pill ${p.is_active ? 'pill-green' : 'pill-grey'}`}>{p.is_active ? 'Active' : 'Inactive'}</span> },
   ], [fields, who]);
 
-  const filtered = useMemo(() => processes.data?.filter((p) => !q || [p.name, p.description].some((v) => v?.toLowerCase().includes(q.toLowerCase()))),
-    [processes.data, q]);
+  const filtered = useMemo(() => processes.data?.filter((p) => (!rt || p.record_type === rt)
+    && (!q || [p.name, p.description].some((v) => v?.toLowerCase().includes(q.toLowerCase())))), [processes.data, q, rt]);
   const { rows, sort, setSort } = useTableSort(filtered, columns, { columnId: 'priority', dir: 'asc' });
 
   return (
     <AdminPage title="Approvals"
-      sub="Who approves which requests. When a request is submitted, the active process with the lowest priority number whose conditions all match applies."
+      sub="Who approves which requests and events. On submit, the active process with the lowest priority number whose conditions all match applies."
       action={can(me, 'approval_process', 'create') && <button className="btn btn-primary" onClick={() => setEditing('new')}><Plus size={15} strokeWidth={2.6} />New process</button>}
       readOnlyNote={!can(me, 'approval_process', 'edit') && 'Approval processes are managed by System and Business Admins.'}>
       <Toolbar label="Filter approval processes">
         <SearchInput value={q} onChange={setQ} placeholder="Search processes" />
+        <FilterSelect label="For" value={rt} onChange={setRt} options={RECORD_TYPES.map((r) => ({ value: r.value, label: r.label }))} />
       </Toolbar>
       <DataTable label="Approval processes" columns={columns} rows={rows} rowKey={(p) => p.id} sort={sort} onSortChange={setSort}
-        loading={processes.isLoading} error={processes.error} empty="No approval processes yet: submitting a request is refused until one applies." />
+        loading={processes.isLoading} error={processes.error} empty="No approval processes yet: submitting is refused until one applies." />
       {editing && <ProcessEditor process={editing === 'new' ? null : editing} fields={fields} onClose={() => setEditing(null)} />}
     </AdminPage>
   );
@@ -143,7 +155,7 @@ type DraftStep = Omit<StepRow, 'id'> & { id?: string; key: string };
 let keySeq = 0;
 const newKey = () => `n${++keySeq}`;
 
-function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | null; fields: FieldDef[]; onClose: () => void }) {
+function ProcessEditor({ process, fields: allFields, onClose }: { process: ProcessRow | null; fields: Record<RecordType, FieldDef[]>; onClose: () => void }) {
   const { me } = useAuth();
   const qc = useQueryClient();
   const groups = useGroups();
@@ -154,6 +166,8 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
   const [description, setDescription] = useState(process?.description ?? '');
   const [priority, setPriority] = useState(String(process?.priority ?? 50));
   const [active, setActive] = useState(process?.is_active ?? true);
+  const [recordType, setRecordType] = useState<RecordType>(process?.record_type ?? 'request');
+  const fields = allFields[recordType];
   const [criteria, setCriteria] = useState<Criterion[]>(process?.criteria ?? []);
   const [steps, setSteps] = useState<DraftStep[]>(() => process
     ? process.approval_process_step.slice().sort((a, b) => a.step_number - b.step_number || a.name.localeCompare(b.name)).map((s) => ({ ...s, key: s.id }))
@@ -170,7 +184,8 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
 
   const save = useMutation({
     mutationFn: async () => {
-      const row = { name: name.trim(), description: description.trim() || null, priority: Number(priority), is_active: active, criteria };
+      const row = { name: name.trim(), description: description.trim() || null, priority: Number(priority), is_active: active, criteria,
+                    ...(process ? {} : { record_type: recordType }) };
       let id = process?.id;
       if (id) await must(supabase.from('approval_process').update(row).eq('id', id));
       else id = (await must(supabase.from('approval_process').insert(row).select('id').single()))!.id;
@@ -206,7 +221,8 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
     });
     if (!steps.length) errs.steps = 'Add at least one step';
     steps.forEach((s) => {
-      if (!s.name.trim()) errs[s.key] = 'Name the step';
+      if (!(s.step_number >= 1 && s.step_number <= 20)) errs[s.key] = NUMBER_ERROR;
+      else if (!s.name.trim()) errs[s.key] = 'Name the step';
       else if (s.approver_type === 'group' && !s.approver_group_id) errs[s.key] = 'Choose the group';
       else if (s.approver_type === 'user' && !s.approver_user_id) errs[s.key] = 'Choose the person';
     });
@@ -218,13 +234,12 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
     return (
       <ConfirmDialog title={`Delete ${process.name}?`} confirmLabel="Delete process" pending={remove.isPending} error={remove.error?.message}
         onConfirm={() => remove.mutate()} onCancel={() => { remove.reset(); setDeleting(false); }}>
-        Requests submitted from now on go through another process, or can't be submitted if none applies.
+        {process.record_type === 'event' ? 'Events' : 'Requests'} submitted from now on go through another process, or can't be submitted if none applies.
         Approvals already running carry on as they were. To pause it instead, make it inactive.
       </ConfirmDialog>
     );
   }
 
-  const nums = [...new Set(steps.map((s) => s.step_number))].sort((a, b) => a - b);
   return (
     <Modal open size="lg" title={process ? process.name : 'New approval process'} onClose={onClose}
       footerNote={process && editable && can(me, 'approval_process', 'delete') && (
@@ -236,7 +251,7 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
       </>}>
       <form id="process-form" className="form" onSubmit={submit} noValidate>
         {save.error && <div className="form-error" role="alert" style={{ marginBottom: 16 }}>{save.error.message}</div>}
-        <div className="admin-note">Changes apply to requests submitted from now on. Approvals already running keep the approvers they started with.</div>
+        <div className="admin-note">Changes apply to {recordType === 'event' ? 'events' : 'requests'} submitted from now on. Approvals already running keep the approvers they started with.</div>
 
         <FormSection title="Process">
           <Field label="Name" required error={errors.name}>
@@ -250,8 +265,9 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
           <Field label="Description" wide>
             {(id) => <input id={id} className="input" value={description} disabled={!editable} onChange={(e) => setDescription(e.target.value)} />}
           </Field>
-          <Field label="Applies to" hint="Event and content approvals come next.">
-            {(id) => <input id={id} className="input" value="Requests" disabled />}
+          <Field label="Applies to" hint={process ? 'Fixed once created.' : 'Content approvals come next.'}>
+            {() => <Segmented label="Applies to" value={recordType} options={RECORD_TYPES.map((r) => ({ value: r.value, label: r.label }))}
+              onChange={process || !editable ? () => {} : (v) => { setRecordType(v); setCriteria([]); }} />}
           </Field>
           <Field label="Priority" required error={errors.priority} hint="Lower numbers are checked first; give catch-all processes a high one.">
             {(id, d) => <input id={id} aria-describedby={d} className="input" inputMode="numeric" value={priority} disabled={!editable}
@@ -261,7 +277,7 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
 
         <FormSection title="Applies when">
           <div className="field-wide proc-rows">
-            {criteria.length === 0 && <div className="admin-all">Every request. Add conditions to narrow it; all of them must match.</div>}
+            {criteria.length === 0 && <div className="admin-all">Every {recordType}. Add conditions to narrow it; all of them must match.</div>}
             {criteria.map((c, i) => {
               const f = fields.find((x) => x.code === c.field);
               return (
@@ -290,13 +306,15 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
 
         <FormSection title="Steps">
           <div className="field-wide proc-rows">
-            <div className="field-hint">Steps run in order of their number; steps with the same number run in parallel. A group step needs one member's decision. Nobody approves their own request.</div>
+            <div className="field-hint">Steps run in order of their number; steps with the same number run in parallel. A group step needs one member's decision. Nobody approves what they submitted.</div>
             {errors.steps && <span className="field-error">{errors.steps}</span>}
-            {nums.map((n) => steps.filter((s) => s.step_number === n).map((s) => (
+            {steps.map((s) => (
               <div key={s.key} className="proc-row">
                 <div className="proc-cells proc-step">
-                  <input className="input proc-num" aria-label="Step number" inputMode="numeric" value={s.step_number} disabled={!editable}
-                    onChange={(e) => { const v = Number(e.target.value); if (Number.isInteger(v) && v >= 1 && v <= 20) setStep(s.key, { step_number: v }); }} />
+                  {/* Digits only; empty (0) while typing, checked on save */}
+                  <input className="input proc-num" aria-label="Step number" inputMode="numeric" value={s.step_number || ''} disabled={!editable}
+                    aria-invalid={errors[s.key] === NUMBER_ERROR || undefined}
+                    onChange={(e) => { const t = e.target.value.replace(/\D/g, '').slice(0, 2); setStep(s.key, { step_number: t ? Number(t) : 0 }); }} />
                   <input className="input" aria-label="Step name" value={s.name} placeholder="e.g. Medical review" disabled={!editable}
                     onChange={(e) => setStep(s.key, { name: e.target.value })} />
                   <Select aria-label="Approver" value={s.approver_type} disabled={!editable} options={APPROVER_TYPES}
@@ -313,9 +331,9 @@ function ProcessEditor({ process, fields, onClose }: { process: ProcessRow | nul
                   onClick={() => setSteps((all) => all.filter((x) => x.key !== s.key))}><Trash2 size={15} /></button>}
                 {errors[s.key] && <span className="field-error proc-error">{errors[s.key]}</span>}
               </div>
-            )))}
+            ))}
             {steps.some((s) => s.approver_type === 'manager') && (
-              <div className="field-hint">Manager steps: when the requester has no manager, the fallback group approves; with no fallback, submitting is refused.</div>
+              <div className="field-hint">Manager steps: when the submitter has no manager, the fallback group approves; with no fallback, submitting is refused.</div>
             )}
             {editable && <span><button type="button" className="btn" onClick={() => setSteps((all) => [...all, {
               key: newKey(), step_number: (Math.max(0, ...all.map((s) => s.step_number)) + 1), name: '', approver_type: 'group',

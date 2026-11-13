@@ -17,6 +17,12 @@ insert into public.event_post (id, tenant_id, event_id, author_id, body, mention
 select app.start_approval('request', r.id, r.submitted_at)
   from public.event_request r where r.status <> 'draft' order by r.submitted_at;
 
+-- Events: Neurology Meet and Cardio Workshop are in review (Lisa submitted them); SMA Board went
+-- through its approval before moving to Contract (Paul submitted it)
+select app.start_approval('event', app.sid('event:' || k), now() - make_interval(hours => h), app.sid('user:' || who))
+  from (values ('sma-board', 'paul', 300), ('neuro-meet', 'lisa', 50), ('cardio-workshop', 'lisa', 26)) t(k, who, h)
+ order by h desc;
+
 -- Everything above went out a minute after it was queued
 update public.email_message set status = 'sent', sent_at = created_at + interval '1 minute'
  where direction = 'outbound' and status = 'queued';
@@ -70,3 +76,13 @@ select app.apply_task_decision(t.id, app.sid('user:' || d.who), d.decision,
   join public.approval a on a.record_id = r.id and a.status = 'pending'
   join public.approval_task t on t.approval_id = a.id and t.status = 'pending'
   left join public.email_message e on d.via = 'email' and e.direction = 'inbound' and e.record_id = r.id and e.status = 'processed';
+
+-- SMA Board's approval: Compliance (no manager for Paul) and Nordics Medical both approved
+select app.apply_task_decision(t.id, app.sid('user:' || d.who), 'approved', d.note, 'app', a.submitted_at + make_interval(hours => d.after_h))
+  from (values ('Manager approval', 'maria', 20, null),
+               ('Medical review', 'sarah', 44, 'Registry figures checked against the published 2025 report. Fine to go ahead.')) d(step, who, after_h, note)
+  join public.approval a on a.record_type = 'event' and a.record_id = app.sid('event:sma-board') and a.status = 'pending'
+  join public.approval_task t on t.approval_id = a.id and t.step_name = d.step and t.status = 'pending'
+ order by d.after_h;
+update public.notification set read_at = created_at + interval '2 hours'
+ where record_id = app.sid('event:sma-board') and kind = 'approved';

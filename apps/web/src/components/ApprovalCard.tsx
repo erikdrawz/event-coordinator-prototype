@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { UsersRound } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Avatar } from '../../components/Avatar';
-import { formatDate } from '../../ui/DateInput';
-import { ViaEmail } from '../../ui/ViaEmail';
+import { supabase } from '../lib/supabase';
+import { Avatar } from './Avatar';
+import { formatDate } from '../ui/DateInput';
+import { ViaEmail } from '../ui/ViaEmail';
+import './approval.css';
 
 interface Who { display_name: string; initials: string | null; avatar_color: string | null }
 interface Task {
@@ -14,6 +15,7 @@ interface Task {
 type TaskStatus = 'waiting' | 'pending' | 'approved' | 'rejected' | 'cancelled';
 interface Approval {
   id: string; process_name: string; status: 'pending' | 'approved' | 'rejected' | 'cancelled'; submitted_at: string;
+  submitter: { display_name: string } | null;
   approval_task: Task[];
 }
 
@@ -23,18 +25,22 @@ const TASK_PILL: Record<TaskStatus, [string, string]> = {
   rejected: ['Rejected', 'pill-red'], cancelled: ['Cancelled', 'pill-grey'],
 };
 const APPROVAL_PILL: Record<Approval['status'], [string, string]> = {
-  pending: ['In progress', 'pill-yellow'], approved: ['Approved', 'pill-green'], rejected: ['Rejected', 'pill-red'], cancelled: ['Cancelled', 'pill-grey'],
+  pending: ['In progress', 'pill-yellow'], approved: ['Approved', 'pill-green'], rejected: ['Rejected', 'pill-red'], cancelled: ['Withdrawn', 'pill-grey'],
 };
 
-/** The request's approval: its process, and each step's approvers with what they decided. */
-export function ApprovalCard({ requestId, requester }: { requestId: string; requester: string | null }) {
+/**
+ * The latest approval of a request or an event: its process, who submitted it, and each step's
+ * approvers with what they decided. Nothing until it's first submitted.
+ */
+export function ApprovalCard({ recordType, recordId }: { recordType: 'request' | 'event'; recordId: string }) {
   const { data } = useQuery({
-    queryKey: ['request', requestId, 'approval'],
+    queryKey: [recordType, recordId, 'approval'],
     queryFn: async () => {
       const { data, error } = await supabase.from('approval')
-        .select(`id,process_name,status,submitted_at,approval_task(id,step_number,step_name,approver_type,status,decided_at,decided_via,comment,` +
+        .select(`id,process_name,status,submitted_at,submitter:app_user!approval_submitted_by_fkey(display_name),` +
+                `approval_task(id,step_number,step_name,approver_type,status,decided_at,decided_via,comment,` +
                 `approver:app_user!approval_task_approver_id_fkey(${WHO}),decider:app_user!approval_task_decided_by_fkey(${WHO}),group:user_group(name))`)
-        .eq('record_type', 'request').eq('record_id', requestId).order('submitted_at', { ascending: false }).limit(1);
+        .eq('record_type', recordType).eq('record_id', recordId).order('submitted_at', { ascending: false }).limit(1);
       if (error) throw error;
       return (data as unknown as Approval[])[0] ?? null;
     },
@@ -43,6 +49,7 @@ export function ApprovalCard({ requestId, requester }: { requestId: string; requ
 
   const steps = [...new Set(data.approval_task.map((t) => t.step_number))].sort((a, b) => a - b);
   const [label, tone] = APPROVAL_PILL[data.status];
+  const submitter = data.submitter?.display_name ?? null;
   return (
     <section className="card approval-card" aria-labelledby="approval-title">
       <div className="ov-head">
@@ -51,7 +58,7 @@ export function ApprovalCard({ requestId, requester }: { requestId: string; requ
           <span className={`pill ${tone}`}>{label}</span>
         </div>
       </div>
-      <p className="team-intro">{data.process_name} · submitted {formatDate(data.submitted_at.slice(0, 10))}</p>
+      <p className="team-intro">{data.process_name} · submitted {submitter ? `by ${submitter} ` : ''}on {formatDate(data.submitted_at.slice(0, 10))}</p>
       <ol className="approval-steps">
         {steps.map((n, i) => {
           const tasks = data.approval_task.filter((t) => t.step_number === n).sort((a, b) => a.step_name.localeCompare(b.step_name));
@@ -59,7 +66,7 @@ export function ApprovalCard({ requestId, requester }: { requestId: string; requ
             <li key={n} className="approval-step">
               <div className="approval-step-head">Step {i + 1}{tasks.length > 1 && <span className="text-muted"> · in parallel</span>}</div>
               <ul className="team-list">
-                {tasks.map((t) => <TaskRow key={t.id} t={t} requester={requester} />)}
+                {tasks.map((t) => <TaskRow key={t.id} t={t} submitter={submitter} />)}
               </ul>
             </li>
           );
@@ -69,11 +76,11 @@ export function ApprovalCard({ requestId, requester }: { requestId: string; requ
   );
 }
 
-function TaskRow({ t, requester }: { t: Task; requester: string | null }) {
+function TaskRow({ t, submitter }: { t: Task; submitter: string | null }) {
   const [label, tone] = TASK_PILL[t.status];
   const name = t.approver?.display_name ?? t.group?.name ?? 'Former approver';
   const role = t.approver_type === 'manager'
-    ? (t.approver ? `${requester ?? 'The requester'}'s manager` : 'No manager: their fallback group')
+    ? (t.approver ? `${submitter ?? 'The submitter'}'s manager` : 'No manager: their fallback group')
     : t.group ? 'Any one member decides' : null;
   const decided = t.status === 'approved' || t.status === 'rejected';
   return (
