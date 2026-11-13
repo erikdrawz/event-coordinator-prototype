@@ -41,8 +41,8 @@ export function LibraryList({ eventId, canAdd }: { eventId: string; canAdd: bool
               <td>{i.country_codes?.length ? <span className="content-codes">{i.country_codes.join(', ')}</span> : <span className="text-muted">All</span>}</td>
               <td className="content-actions">
                 <button type="button" className="icon-btn" aria-label={`Download ${i.title}`} title="Download" onClick={() => openFile(i).catch((e) => setError(e.message))}><Download size={16} /></button>
-                {used.has(i.id) ? <span className="content-added"><Check size={14} aria-hidden />In content</span>
-                  : canAdd && <button type="button" className="btn btn-sm" disabled={add.isPending} onClick={() => add.mutate(i.id)}><Plus size={14} strokeWidth={2.6} />Add to content</button>}
+                {used.has(i.id) ? <span className="content-added"><Check size={14} aria-hidden />On event</span>
+                  : canAdd && <button type="button" className="btn btn-sm" disabled={add.isPending} onClick={() => add.mutate(i.id)}><Plus size={14} strokeWidth={2.6} />Add to event</button>}
               </td>
             </tr>
           ))}
