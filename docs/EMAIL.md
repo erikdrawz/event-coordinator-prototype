@@ -1,7 +1,19 @@
 # Email: setup and how it works
 
-Event Center emails people when they're mentioned on a discussion board or asked to approve a request.
-They can reply by email. A reply to a mention is posted in the thread as them, and a reply of Approve or Reject decides the request.
+Event Center emails people when they're mentioned on a discussion board, when it's their turn to approve a request or an event, and (if the process says so) when their request or event is approved or rejected.
+They can reply by email. A reply to a mention is posted in the thread as them, and a reply of Approve or Reject decides their approval step.
+
+## What's emailed, and who decides
+
+| Setting | Where | Default | Effect |
+|---|---|---|---|
+| Email people when they're mentioned | Admin → Settings (System Admins) | on | Off: mentions show in notifications only |
+| Allow replying by email | Admin → Settings | on | Off: emails have no reply address or reply line; replies that still arrive are refused |
+| Email approvers when their step starts | each process, Admin → Approvals | on | Off: approvers are notified in Event Center only |
+| Approvers can approve or reject by replying | each process | on | Off: the email links to Event Center, where they sign in to decide (use it where a sign-off must be given in the app) |
+| Email the outcome | each process | on | The requester, or the event's owner and submitter, get approved / rejected with the reason |
+
+In-app notifications always go out. A process's settings are copied onto each approval when it's submitted, so changing them doesn't affect approvals already running. The database enforces all of this (`app.queue_email`, `app.check_email_reply_allowed`, `app.check_email_decision`), so the API and agents follow the same rules.
 This prototype uses [Resend](https://resend.com) for both directions, on Resend's own addresses (no domain to verify).
 
 ## How it works

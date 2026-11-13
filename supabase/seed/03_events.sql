@@ -21,6 +21,10 @@ insert into public.approval_process (id, tenant_id, name, description, priority,
                      jsonb_build_object('field', 'event_type_id', 'op', 'in', 'values', jsonb_build_array(app.sid('etype:advisory'))),
                      jsonb_build_object('field', 'country_code', 'op', 'in', 'values', jsonb_build_array('GB', 'IE')))),
   (app.sid('ap:standard'), app.sid('tenant:alera'), 'Event request — standard', 'Every other request: the requester''s manager approves.', 100, '[]');
+-- Medical sign-off on UK advisory boards is given in Event Center, not by email reply
+update public.approval_process set approve_by_email = false,
+       description = 'The requester''s manager and UKI Marketing in parallel, then UKI Medical. Approved in Event Center only.'
+ where id = app.sid('ap:uki-advisory');
 insert into public.approval_process_step (id, tenant_id, process_id, step_number, name, approver_type, approver_user_id, approver_group_id, fallback_group_id) values
   (app.sid('aps:tiering-1'),  app.sid('tenant:alera'), app.sid('ap:tiering'),      1, 'Compliance review',  'group',   null, app.sid('group:compliance'),    null),
   (app.sid('aps:uki-1a'),     app.sid('tenant:alera'), app.sid('ap:uki-advisory'), 1, 'Manager approval',   'manager', null, null,                           app.sid('group:hq-events')),

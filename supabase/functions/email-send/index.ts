@@ -4,7 +4,8 @@
 // Resend's default rate limit, and records each result with email_sent().
 import { emailAgent, json, resend } from '../_shared/email.ts';
 
-interface Outgoing { id: string; to: string; subject: string; text: string; reply_token: string }
+/** reply_token is null when the email can't be answered (replies off, or an outcome email) */
+interface Outgoing { id: string; to: string; subject: string; text: string; reply_token: string | null }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const linkify = (s: string) => esc(s).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" style="color:#1d6fd6">${u}</a>`);
@@ -43,13 +44,13 @@ Deno.serve(async () => {
     const batch = (data ?? []) as Outgoing[];
     if (!batch.length) break;
     for (const e of batch) {
-      const replyTo = `reply+${e.reply_token}@${resend.replyDomain()}`;
+      const replyTo = e.reply_token ? `reply+${e.reply_token}@${resend.replyDomain()}` : null;
       let result: Record<string, unknown>;
       try {
         const res = await fetch(`${resend.api()}/emails`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${resend.key()}`, 'Content-Type': 'application/json', 'Idempotency-Key': e.id },
-          body: JSON.stringify({ from: resend.from(), to: [e.to], subject: e.subject, text: e.text, html: toHtml(e.text), reply_to: replyTo }),
+          body: JSON.stringify({ from: resend.from(), to: [e.to], subject: e.subject, text: e.text, html: toHtml(e.text), ...(replyTo ? { reply_to: replyTo } : {}) }),
         });
         const body = await res.json().catch(() => ({}));
         result = res.ok

@@ -86,3 +86,7 @@ select app.apply_task_decision(t.id, app.sid('user:' || d.who), 'approved', d.no
  order by d.after_h;
 update public.notification set read_at = created_at + interval '2 hours'
  where record_id = app.sid('event:sma-board') and kind = 'approved';
+
+-- Seeded emails never go out: anything the decisions above queued (outcome emails) is marked sent
+update public.email_message set status = 'sent', sent_at = created_at + interval '1 minute'
+ where direction = 'outbound' and status = 'queued';

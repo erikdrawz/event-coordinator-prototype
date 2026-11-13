@@ -17,7 +17,13 @@ export interface Me {
   /** Countries this user may create events in. */
   event_countries: string[];
   profile: { id: string; name: string; is_admin: boolean; can_access_admin: boolean };
-  tenant: { id: string; name: string; brand_name: string; brand_color: string; show_profile_badge: boolean };
+  tenant: {
+    id: string; name: string; brand_name: string; brand_color: string; show_profile_badge: boolean;
+    /** Email people when they're mentioned */
+    email_mentions: boolean;
+    /** People may reply to emails (mention replies, approval decisions) */
+    email_replies: boolean;
+  };
   /** view_all: sees every record of the object, not only those shared with them (e.g. home office and requests) */
   permissions: Record<string, { read: boolean; create: boolean; edit: boolean; delete: boolean; view_all?: boolean }>;
 }

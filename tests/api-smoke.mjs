@@ -622,10 +622,15 @@ ok((await addStep({ step_number: 1, name: 'HQ', approver_type: 'user', approver_
    && (await addStep({ step_number: 1, name: 'Compliance', approver_type: 'group', approver_group_id: compliance })).status === 201
    && (await addStep({ step_number: 2, name: 'Manager', approver_type: 'manager' })).status === 201,
    'a Business Admin sets up a process: two steps in parallel, then the manager');
+ok((await api(maria, `approval_process?id=eq.${proc?.id}`, { method: 'PATCH', body: { approve_by_email: false } })).status < 400,
+   'a process can take decisions in Event Center only (no email replies)');
 const nlReq = (await saveReq(sarah, { title: 'Smoke NL request', event_type_id: types.data[0].id, event_date: '2027-06-01', duration: 'hours',
                                      country_code: 'NL', rationale: 'Smoke' })).data;
 await api(sarah, `event_request?id=eq.${nlReq?.id}`, { method: 'PATCH', body: { status: 'review' } });
 const nlTasks = async () => (await approvalOf(nlReq?.id))?.approval_task ?? [];
+const paulNlMail = (await api(paul, `email_message?record_id=eq.${nlReq?.id}&kind=eq.approval&user_id=eq.${paulId}&select=reply_token,reply_to,body`)).data?.[0];
+ok(paulNlMail && !paulNlMail.reply_token && !paulNlMail.reply_to && paulNlMail.body.includes('Approve or reject it in Event Center'),
+   "such a process's approval emails have no reply address and point to Event Center");
 const t1 = await nlTasks();
 ok((await approvalOf(nlReq?.id))?.process_name === procName && t1.filter((t) => t.status === 'pending').length === 2
    && t1.find((t) => t.step_number === 2)?.status === 'waiting' && t1.find((t) => t.step_number === 2)?.approver_id === michaelId,
@@ -640,6 +645,9 @@ ok((await nlTasks()).find((t) => t.step_number === 2)?.status === 'pending'
 ok((await decide(alex, 'approved', null, nlReq?.id)).status >= 400, 'once a member decided for the group, the others have nothing to decide');
 const nlRejected = await decide(michaelT, 'rejected', 'Smoke: not this quarter', nlReq?.id);
 ok(nlRejected.data?.status === 'rejected' && nlRejected.data.decision_note === 'Smoke: not this quarter', 'a rejection at any step rejects the request');
+const nlOutcome = (await api(sarah, `email_message?record_id=eq.${nlReq?.id}&kind=eq.outcome&select=subject,body,reply_token`)).data?.[0];
+ok(nlOutcome?.subject === 'Rejected request: Smoke NL request' && nlOutcome.body.includes('Smoke: not this quarter') && !nlOutcome.reply_token,
+   'the requester is emailed the outcome, with the reason (no reply address)');
 // Refusals: no manager and no fallback; no process at all
 const paulNl = (await saveReq(michaelT, { title: 'Smoke NL by Michael', event_type_id: types.data[0].id, event_date: '2027-06-01', duration: 'hours',
                                      country_code: 'NL', rationale: 'Smoke' })).data;
@@ -706,6 +714,30 @@ await decideEv(maria, nordEv?.id, 'approved');
 ok((await evStatus(nordEv?.id)) === 'contract', 'when both parallel steps are approved, the event moves to Contract');
 await api(alex, `email_message?record_id=in.(${apEv?.id},${nordEv?.id})`, { method: 'DELETE' });
 await api(alex, `event?id=in.(${apEv?.id},${nordEv?.id})`, { method: 'DELETE' });
+
+// Email settings: the organisation decides whether mentions are emailed and replies are taken
+const setTenant = (who, body) => api(who, `tenant?id=eq.${tenantId}`, { method: 'PATCH', body });
+ok((await setTenant(maria, { email_mentions: false })).data?.length === 0, 'only System Admins change the email settings');
+const mailEv = (await capture({ ...base, name: 'Smoke email settings' })).data;
+await api(paul, 'event_team_member', { method: 'POST', body: { event_id: mailEv?.id, user_id: sarahMe.data.id, team_role: 'viewer' } });
+const mentionSarah = (text) => api(paul, 'event_post', { method: 'POST', body: { event_id: mailEv?.id, body: `@Sarah Mitchell ${text}`, mentions: [sarahMe.data.id] } });
+const sarahMails = async () => (await api(sarah, `email_message?record_id=eq.${mailEv?.id}&kind=eq.mention&select=id,reply_token,reply_to,body&order=created_at`)).data ?? [];
+await mentionSarah('smoke: emailed');
+const firstMail = (await sarahMails())[0];
+ok(firstMail?.reply_token && firstMail.body.includes('Reply to this email'), 'by default a mention is emailed, and can be answered by replying');
+await setTenant(alex, { email_mentions: false });
+await mentionSarah('smoke: not emailed');
+ok((await sarahMails()).length === 1 && (await mentionsOf(sarah, mailEv?.id)).length === 2, 'with mention emails off, people are notified in the app only');
+await setTenant(alex, { email_mentions: true, email_replies: false });
+ok((await api(alex, 'rpc/me', { method: 'POST', body: {} })).data?.tenant?.email_replies === false, 'me() tells the app the email settings');
+await mentionSarah('smoke: no replies');
+const noReplyMail = (await sarahMails())[1];
+ok(noReplyMail && !noReplyMail.reply_token && !noReplyMail.reply_to && !noReplyMail.body.includes('Reply'), 'with replies off, emails have no reply address and no reply line');
+const lateReply = await receive(emailAgent, { from: 'Sarah Mitchell <sarah.mitchell@alera.example>', to: firstMail?.reply_to, text: 'Smoke: late reply' });
+ok(lateReply.data?.status === 'failed' && /turned off/.test(lateReply.data?.status_note ?? ''), 'a reply that still arrives is refused');
+await setTenant(alex, { email_replies: true });
+await api(alex, `email_message?record_id=eq.${mailEv?.id}`, { method: 'DELETE' });
+await api(alex, `event?id=eq.${mailEv?.id}`, { method: 'DELETE' });
 
 // Attendees: HCPs added in bulk from EC or straight from a CRM; each person once
 const addAtt = (who, people) => api(who, 'rpc/add_event_attendees', { method: 'POST', body: { p_event_id: ev.id, p_people: people } });

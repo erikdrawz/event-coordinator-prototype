@@ -8,7 +8,7 @@ import { DataTable, useTableSort, type Column } from '../../ui/DataTable';
 import { FilterSelect, SearchInput, Segmented, Toolbar } from '../../ui/Toolbar';
 import { Modal } from '../../ui/Modal';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
-import { Field, FormSection } from '../../ui/Form';
+import { CheckboxField, Field, FormSection } from '../../ui/Form';
 import { Select } from '../../ui/Select';
 import { MultiSelect } from '../../ui/MultiSelect';
 import { useRequestKinds } from '../requests/requestData';
@@ -24,6 +24,7 @@ interface StepRow {
 }
 interface ProcessRow {
   id: string; name: string; description: string | null; record_type: RecordType; priority: number; criteria: Criterion[]; is_active: boolean;
+  email_approvers: boolean; approve_by_email: boolean; email_submitter: boolean;
   approval_process_step: StepRow[];
 }
 type Kind = 'choice' | 'number' | 'boolean';
@@ -48,7 +49,7 @@ function useProcesses() {
   return useQuery({
     queryKey: KEY,
     queryFn: async () => (await must(supabase.from('approval_process')
-      .select('id,name,description,record_type,priority,criteria,is_active,approval_process_step(id,step_number,name,approver_type,approver_user_id,approver_group_id,fallback_group_id)')
+      .select('id,name,description,record_type,priority,criteria,is_active,email_approvers,approve_by_email,email_submitter,approval_process_step(id,step_number,name,approver_type,approver_user_id,approver_group_id,fallback_group_id)')
       .order('priority').order('name'))) as unknown as ProcessRow[],
   });
 }
@@ -167,6 +168,10 @@ function ProcessEditor({ process, fields: allFields, onClose }: { process: Proce
   const [priority, setPriority] = useState(String(process?.priority ?? 50));
   const [active, setActive] = useState(process?.is_active ?? true);
   const [recordType, setRecordType] = useState<RecordType>(process?.record_type ?? 'request');
+  const [emailApprovers, setEmailApprovers] = useState(process?.email_approvers ?? true);
+  const [approveByEmail, setApproveByEmail] = useState(process?.approve_by_email ?? true);
+  const [emailSubmitter, setEmailSubmitter] = useState(process?.email_submitter ?? true);
+  const repliesOn = Boolean(me?.tenant.email_replies);
   const fields = allFields[recordType];
   const [criteria, setCriteria] = useState<Criterion[]>(process?.criteria ?? []);
   const [steps, setSteps] = useState<DraftStep[]>(() => process
@@ -185,6 +190,7 @@ function ProcessEditor({ process, fields: allFields, onClose }: { process: Proce
   const save = useMutation({
     mutationFn: async () => {
       const row = { name: name.trim(), description: description.trim() || null, priority: Number(priority), is_active: active, criteria,
+                    email_approvers: emailApprovers, approve_by_email: approveByEmail, email_submitter: emailSubmitter,
                     ...(process ? {} : { record_type: recordType }) };
       let id = process?.id;
       if (id) await must(supabase.from('approval_process').update(row).eq('id', id));
@@ -340,6 +346,18 @@ function ProcessEditor({ process, fields: allFields, onClose }: { process: Proce
               approver_user_id: null, approver_group_id: null, fallback_group_id: null }])}>
               <Plus size={14} />Add step</button></span>}
           </div>
+        </FormSection>
+
+        <FormSection title="Email">
+          <CheckboxField label="Email approvers when their step starts" checked={emailApprovers} onChange={setEmailApprovers} disabled={!editable}
+            hint="They're always notified in Event Center; this adds an email with the details." />
+          <CheckboxField label="Approvers can approve or reject by replying" checked={approveByEmail && repliesOn} onChange={setApproveByEmail}
+            disabled={!editable || !repliesOn || !emailApprovers}
+            hint={!repliesOn ? 'Replying by email is turned off for the organisation (Admin → Settings).'
+              : 'Off: the email only links to Event Center, where they sign in to decide. Choose off where a sign-off must be given in the app.'} />
+          <CheckboxField label={recordType === 'event' ? "Email the outcome to the event's owner and submitter" : 'Email the outcome to the requester'}
+            checked={emailSubmitter} onChange={setEmailSubmitter} disabled={!editable}
+            hint="Approved, or rejected with the reason. They're always notified in Event Center." />
         </FormSection>
       </form>
     </Modal>
