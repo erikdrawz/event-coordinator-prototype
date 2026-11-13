@@ -36,7 +36,8 @@ const optionValue = (label: string) => apiNameFrom(label).replace(/__c$/, '');
 
 function typeSummary(f: CustomFieldRow) {
   if (f.field_type === 'picklist') return `${TYPE_LABEL.picklist} · ${f.options.length} option${f.options.length === 1 ? '' : 's'}`;
-  if (f.field_type === 'number' && f.decimals != null) return `Number · ${f.decimals === 0 ? 'whole numbers' : `${f.decimals} decimal${f.decimals === 1 ? '' : 's'}`}`;
+  if ((f.field_type === 'number' || f.field_type === 'currency') && f.decimals != null)
+    return `${TYPE_LABEL[f.field_type]} · ${f.decimals === 0 ? 'whole numbers' : `${f.decimals} decimal${f.decimals === 1 ? '' : 's'}`}`;
   return TYPE_LABEL[f.field_type];
 }
 
@@ -134,7 +135,7 @@ function CustomFieldEditor({ field, defaultObject, onClose }: { field: CustomFie
         : [];
       const row = {
         label: label.trim(), help_text: description.trim() || null, options: opts, is_required: onForms && required, is_active: active,
-        decimals: type === 'number' ? Number(decimals) : null,
+        decimals: type === 'number' || type === 'currency' ? Number(decimals) : null,
       };
       const id = field ? (await must(supabase.from('custom_field').update(row).eq('id', field.id).select('id').single()) as { id: string }).id
         : (await must(supabase.from('custom_field').insert({ ...row, object_name: object, api_name: apiName, field_type: type }).select('id').single()) as { id: string }).id;
@@ -205,7 +206,7 @@ function CustomFieldEditor({ field, defaultObject, onClose }: { field: CustomFie
             {(id, d) => <Select id={id} aria-describedby={d} value={type} onChange={(v) => setType(v as CustomFieldType)}
               options={typeOptions} disabled={Boolean(field) || !editable} />}
           </Field>
-          {type === 'number' && (
+          {(type === 'number' || type === 'currency') && (
             <Field label="Decimals" hint="How many decimal places a value may have.">
               {(id, d) => <Select id={id} aria-describedby={d} value={decimals} onChange={setDecimals} disabled={!editable}
                 options={['0', '1', '2', '3', '4', '5', '6'].map((n) => ({ value: n, label: n === '0' ? 'None (whole numbers)' : `${n} (e.g. ${(0).toFixed(Number(n)).replace(/0$/, '5')})` }))} />}

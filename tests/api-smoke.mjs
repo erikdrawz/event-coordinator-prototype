@@ -66,7 +66,7 @@ const types = await api(paul, 'event_type?name=eq.Advisory%20board&select=id');
 const telia = await api(paul, 'product?name=eq.Telia&select=id');
 const capture = (body) => api(paul, 'rpc/create_event', { method: 'POST', body: { p: body } });
 const base = { name: 'Smoke Test Board', event_type_id: types.data[0].id, country_code: 'FR', city: 'Paris',
-               starts_local: '2026-12-01T09:00', custom_fields: { meeting_format__c: 'hybrid', cme_credits__c: 2 } };
+               starts_local: '2026-12-01T09:00', custom_fields: { meeting_format__c: 'hybrid', expected_attendees__c: 12 } };
 const created = await capture({ ...base, product_ids: [telia.data[0].id] });
 const ev = created.data;
 ok(created.status === 200 && ev?.owner_id === me.data.id && ev?.status === 'draft', 'coordinator creates an event; owner defaults to creator');
@@ -85,14 +85,17 @@ const plain = await api(paul, 'event', { method: 'POST', body: { name: 'Plain in
 ok(plain.status >= 400, 'a plain insert still has to satisfy required custom fields');
 
 // Partial update: untouched values stay, custom_fields merge, null removes a value
-const upd1 = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { city: 'Lyon', custom_fields: { cme_credits__c: null } } } });
+const upd1 = await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { city: 'Lyon', custom_fields: { expected_attendees__c: null } } } });
 ok(upd1.status === 200 && upd1.data.city === 'Lyon' && upd1.data.name === 'Smoke Test Board'
-   && upd1.data.custom_fields.meeting_format__c === 'hybrid' && !('cme_credits__c' in upd1.data.custom_fields),
+   && upd1.data.custom_fields.meeting_format__c === 'hybrid' && !('expected_attendees__c' in upd1.data.custom_fields),
    'update_event changes only the keys sent and merges custom fields');
 const virt = await api(maria, 'event?custom_fields->>meeting_format__c=eq.virtual&select=name');
 ok(virt.data?.length === 1 && virt.data[0].name === 'Immunology Webinar Series', 'events can be filtered on a custom field through the API');
 const defs = await api(sarah, 'custom_field?object_name=eq.event&select=api_name,custom_field_layout(section)');
 ok(defs.data?.length === 6, `collaborator can read custom field definitions (got ${defs.data?.length})`);
+ok((await capture({ ...base, custom_fields: { meeting_format__c: 'hybrid', estimated_spend__c: 1200.5 } })).status >= 400, 'estimated spend is a whole amount');
+ok((await api(paul, 'rpc/update_event', { method: 'POST', body: { p_event_id: ev.id, p: { estimated_spend: 100 } } })).status >= 400,
+   'expected attendees and estimated spend are custom fields now, not event columns');
 const newDef = await api(paul, 'custom_field', { method: 'POST', body: { object_name: 'event', api_name: 'sneaky__c', label: 'Sneaky', field_type: 'text' } });
 ok(newDef.status >= 400, 'only admins can define custom fields');
 

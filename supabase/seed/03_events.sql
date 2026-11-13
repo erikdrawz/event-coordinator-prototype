@@ -33,14 +33,14 @@ insert into public.approval_process_step (id, tenant_id, process_id, step_number
 -- ---------------------------------------------------------------------
 insert into public.event (id, tenant_id, event_number, name, event_type_id, status, owner_id, therapeutic_area_id,
                           country_code, city, venue_name, venue_address, timezone, starts_at, ends_at,
-                          expected_attendees, estimated_spend, currency, description, cancel_reason,
+                          description, cancel_reason,
                           crm_connection_id, crm_external_id, created_at, created_by)
 select app.sid('event:' || k), app.sid('tenant:alera'),
        'EV-' || extract(year from current_date) || '-' || num,
        nm, app.sid('etype:' || ty), st, app.sid('user:' || own), app.sid('ta:' || ta),
        c, city, venue, addr, tz,
        app.seed_at(d, t0, tz), app.seed_at(d, t0, tz) + make_interval(mins => dur),
-       att, spend, 'EUR', descr, cancel,
+       descr, cancel,
        case when crm is not null then app.sid('crm:' || crm) end, crmid,
        now() - make_interval(days => created_ago), app.sid('user:' || own)
   from (values
@@ -165,33 +165,35 @@ select app.sid('cf:' || k), app.sid('tenant:alera'), 'event', api, lbl, ty, opts
   from (values
     ('format',   'meeting_format__c',    'Meeting format',   'picklist',  '[{"value":"in_person","label":"In person"},{"value":"virtual","label":"Virtual"},{"value":"hybrid","label":"Hybrid"}]', true,  null, null, 60),
     ('cost',     'cost_center__c',       'Cost centre',      'text',      '[]', false, 'Finance cost centre the spend is booked to, e.g. NOR-MED-410.', null, 59),
-    ('tov',      'tov_reportable__c',    'Reportable transfer of value', 'checkbox', '[]', false, 'Payments or hospitality to HCPs on this event must be disclosed (EFPIA, Sunshine Act).', null, 58),
     ('question', 'advisory_question__c', 'Advisory question','long_text', '[]', false, 'The question the board is asked to advise on. Shown to compliance reviewers.', null, 57),
-    ('cme',      'cme_credits__c',       'CME credits',      'number',    '[]', false, 'Accredited CME hours, e.g. 3.5.', 1, 56),
+    ('attendees','expected_attendees__c','Expected attendees','number',   '[]', false, 'Roughly how many people will attend.', 0, 19),
+    ('spend',    'estimated_spend__c',   'Estimated spend',  'currency',  '[]', false, 'Rough total cost in EUR.', 0, 18),
     ('website',  'event_website__c',     'Event website',    'url',       '[]', false, 'Public page for the congress or meeting.', null, 20)
   ) as t(k, api, lbl, ty, opts, req, help, dec, age);
 
--- Which event types show which fields
+-- Which event types show which fields (expected attendees and estimated spend: every type)
+insert into public.custom_field_layout (tenant_id, custom_field_id, event_type_id)
+select app.sid('tenant:alera'), app.sid('cf:' || f), null
+  from (values ('attendees'), ('spend')) as p(f);
 insert into public.custom_field_layout (tenant_id, custom_field_id, event_type_id)
 select app.sid('tenant:alera'), app.sid('cf:' || f), app.sid('etype:' || ty)
-  from (values ('format'), ('cost'), ('tov')) as a(f)
+  from (values ('format'), ('cost')) as a(f)
  cross join (values ('advisory'), ('conference'), ('symposium'), ('seminar'), ('roundtable'), ('workshop'), ('investigator'), ('internal')) as b(ty)
 union all
 select app.sid('tenant:alera'), app.sid('cf:' || f), app.sid('etype:' || ty)
   from (values ('question', 'advisory'),
-               ('cme', 'seminar'), ('cme', 'workshop'), ('cme', 'conference'),
                ('website', 'conference'), ('website', 'symposium')) as c(f, ty);
 
 update public.event e set custom_fields = v.cf::jsonb
   from (values
-    ('sma-board',       '{"meeting_format__c":"in_person","cost_center__c":"DK-MED-210","tov_reportable__c":true,"advisory_question__c":"How should Nordic registry outcomes shape the national SMA guideline update?"}'),
-    ('neuro-meet',      '{"meeting_format__c":"in_person","cost_center__c":"NO-MED-410","tov_reportable__c":true,"cme_credits__c":4}'),
-    ('bioforum',        '{"meeting_format__c":"in_person","cost_center__c":"HQ-RARE-100","tov_reportable__c":true,"cme_credits__c":6,"event_website__c":"https://bioforum.example/2026"}'),
-    ('sma-symposium',   '{"meeting_format__c":"hybrid","cost_center__c":"SE-MED-310"}'),
-    ('derm-roundtable', '{"meeting_format__c":"in_person","cost_center__c":"DE-DERM-120","tov_reportable__c":true}'),
-    ('cardio-workshop', '{"meeting_format__c":"in_person","cost_center__c":"ES-CARD-220","cme_credits__c":3}'),
-    ('haem-board',      '{"meeting_format__c":"in_person","cost_center__c":"GB-ONC-050","tov_reportable__c":true,"advisory_question__c":"What is the preferred second-line sequencing after first-line failure?"}'),
-    ('immuno-webinar',  '{"meeting_format__c":"virtual"}')
+    ('sma-board',       '{"meeting_format__c":"in_person","cost_center__c":"DK-MED-210","expected_attendees__c":14,"estimated_spend__c":6400,"advisory_question__c":"How should Nordic registry outcomes shape the national SMA guideline update?"}'),
+    ('neuro-meet',      '{"meeting_format__c":"in_person","cost_center__c":"NO-MED-410","expected_attendees__c":40,"estimated_spend__c":18500}'),
+    ('bioforum',        '{"meeting_format__c":"in_person","cost_center__c":"HQ-RARE-100","expected_attendees__c":600,"estimated_spend__c":145000,"event_website__c":"https://bioforum.example/2026"}'),
+    ('sma-symposium',   '{"meeting_format__c":"hybrid","cost_center__c":"SE-MED-310","expected_attendees__c":120,"estimated_spend__c":42000}'),
+    ('derm-roundtable', '{"meeting_format__c":"in_person","cost_center__c":"DE-DERM-120","expected_attendees__c":12,"estimated_spend__c":5200}'),
+    ('cardio-workshop', '{"meeting_format__c":"in_person","cost_center__c":"ES-CARD-220","expected_attendees__c":30,"estimated_spend__c":9800}'),
+    ('haem-board',      '{"meeting_format__c":"in_person","cost_center__c":"GB-ONC-050","expected_attendees__c":10,"estimated_spend__c":7900,"advisory_question__c":"What is the preferred second-line sequencing after first-line failure?"}'),
+    ('immuno-webinar',  '{"meeting_format__c":"virtual","expected_attendees__c":200,"estimated_spend__c":3500}')
   ) as v(k, cf)
  where e.id = app.sid('event:' || v.k);
 

@@ -68,28 +68,27 @@ export interface EventFormState {
   name: string; event_type_id: string; therapeutic_area_id: string; product_ids: string[]; owner_id: string;
   country_code: string; city: string; venue_name: string; venue_address: string; timezone: string;
   starts_local: string; ends_local: string;
-  expected_attendees: string; estimated_spend: string; currency: string; description: string;
+  description: string;
   custom: Record<string, unknown>;
 }
 
 export interface EventRecord {
-  id: string; name: string; event_type_id: string; therapeutic_area_id: string | null; owner_id: string | null;
+  id: string; event_number: string; name: string; event_type_id: string; therapeutic_area_id: string | null; owner_id: string | null;
   country_code: string | null; city: string | null; venue_name: string | null; venue_address: string | null; timezone: string;
-  starts_at: string | null; ends_at: string | null; expected_attendees: number | null; estimated_spend: number | null;
-  currency: string | null; description: string | null; custom_fields: Record<string, unknown>;
+  starts_at: string | null; ends_at: string | null; description: string | null; custom_fields: Record<string, unknown>;
   event_product: { product_id: string }[];
 }
 
 export const EVENT_RECORD_SELECT =
-  'id,name,event_type_id,therapeutic_area_id,owner_id,country_code,city,venue_name,venue_address,timezone,starts_at,ends_at,' +
-  'expected_attendees,estimated_spend,currency,description,custom_fields,event_product(product_id)';
+  'id,event_number,name,event_type_id,therapeutic_area_id,owner_id,country_code,city,venue_name,venue_address,timezone,starts_at,ends_at,' +
+  'description,custom_fields,event_product(product_id)';
 
 /** A new event: owned by me, in my home country when I may create events there. */
 export function emptyForm(meId: string, country: string, timezone: string | null): EventFormState {
   return {
     name: '', event_type_id: '', therapeutic_area_id: '', product_ids: [], owner_id: meId,
     country_code: country, city: '', venue_name: '', venue_address: '', timezone: timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-    starts_local: '', ends_local: '', expected_attendees: '', estimated_spend: '', currency: 'EUR', description: '', custom: {},
+    starts_local: '', ends_local: '', description: '', custom: {},
   };
 }
 
@@ -102,7 +101,6 @@ export function formFromRecord(e: EventRecord): EventFormState {
     timezone: e.timezone,
     starts_local: e.starts_at ? toLocalInput(e.starts_at, e.timezone) : '',
     ends_local: e.ends_at ? toLocalInput(e.ends_at, e.timezone) : '',
-    expected_attendees: s(e.expected_attendees), estimated_spend: s(e.estimated_spend), currency: e.currency ?? 'EUR',
     description: s(e.description), custom: { ...e.custom_fields },
   };
 }
@@ -116,7 +114,6 @@ const isEmpty = (v: unknown) => v == null || v === '' || (Array.isArray(v) && v.
  */
 export function toPayload(f: EventFormState, shown: CustomFieldDef[]) {
   const t = (v: string) => (v.trim() === '' ? null : v.trim());
-  const n = (v: string) => (v.trim() === '' ? null : Number(v));
   const custom: Record<string, unknown> = {};
   shown.forEach((d) => {
     const v = f.custom[d.api_name];
@@ -127,7 +124,6 @@ export function toPayload(f: EventFormState, shown: CustomFieldDef[]) {
     product_ids: f.product_ids, owner_id: t(f.owner_id),
     country_code: t(f.country_code), city: t(f.city), venue_name: t(f.venue_name), venue_address: t(f.venue_address),
     timezone: f.timezone, starts_local: t(f.starts_local), ends_local: t(f.ends_local),
-    expected_attendees: n(f.expected_attendees), estimated_spend: n(f.estimated_spend), currency: t(f.currency),
     description: t(f.description), custom_fields: custom,
   };
 }

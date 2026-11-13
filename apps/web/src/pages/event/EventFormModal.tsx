@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { Modal } from '../../ui/Modal';
-import { ChipPicker, Field, FormSection } from '../../ui/Form';
+import { Field, FormSection } from '../../ui/Form';
+import { MultiSelect } from '../../ui/MultiSelect';
 import { Select } from '../../ui/Select';
 import { DateTimeInput } from '../../ui/DateInput';
 import { CustomFieldInput } from './CustomFieldInput';
@@ -13,7 +14,6 @@ import {
   toPayload, useEventFormOptions, validate, type CustomFieldDef, type EventFormState, type EventRecord,
 } from './eventForm';
 
-const CURRENCIES = ['EUR', 'GBP', 'USD', 'CHF', 'DKK', 'NOK', 'SEK', 'PLN'];
 
 /** New event (eventId undefined) or Edit event. Loads what it needs, then shows the form. */
 export function EventFormModal({ eventId, onClose }: { eventId?: string; onClose: () => void }) {
@@ -135,8 +135,10 @@ function EventForm({ eventId, record, options, onClose, title }:
   const currentCountry = options.countries.find((c) => c.code === f.country_code);
   if (currentCountry && !countryOptions.includes(currentCountry)) countryOptions.unshift(currentCountry);  // an existing event elsewhere
   const areaOptions = activeOrChosen(options.areas, [f.therapeutic_area_id]);
-  const areaProducts = activeOrChosen(options.products, f.product_ids)
-    .filter((p) => !f.therapeutic_area_id || p.therapeutic_area_id === f.therapeutic_area_id || f.product_ids.includes(p.id));
+  // Every active product (and any already chosen); the therapeutic area's own come first
+  const productOptions = activeOrChosen(options.products, f.product_ids)
+    .sort((a, b) => Number(b.therapeutic_area_id === f.therapeutic_area_id) - Number(a.therapeutic_area_id === f.therapeutic_area_id) || a.name.localeCompare(b.name))
+    .map((p) => ({ value: p.id, label: p.is_active ? p.name : `${p.name} (inactive)` }));
 
   return (
     <Modal open size="lg" title={title} onClose={onClose}
@@ -151,11 +153,17 @@ function EventForm({ eventId, record, options, onClose, title }:
       <form id="event-form" ref={bodyRef} className="form" onSubmit={submit} noValidate>
         {save.error && <div className="form-error" role="alert" style={{ marginBottom: 16 }}>{save.error.message}</div>}
 
-        <FormSection title="Event">
-          <Field label="Event name" required error={err('name')} wide>
+        {/* Same order as the Details tab: name and number, type and owner, area and products, description */}
+        <FormSection title="Event details">
+          <Field label="Event name" required error={err('name')} wide={!record}>
             {(id, d) => <input id={id} aria-describedby={d} aria-invalid={inv('name')} className="input" value={f.name}
               onChange={(e) => set('name', e.target.value)} placeholder="e.g. Nordic SMA Advisory Board" autoFocus={!eventId} />}
           </Field>
+          {record && (
+            <Field label="Event number" hint="Given when the event was created.">
+              {(id, d) => <input id={id} aria-describedby={d} className="input" value={record.event_number} disabled />}
+            </Field>
+          )}
           <Field label="Event type" required error={err('event_type_id')}>
             {(id, d) => (
               <Select id={id} aria-describedby={d} aria-invalid={inv('event_type_id')} value={f.event_type_id}
@@ -174,13 +182,24 @@ function EventForm({ eventId, record, options, onClose, title }:
                 options={areaOptions.map((a) => ({ value: a.id, label: a.name }))} />
             )}
           </Field>
-          <Field label="Products" wide hint={areaProducts.length ? null : 'No active products in this therapeutic area.'}>
-            {() => <ChipPicker label="Products" value={f.product_ids} onChange={(v) => set('product_ids', v)}
-              options={areaProducts.map((p) => ({ value: p.id, label: p.name }))} />}
+          <Field label="Products">
+            {(id, d) => <MultiSelect id={id} aria-describedby={d} aria-label="Products" value={f.product_ids} onChange={(v) => set('product_ids', v)}
+              placeholder="No products" options={productOptions} />}
+          </Field>
+          <Field label="Description" wide>
+            {(id) => <textarea id={id} className="input" rows={3} value={f.description} onChange={(e) => set('description', e.target.value)}
+              placeholder="Purpose, audience and anything the team should know" />}
           </Field>
         </FormSection>
 
         <FormSection title="When and where">
+          <Field label="Starts" hint="Local time at the event">
+            {(id, d) => <DateTimeInput id={id} aria-describedby={d} value={f.starts_local} onChange={pickStart} />}
+          </Field>
+          <Field label="Ends" error={err('ends_local')}>
+            {(id, d) => <DateTimeInput id={id} aria-describedby={d} aria-invalid={inv('ends_local')} value={f.ends_local}
+              min={f.starts_local || undefined} defaultTime={f.starts_local.slice(11) || '09:00'} onChange={(v) => set('ends_local', v)} />}
+          </Field>
           <Field label="Country" required error={err('country_code')}
             hint={f.event_type_id && countryOptions.length === 0 ? `${type?.name} events aren't available in any of your countries.`
               : !f.event_type_id ? 'Countries you can create events in.' : null}>
@@ -199,37 +218,11 @@ function EventForm({ eventId, record, options, onClose, title }:
           <Field label="Venue address">
             {(id) => <input id={id} className="input" value={f.venue_address} onChange={(e) => set('venue_address', e.target.value)} />}
           </Field>
-          <Field label="Starts" hint="Local time at the event">
-            {(id, d) => <DateTimeInput id={id} aria-describedby={d} value={f.starts_local} onChange={pickStart} />}
-          </Field>
-          <Field label="Ends" error={err('ends_local')}>
-            {(id, d) => <DateTimeInput id={id} aria-describedby={d} aria-invalid={inv('ends_local')} value={f.ends_local}
-              min={f.starts_local || undefined} defaultTime={f.starts_local.slice(11) || '09:00'} onChange={(v) => set('ends_local', v)} />}
-          </Field>
-          <Field label="Time zone" wide hint={tzTouched ? null : 'Follows the country until you change it.'}>
+          <Field label="Time zone" hint={tzTouched ? null : 'Follows the country until you change it.'}>
             {(id, d) => (
               <Select id={id} aria-describedby={d} value={f.timezone} options={zoneOptions}
                 onChange={(v) => { setTzTouched(true); set('timezone', v); }} />
             )}
-          </Field>
-        </FormSection>
-
-        <FormSection title="Planning">
-          <Field label="Expected attendees">
-            {(id) => <input id={id} type="number" min={0} className="input" value={f.expected_attendees} onChange={(e) => set('expected_attendees', e.target.value)} />}
-          </Field>
-          <Field label="Estimated spend">
-            {(id) => (
-              <div className="input-group">
-                <input id={id} type="number" min={0} step="any" className="input" value={f.estimated_spend} onChange={(e) => set('estimated_spend', e.target.value)} />
-                <Select aria-label="Currency" value={f.currency} onChange={(v) => set('currency', v)}
-                  options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
-              </div>
-            )}
-          </Field>
-          <Field label="Description" wide>
-            {(id) => <textarea id={id} className="input" rows={3} value={f.description} onChange={(e) => set('description', e.target.value)}
-              placeholder="Purpose, audience and anything the team should know" />}
           </Field>
         </FormSection>
 

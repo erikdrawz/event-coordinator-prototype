@@ -14,7 +14,7 @@ interface Props {
 /** Renders one admin-defined field from its definition. */
 export function CustomFieldInput({ def, value, onChange, error, users }: Props) {
   if (def.field_type === 'checkbox') {
-    return <CheckboxField label={def.label} checked={value === true} onChange={onChange} hint={def.help_text} wide />;
+    return <CheckboxField label={def.label} checked={value === true} onChange={onChange} hint={def.help_text} />;
   }
   const wide = def.field_type === 'long_text' || def.field_type === 'multi_picklist';
   return (
